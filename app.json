@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "scaffold-tmp",
-    "slug": "scaffold-tmp",
+    "name": "bali-frontend",
+    "slug": "bali-frontend",
     "version": "1.0.0",
+    "scheme": "bali-frontend",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,6 +21,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ]
   }
 }
