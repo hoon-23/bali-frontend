@@ -36,6 +36,12 @@ yarn-error.*
 # Claude Code local settings
 .claude/
 
+# Superpowers plans/specs (local working docs, not project source)
+.superpowers/
+
+# JetBrains IDE
+.idea/
+
 # typescript
 *.tsbuildinfo
 
