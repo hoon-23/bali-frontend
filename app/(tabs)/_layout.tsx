@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import { Tabs, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +16,10 @@ export default function TabsLayout() {
           headerShown: false,
           tabBarActiveTintColor: "#2DD4BF",
           tabBarInactiveTintColor: "#6B6B6B",
-          tabBarStyle: { backgroundColor: "#0B0B0F" },
+          tabBarStyle: styles.tabBar,
+          tabBarBackground: () => (
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          ),
         }}
       >
         <Tabs.Screen name="home" options={{ title: "홈" }} />
@@ -39,6 +43,13 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  tabBar: {
+    position: "absolute",
+    backgroundColor: "transparent",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    elevation: 0,
   },
   banner: {
     position: "absolute",

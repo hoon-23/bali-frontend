@@ -5,6 +5,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
     "expo": "^54.0.36",
+    "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
