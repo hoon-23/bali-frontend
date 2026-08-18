@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 const TAB_BAR_SIDE_MARGIN_RATIO = 0.05;
@@ -13,9 +14,6 @@ const TAB_ICONS: Record<string, { filled: keyof typeof Ionicons.glyphMap; outlin
   stats: { filled: "stats-chart", outline: "stats-chart-outline" },
   profile: { filled: "person", outline: "person-outline" },
 };
-
-const TAB_BAR_HEIGHT = 52;
-const TAB_BAR_BOTTOM_MARGIN = 12;
 
 export default function TabsLayout() {
   const router = useRouter();
