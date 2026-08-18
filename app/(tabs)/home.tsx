@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ScreenBackground } from "../../components/ScreenBackground";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 export default function HomeScreen() {
@@ -26,12 +27,14 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>홈 화면 (준비 중)</Text>
-      <Pressable style={styles.button} onPress={handleStartWorkout}>
-        <Text style={styles.buttonText}>운동 시작</Text>
-      </Pressable>
-    </View>
+    <ScreenBackground>
+      <View style={styles.container}>
+        <Text style={styles.text}>홈 화면 (준비 중)</Text>
+        <Pressable style={styles.button} onPress={handleStartWorkout}>
+          <Text style={styles.buttonText}>운동 시작</Text>
+        </Pressable>
+      </View>
+    </ScreenBackground>
   );
 }
 
@@ -40,7 +43,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0B0B0F",
     gap: 16,
   },
   text: {

@@ -1,10 +1,13 @@
 import { StyleSheet, Text, View } from "react-native";
+import { ScreenBackground } from "../../components/ScreenBackground";
 
 export default function ProfileScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>프로필 화면 (준비 중)</Text>
-    </View>
+    <ScreenBackground>
+      <View style={styles.container}>
+        <Text style={styles.text}>프로필 화면 (준비 중)</Text>
+      </View>
+    </ScreenBackground>
   );
 }
 
@@ -13,7 +16,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0B0B0F",
   },
   text: {
     color: "#FFFFFF",
