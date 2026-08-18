@@ -8,7 +8,7 @@ export default function WorkoutSummaryScreen() {
 
   const handleConfirm = () => {
     endSession();
-    router.replace("/home");
+    router.dismissTo("/home");
   };
 
   return (

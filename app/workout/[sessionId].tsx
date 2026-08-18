@@ -64,17 +64,21 @@ export default function WorkoutSessionScreen() {
   const completeLog = useWorkoutSessionStore((state) => state.completeLog);
 
   useEffect(() => {
-    if (sessionId !== storedSessionId) {
+    if (sessionId !== useWorkoutSessionStore.getState().sessionId) {
       startSession(sessionId, INITIAL_LOGS);
     }
-  }, [sessionId, storedSessionId, startSession]);
+    // Runs only when the URL param changes (a genuinely different session to
+    // load) — not on every store update, or ending the session from the
+    // summary screen (which leaves this screen mounted underneath) would
+    // immediately re-trigger this and recreate the session it just cleared.
+  }, [sessionId, startSession]);
 
   const handleClose = () => {
     router.back();
   };
 
   const handleFinish = () => {
-    router.replace("/workout/summary");
+    router.push("/workout/summary");
   };
 
   if (sessionId !== storedSessionId) {
@@ -128,13 +132,21 @@ function ExerciseCard({
   onChangeField,
   onComplete,
 }: ExerciseCardProps) {
+  const status = log.completed ? "완료" : expanded ? "진행중" : "대기";
+
   return (
     <View style={styles.card}>
       <Pressable onPress={onToggleExpand}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardName}>{log.name}</Text>
-          <Text style={[styles.cardBadge, log.completed && styles.cardBadgeDone]}>
-            {log.completed ? "완료" : "진행중"}
+          <Text
+            style={[
+              styles.cardBadge,
+              !log.completed && expanded && styles.cardBadgeActive,
+              log.completed && styles.cardBadgeDone,
+            ]}
+          >
+            {status}
           </Text>
         </View>
         <Text style={styles.cardTarget}>
@@ -238,9 +250,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   cardBadge: {
-    color: "#A0A0A0",
+    color: "#6B6B6B",
     fontSize: 12,
     fontWeight: "600",
+  },
+  cardBadgeActive: {
+    color: "#FFFFFF",
   },
   cardBadgeDone: {
     color: "#2DD4BF",
