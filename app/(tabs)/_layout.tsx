@@ -13,7 +13,7 @@ const TAB_ICONS: Record<string, { filled: keyof typeof Ionicons.glyphMap; outlin
   profile: { filled: "person", outline: "person-outline" },
 };
 
-const TAB_BAR_HEIGHT = 64;
+const TAB_BAR_HEIGHT = 52;
 const TAB_BAR_BOTTOM_MARGIN = 12;
 
 export default function TabsLayout() {
@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255, 255, 255, 0.1)",
     elevation: 0,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
   tabBarLabel: {
     fontSize: 11,
