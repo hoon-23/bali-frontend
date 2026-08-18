@@ -60,7 +60,9 @@ export default function TabsLayout() {
           ]}
           onPress={() => router.push(`/workout/${sessionId}`)}
         >
-          <Text style={styles.bannerText}>운동 진행 중 · 계속하기</Text>
+          <Ionicons name="barbell" size={20} color="#2DD4BF" />
+          <Text style={styles.bannerText}>운동 진행 중</Text>
+          <Ionicons name="chevron-forward" size={18} color="#6B6B6B" />
         </Pressable>
       )}
     </View>
@@ -88,13 +90,19 @@ const styles = StyleSheet.create({
   },
   banner: {
     position: "absolute",
-    backgroundColor: "#2DD4BF",
-    paddingVertical: 12,
-    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+    backgroundColor: "#16161C",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
   bannerText: {
-    color: "#0B0B0F",
+    flex: 1,
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "600",
   },
