@@ -1,3 +1,4 @@
+import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
@@ -27,20 +28,10 @@ export default function TabsLayout() {
   return (
     <View style={styles.container}>
       <Tabs
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarActiveTintColor: "#2DD4BF",
-          tabBarInactiveTintColor: "#6B6B6B",
-          tabBarStyle: [
-            styles.tabBar,
-            { bottom: tabBarBottom, left: tabBarSideMargin, right: tabBarSideMargin },
-          ],
-          tabBarLabelStyle: styles.tabBarLabel,
-          tabBarIcon: ({ color, size, focused }) => {
-            const icons = TAB_ICONS[route.name];
-            return <Ionicons name={focused ? icons.filled : icons.outline} size={size} color={color} />;
-          },
-        })}
+        tabBar={(props) => (
+          <CustomTabBar {...props} bottom={tabBarBottom} sideMargin={tabBarSideMargin} />
+        )}
+        screenOptions={{ headerShown: false }}
       >
         <Tabs.Screen name="home" options={{ title: "홈" }} />
         <Tabs.Screen name="templates" options={{ title: "기록" }} />
@@ -69,20 +60,62 @@ export default function TabsLayout() {
   );
 }
 
+type CustomTabBarProps = BottomTabBarProps & {
+  bottom: number;
+  sideMargin: number;
+};
+
+function CustomTabBar({ state, descriptors, navigation, bottom, sideMargin }: CustomTabBarProps) {
+  return (
+    <View style={[styles.tabBar, { bottom, left: sideMargin, right: sideMargin }]}>
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const isFocused = state.index === index;
+        const icons = TAB_ICONS[route.name];
+        const color = isFocused ? "#2DD4BF" : "#6B6B6B";
+
+        const handlePress = () => {
+          const event = navigation.emit({
+            type: "tabPress",
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name, route.params);
+          }
+        };
+
+        return (
+          <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
+            <Ionicons name={isFocused ? icons.filled : icons.outline} size={24} color={color} />
+            <Text style={[styles.tabBarLabel, { color }]}>{String(options.title)}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   tabBar: {
     position: "absolute",
+    flexDirection: "row",
     height: TAB_BAR_HEIGHT,
     borderRadius: 24,
     backgroundColor: "#16161C",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    elevation: 0,
-    paddingTop: 6,
-    paddingBottom: 6,
+    paddingTop: 8,
+    paddingBottom: 10,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
   },
   tabBarLabel: {
     fontSize: 11,
