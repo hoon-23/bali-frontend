@@ -62,7 +62,6 @@ export default function WorkoutSessionScreen() {
   const setExpandedId = useWorkoutSessionStore((state) => state.setExpandedId);
   const updateField = useWorkoutSessionStore((state) => state.updateField);
   const completeLog = useWorkoutSessionStore((state) => state.completeLog);
-  const endSession = useWorkoutSessionStore((state) => state.endSession);
 
   useEffect(() => {
     if (sessionId !== storedSessionId) {
@@ -75,7 +74,6 @@ export default function WorkoutSessionScreen() {
   };
 
   const handleFinish = () => {
-    endSession();
     router.replace("/workout/summary");
   };
 

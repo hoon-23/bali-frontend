@@ -1,10 +1,13 @@
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
+  const endSession = useWorkoutSessionStore((state) => state.endSession);
 
   const handleConfirm = () => {
+    endSession();
     router.replace("/home");
   };
 
