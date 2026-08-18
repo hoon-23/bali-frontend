@@ -1,10 +1,27 @@
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
 
   const handleStartWorkout = () => {
+    if (activeSessionId) {
+      Alert.alert(
+        "진행 중인 운동이 있습니다",
+        "새로 시작하면 기존 기록이 사라집니다.",
+        [
+          { text: "취소", style: "cancel" },
+          {
+            text: "새로 시작",
+            style: "destructive",
+            onPress: () => router.push(`/workout/${Date.now()}`),
+          },
+        ],
+      );
+      return;
+    }
     router.push(`/workout/${Date.now()}`);
   };
 

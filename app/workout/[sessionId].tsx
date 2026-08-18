@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect } from "react";
 import {
   Pressable,
   ScrollView,
@@ -9,20 +9,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-type ExerciseLog = {
-  id: string;
-  name: string;
-  targetSets: number;
-  targetReps: number;
-  targetWeight: number;
-  actualSets: string;
-  actualReps: string;
-  actualWeight: string;
-  completed: boolean;
-};
-
-type ActualField = "actualSets" | "actualReps" | "actualWeight";
+import {
+  ActualField,
+  ExerciseLog,
+  useWorkoutSessionStore,
+} from "../../store/workoutSessionStore";
 
 const INITIAL_LOGS: ExerciseLog[] = [
   {
@@ -63,51 +54,56 @@ const INITIAL_LOGS: ExerciseLog[] = [
 export default function WorkoutSessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const router = useRouter();
-  const [logs, setLogs] = useState<ExerciseLog[]>(INITIAL_LOGS);
-  const [expandedId, setExpandedId] = useState<string | null>(
-    INITIAL_LOGS.find((log) => !log.completed)?.id ?? null,
-  );
+
+  const storedSessionId = useWorkoutSessionStore((state) => state.sessionId);
+  const logs = useWorkoutSessionStore((state) => state.logs);
+  const expandedId = useWorkoutSessionStore((state) => state.expandedId);
+  const startSession = useWorkoutSessionStore((state) => state.startSession);
+  const setExpandedId = useWorkoutSessionStore((state) => state.setExpandedId);
+  const updateField = useWorkoutSessionStore((state) => state.updateField);
+  const completeLog = useWorkoutSessionStore((state) => state.completeLog);
+  const endSession = useWorkoutSessionStore((state) => state.endSession);
+
+  useEffect(() => {
+    if (sessionId !== storedSessionId) {
+      startSession(sessionId, INITIAL_LOGS);
+    }
+  }, [sessionId, storedSessionId, startSession]);
+
+  const handleClose = () => {
+    router.back();
+  };
 
   const handleFinish = () => {
+    endSession();
     router.replace("/workout/summary");
   };
 
-  const handleToggleExpand = (id: string) => {
-    setExpandedId((current) => (current === id ? null : id));
-  };
-
-  const handleChangeField = (id: string, field: ActualField, value: string) => {
-    setLogs((current) =>
-      current.map((log) => (log.id === id ? { ...log, [field]: value } : log)),
-    );
-  };
-
-  const handleComplete = (id: string) => {
-    const updatedLogs = logs.map((log) =>
-      log.id === id ? { ...log, completed: true } : log,
-    );
-    setLogs(updatedLogs);
-    const completedIndex = updatedLogs.findIndex((log) => log.id === id);
-    const nextIncomplete = updatedLogs
-      .slice(completedIndex + 1)
-      .find((log) => !log.completed);
-    setExpandedId(nextIncomplete?.id ?? null);
-  };
+  if (sessionId !== storedSessionId) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>운동 진행 중</Text>
-        <Text style={styles.subtitle}>세션 ID: {sessionId}</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>운동 진행 중</Text>
+            <Text style={styles.subtitle}>세션 ID: {sessionId}</Text>
+          </View>
+          <Pressable onPress={handleClose}>
+            <Text style={styles.closeButtonText}>닫기</Text>
+          </Pressable>
+        </View>
 
         {logs.map((log) => (
           <ExerciseCard
             key={log.id}
             log={log}
             expanded={expandedId === log.id}
-            onToggleExpand={() => handleToggleExpand(log.id)}
-            onChangeField={(field, value) => handleChangeField(log.id, field, value)}
-            onComplete={() => handleComplete(log.id)}
+            onToggleExpand={() => setExpandedId(log.id)}
+            onChangeField={(field, value) => updateField(log.id, field, value)}
+            onComplete={() => completeLog(log.id)}
           />
         ))}
       </ScrollView>
@@ -207,6 +203,11 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 16,
   },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 20,
@@ -215,7 +216,12 @@ const styles = StyleSheet.create({
   subtitle: {
     color: "#A0A0A0",
     fontSize: 14,
-    marginBottom: 8,
+    marginTop: 4,
+  },
+  closeButtonText: {
+    color: "#A0A0A0",
+    fontSize: 15,
+    fontWeight: "600",
   },
   card: {
     backgroundColor: "#16161C",
