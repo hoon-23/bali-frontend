@@ -27,7 +27,7 @@ export default function TemplatesScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>템플릿 화면 (준비 중)</Text>
+      <Text style={styles.text}>기록 화면 (준비 중)</Text>
       <Pressable style={styles.button} onPress={handleStartWorkout}>
         <Text style={styles.buttonText}>운동 시작</Text>
       </Pressable>

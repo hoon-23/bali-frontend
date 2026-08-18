@@ -36,7 +36,7 @@ export default function TabsLayout() {
         })}
       >
         <Tabs.Screen name="home" options={{ title: "홈" }} />
-        <Tabs.Screen name="templates" options={{ title: "템플릿" }} />
+        <Tabs.Screen name="templates" options={{ title: "기록" }} />
         <Tabs.Screen name="stats" options={{ title: "통계" }} />
         <Tabs.Screen name="profile" options={{ title: "프로필" }} />
       </Tabs>
@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: "absolute",
-    left: 20,
-    right: 20,
+    left: 28,
+    right: 28,
     height: TAB_BAR_HEIGHT,
     borderRadius: 24,
     backgroundColor: "#16161C",
@@ -76,8 +76,8 @@ const styles = StyleSheet.create({
   },
   banner: {
     position: "absolute",
-    left: 20,
-    right: 20,
+    left: 28,
+    right: 28,
     backgroundColor: "#2DD4BF",
     paddingVertical: 12,
     borderRadius: 12,
