@@ -1,72 +1,63 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle } from "react-native-svg";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
+import { MUSCLE_GROUP_IMAGES, MUSCLE_GROUP_LABELS, MuscleGroup } from "../../constants/muscleGroups";
+import { CARD_SHADOW } from "../../constants/shadow";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
-const USER_NAME = "민준";
+const USER_NAME = "지훈";
+
+const WORKOUT_MINUTES = 392; // 6h 32m
+const WORKOUT_TARGET_MINUTES = 480; // 8h
+const SESSIONS_DONE = 5;
+const SESSIONS_TARGET = 6;
+
+const STRENGTH_TIME = "4h20m";
+const CARDIO_TIME = "2h12m";
 const STREAK_DAYS = 12;
-const TOTAL_SESSIONS = 24;
-const AVG_SESSIONS_PER_WEEK = 3.5;
-const LEVEL = 5;
 
-const RECENT_RECORDS = [
-  { id: "1", name: "벤치프레스", date: "오늘", summary: "4세트 · 60kg" },
-  { id: "2", name: "스쿼트", date: "어제", summary: "4세트 · 80kg" },
-  { id: "3", name: "데드리프트", date: "2일 전", summary: "3세트 · 100kg" },
-];
+const SUGGESTED_WORKOUT: {
+  name: string;
+  level: string;
+  duration: string;
+  muscleGroup: MuscleGroup;
+  templateId: string;
+} = {
+  name: "전신 운동",
+  level: "초급",
+  duration: "30분",
+  muscleGroup: "chest",
+  templateId: "t4",
+};
 
-const WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+const RING_SIZE = 88;
+const RING_STROKE = 10;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-// Deterministic mock workout count per day-of-month, so the heatmap doesn't reshuffle on re-render
-function getMockCountForDay(day: number): number {
-  return (day * 3 + 1) % 4;
-}
-
-function getHeatColor(count: number): string {
-  if (count <= 0) return "rgba(45, 212, 191, 0.08)";
-  if (count === 1) return "rgba(45, 212, 191, 0.3)";
-  if (count === 2) return "rgba(45, 212, 191, 0.55)";
-  return "#2DD4BF";
-}
-
-function getMonthGrid(year: number, month: number): (number | null)[][] {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = Monday
-
-  const cells: (number | null)[] = [
-    ...Array(firstWeekday).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const weeks: (number | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) {
-    weeks.push(cells.slice(i, i + 7));
-  }
-  return weeks;
+function ringOffset(progress: number): number {
+  const clamped = Math.max(0, Math.min(1, progress));
+  return RING_CIRCUMFERENCE * (1 - clamped);
 }
 
 export default function HomeScreen() {
   const router = useRouter();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
-  const [monthOffset, setMonthOffset] = useState(0);
 
-  const displayDate = useMemo(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
-  }, [monthOffset]);
-
-  const weeks = useMemo(
-    () => getMonthGrid(displayDate.getFullYear(), displayDate.getMonth()),
-    [displayDate],
-  );
+  const goToMonthlyReport = () => {
+    router.push({ pathname: "/stats", params: { view: "monthly" } });
+  };
 
   const handleStartWorkout = () => {
+    const target = {
+      pathname: `/workout/${Date.now()}`,
+      params: { templateId: SUGGESTED_WORKOUT.templateId },
+    } as const;
+
     if (activeSessionId) {
       Alert.alert(
         "진행 중인 운동이 있습니다",
@@ -76,13 +67,13 @@ export default function HomeScreen() {
           {
             text: "새로 시작",
             style: "destructive",
-            onPress: () => router.push(`/workout/${Date.now()}`),
+            onPress: () => router.push(target),
           },
         ],
       );
       return;
     }
-    router.push(`/workout/${Date.now()}`);
+    router.push(target);
   };
 
   return (
@@ -94,108 +85,117 @@ export default function HomeScreen() {
         >
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>좋은 아침이에요, {USER_NAME}님</Text>
-              <Text style={styles.greetingSub}>오늘도 한 단계 성장해요</Text>
+              <Text style={styles.greetingSub}>안녕하세요</Text>
+              <Text style={styles.greeting}>{USER_NAME}님</Text>
             </View>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{USER_NAME[0]}</Text>
-            </View>
+            <Pressable style={styles.bellButton} hitSlop={8}>
+              <Ionicons name="notifications" size={18} color="#FBBF24" />
+            </Pressable>
           </View>
 
-          <View style={styles.streakBadge}>
-            <Text style={styles.streakText}>🔥 {STREAK_DAYS}일 연속 운동 중</Text>
-          </View>
-
-          <Pressable style={styles.ctaCard} onPress={handleStartWorkout}>
-            <LinearGradient
-              colors={["#2DD4BF", "#1F5F5B"]}
-              style={StyleSheet.absoluteFillObject}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-            <View>
-              <Text style={styles.ctaTitle}>운동 시작하기</Text>
-              <Text style={styles.ctaSubtitle}>오늘의 운동을 기록하세요</Text>
-            </View>
-            <View style={styles.ctaIconWrap}>
-              <Ionicons name="barbell" size={24} color="#0B0B0F" />
+          <Pressable style={styles.card} onPress={goToMonthlyReport}>
+            <Text style={styles.cardTitle}>이번 주 진행률</Text>
+            <View style={styles.progressRow}>
+              <View style={styles.ringWrap}>
+                <Svg width={RING_SIZE} height={RING_SIZE}>
+                  <Circle
+                    cx={RING_SIZE / 2}
+                    cy={RING_SIZE / 2}
+                    r={RING_RADIUS}
+                    stroke="rgba(255, 255, 255, 0.08)"
+                    strokeWidth={RING_STROKE}
+                    fill="none"
+                  />
+                  <Circle
+                    cx={RING_SIZE / 2}
+                    cy={RING_SIZE / 2}
+                    r={RING_RADIUS}
+                    stroke="#2DD4BF"
+                    strokeWidth={RING_STROKE}
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray={RING_CIRCUMFERENCE}
+                    strokeDashoffset={ringOffset(WORKOUT_MINUTES / WORKOUT_TARGET_MINUTES)}
+                    rotation={-90}
+                    origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                  />
+                  <Circle
+                    cx={RING_SIZE / 2}
+                    cy={RING_SIZE / 2}
+                    r={RING_RADIUS - RING_STROKE - 4}
+                    stroke="rgba(255, 255, 255, 0.08)"
+                    strokeWidth={RING_STROKE}
+                    fill="none"
+                  />
+                  <Circle
+                    cx={RING_SIZE / 2}
+                    cy={RING_SIZE / 2}
+                    r={RING_RADIUS - RING_STROKE - 4}
+                    stroke="#A78BFA"
+                    strokeWidth={RING_STROKE}
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray={2 * Math.PI * (RING_RADIUS - RING_STROKE - 4)}
+                    strokeDashoffset={
+                      2 * Math.PI * (RING_RADIUS - RING_STROKE - 4) *
+                      (1 - SESSIONS_DONE / SESSIONS_TARGET)
+                    }
+                    rotation={-90}
+                    origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                  />
+                </Svg>
+              </View>
+              <View style={styles.progressLegend}>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: "#2DD4BF" }]} />
+                  <Text style={styles.legendText}>
+                    운동시간 {Math.floor(WORKOUT_MINUTES / 60)}h{WORKOUT_MINUTES % 60}m /{" "}
+                    {WORKOUT_TARGET_MINUTES / 60}h
+                  </Text>
+                </View>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: "#A78BFA" }]} />
+                  <Text style={styles.legendText}>
+                    세션 {SESSIONS_DONE} / {SESSIONS_TARGET}
+                  </Text>
+                </View>
+              </View>
             </View>
           </Pressable>
 
           <View style={styles.statsRow}>
-            <StatTile value={String(TOTAL_SESSIONS)} label="총 운동 기록" />
-            <StatTile value={AVG_SESSIONS_PER_WEEK.toFixed(1)} label="평균 운동(회/주)" />
-            <StatTile value={`Lv.${LEVEL}`} label="레벨" />
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>
-                {displayDate.getFullYear()}년 {displayDate.getMonth() + 1}월
-              </Text>
-              <View style={styles.calendarNav}>
-                <Pressable onPress={() => setMonthOffset((offset) => offset - 1)} hitSlop={8}>
-                  <Ionicons name="chevron-back" size={18} color="#A0A0A0" />
-                </Pressable>
-                <Pressable onPress={() => setMonthOffset((offset) => offset + 1)} hitSlop={8}>
-                  <Ionicons name="chevron-forward" size={18} color="#A0A0A0" />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.weekRow}>
-              {WEEKDAY_LABELS.map((label) => (
-                <Text key={label} style={styles.weekdayText}>
-                  {label}
-                </Text>
-              ))}
-            </View>
-
-            {weeks.map((week, weekIndex) => (
-              <View key={weekIndex} style={styles.weekRow}>
-                {week.map((day, dayIndex) => (
-                  <View
-                    key={dayIndex}
-                    style={[
-                      styles.dayCell,
-                      day !== null && { backgroundColor: getHeatColor(getMockCountForDay(day)) },
-                    ]}
-                  />
-                ))}
-              </View>
-            ))}
-
-            <View style={styles.legendRow}>
-              {["0회", "1회", "2회", "3회+"].map((label, index) => (
-                <View key={label} style={styles.legendItem}>
-                  <View style={[styles.legendSwatch, { backgroundColor: getHeatColor(index) }]} />
-                  <Text style={styles.legendText}>{label}</Text>
-                </View>
-              ))}
-            </View>
+            <StatTile label="근력운동" value={STRENGTH_TIME} />
+            <StatTile label="유산소" value={CARDIO_TIME} />
+            <StatTile label="연속일" value={`${STREAK_DAYS}일`} onPress={goToMonthlyReport} />
           </View>
 
           <View>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>최근 운동 기록</Text>
-              <Text style={styles.sectionLink}>전체 보기</Text>
-            </View>
+            <Text style={styles.sectionTitle}>오늘의 운동</Text>
             <View style={styles.card}>
-              {RECENT_RECORDS.map((record, index) => (
-                <View
-                  key={record.id}
-                  style={[styles.recordRow, index > 0 && styles.recordRowDivider]}
-                >
-                  <View style={styles.recordIcon}>
-                    <Ionicons name="barbell" size={16} color="#2DD4BF" />
-                  </View>
-                  <View style={styles.recordInfo}>
-                    <Text style={styles.recordName}>{record.name}</Text>
-                    <Text style={styles.recordDate}>{record.date}</Text>
-                  </View>
-                  <Text style={styles.recordSummary}>{record.summary}</Text>
+              <View style={styles.photoWrap}>
+                <Image
+                  source={MUSCLE_GROUP_IMAGES[SUGGESTED_WORKOUT.muscleGroup]}
+                  style={styles.photo}
+                  resizeMode="cover"
+                />
+                <View style={styles.photoBadge}>
+                  <Text style={styles.photoBadgeText}>
+                    {MUSCLE_GROUP_LABELS[SUGGESTED_WORKOUT.muscleGroup]}
+                  </Text>
                 </View>
-              ))}
+              </View>
+
+              <View style={styles.suggestedRow}>
+                <View>
+                  <Text style={styles.suggestedName}>{SUGGESTED_WORKOUT.name}</Text>
+                  <Text style={styles.suggestedMeta}>
+                    {SUGGESTED_WORKOUT.level} · {SUGGESTED_WORKOUT.duration}
+                  </Text>
+                </View>
+                <Pressable style={styles.startButton} onPress={handleStartWorkout}>
+                  <Text style={styles.startButtonText}>시작</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -207,14 +207,15 @@ export default function HomeScreen() {
 type StatTileProps = {
   value: string;
   label: string;
+  onPress?: () => void;
 };
 
-function StatTile({ value, label }: StatTileProps) {
+function StatTile({ value, label, onPress }: StatTileProps) {
   return (
-    <View style={styles.statTile}>
-      <Text style={styles.statValue}>{value}</Text>
+    <Pressable style={styles.statTile} onPress={onPress} disabled={!onPress}>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+      <Text style={styles.statValue}>{value}</Text>
+    </Pressable>
   );
 }
 
@@ -233,68 +234,67 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-  greeting: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
-  },
   greetingSub: {
     color: "#A0A0A0",
     fontSize: 13,
-    marginTop: 4,
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(45, 212, 191, 0.4)",
+  greeting: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#16161C",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    color: "#2DD4BF",
-    fontSize: 16,
+  card: {
+    backgroundColor: "#1C1C25",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255, 255, 255, 0.14)",
+    padding: 16,
+    gap: 16,
+    ...CARD_SHADOW,
+  },
+  cardTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
     fontWeight: "700",
   },
-  streakBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(45, 212, 191, 0.12)",
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-  },
-  streakText: {
-    color: "#2DD4BF",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  ctaCard: {
-    borderRadius: 20,
-    padding: 20,
+  progressRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    overflow: "hidden",
+    gap: 20,
   },
-  ctaTitle: {
-    color: "#0B0B0F",
-    fontSize: 18,
-    fontWeight: "700",
+  ringWrap: {
+    width: RING_SIZE,
+    height: RING_SIZE,
   },
-  ctaSubtitle: {
-    color: "rgba(11, 11, 15, 0.7)",
+  progressLegend: {
+    flex: 1,
+    gap: 10,
+  },
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    color: "#D0D0D0",
     fontSize: 13,
-    marginTop: 4,
-  },
-  ctaIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(11, 11, 15, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
+    flexShrink: 1,
   },
   statsRow: {
     flexDirection: "row",
@@ -302,131 +302,77 @@ const styles = StyleSheet.create({
   },
   statTile: {
     flex: 1,
-    backgroundColor: "#16161C",
+    backgroundColor: "#1C1C25",
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.14)",
     paddingVertical: 14,
     alignItems: "center",
     gap: 4,
+    ...CARD_SHADOW,
+  },
+  statLabel: {
+    color: "#A0A0A0",
+    fontSize: 12,
   },
   statValue: {
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "700",
   },
-  statLabel: {
-    color: "#A0A0A0",
-    fontSize: 11,
-    textAlign: "center",
-  },
-  card: {
-    backgroundColor: "#16161C",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    padding: 16,
-    gap: 8,
-  },
-  calendarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  calendarTitle: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  calendarNav: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  weekRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  weekdayText: {
-    flex: 1,
-    color: "#6B6B6B",
-    fontSize: 11,
-    textAlign: "center",
-  },
-  dayCell: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 6,
-  },
-  legendRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: 8,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  legendText: {
-    color: "#6B6B6B",
-    fontSize: 10,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
   sectionTitle: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
+    marginBottom: 12,
   },
-  sectionLink: {
-    color: "#2DD4BF",
-    fontSize: 13,
-    fontWeight: "600",
+  photoWrap: {
+    borderRadius: 12,
+    overflow: "hidden",
+    height: 140,
   },
-  recordRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
+  photo: {
+    width: "100%",
+    height: "100%",
   },
-  recordRowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+  photoBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "rgba(11, 11, 15, 0.65)",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
   },
-  recordIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(45, 212, 191, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  recordInfo: {
-    flex: 1,
-  },
-  recordName: {
+  photoBadgeText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
-  recordDate: {
-    color: "#6B6B6B",
+  suggestedRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  suggestedName: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  suggestedMeta: {
+    color: "#A0A0A0",
     fontSize: 12,
     marginTop: 2,
   },
-  recordSummary: {
-    color: "#A0A0A0",
-    fontSize: 13,
+  startButton: {
+    backgroundColor: "#2DD4BF",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  startButtonText: {
+    color: "#0B0B0F",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
