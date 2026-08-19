@@ -16,6 +16,7 @@ export default function RootLayout() {
             options={{ presentation: "modal" }}
           />
           <Stack.Screen name="workout/summary" options={{ presentation: "modal" }} />
+          <Stack.Screen name="set-entry" options={{ presentation: "modal" }} />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>

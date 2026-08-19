@@ -9,13 +9,18 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getExerciseById } from "../../constants/exercises";
+import { useTemplatesStore } from "../../store/templatesStore";
 import {
   ActualField,
   ExerciseLog,
   useWorkoutSessionStore,
 } from "../../store/workoutSessionStore";
 
-const INITIAL_LOGS: ExerciseLog[] = [
+// templateId 없이 운동이 시작되는 드문 경우를 위한 fallback
+// (모든 "운동 시작" 진입점이 templateId를 넘기게 되면 발생하지 않아야 하지만,
+// 혹시라도 그런 경우 화면이 빈 채로 렌더링되는 걸 방지함).
+const FALLBACK_LOGS: ExerciseLog[] = [
   {
     id: "1",
     name: "벤치프레스",
@@ -27,32 +32,31 @@ const INITIAL_LOGS: ExerciseLog[] = [
     actualWeight: "",
     completed: false,
   },
-  {
-    id: "2",
-    name: "스쿼트",
-    targetSets: 4,
-    targetReps: 8,
-    targetWeight: 80,
-    actualSets: "",
-    actualReps: "",
-    actualWeight: "",
-    completed: false,
-  },
-  {
-    id: "3",
-    name: "데드리프트",
-    targetSets: 3,
-    targetReps: 6,
-    targetWeight: 100,
-    actualSets: "",
-    actualReps: "",
-    actualWeight: "",
-    completed: false,
-  },
 ];
 
+function buildLogsFromTemplate(templateId: string | undefined): ExerciseLog[] {
+  if (!templateId) return FALLBACK_LOGS;
+  const template = useTemplatesStore.getState().getTemplate(templateId);
+  if (!template) return FALLBACK_LOGS;
+
+  return template.items.map((item) => ({
+    id: item.id,
+    name: getExerciseById(item.exerciseId)?.name ?? "알 수 없는 운동",
+    targetSets: item.targetSets ?? 0,
+    targetReps: item.targetReps ?? 0,
+    targetWeight: item.targetWeight ?? 0,
+    actualSets: "",
+    actualReps: "",
+    actualWeight: "",
+    completed: false,
+  }));
+}
+
 export default function WorkoutSessionScreen() {
-  const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const { sessionId, templateId } = useLocalSearchParams<{
+    sessionId: string;
+    templateId?: string;
+  }>();
   const router = useRouter();
 
   const storedSessionId = useWorkoutSessionStore((state) => state.sessionId);
@@ -65,13 +69,13 @@ export default function WorkoutSessionScreen() {
 
   useEffect(() => {
     if (sessionId !== useWorkoutSessionStore.getState().sessionId) {
-      startSession(sessionId, INITIAL_LOGS);
+      startSession(sessionId, buildLogsFromTemplate(templateId));
     }
-    // Runs only when the URL param changes (a genuinely different session to
-    // load) — not on every store update, or ending the session from the
-    // summary screen (which leaves this screen mounted underneath) would
-    // immediately re-trigger this and recreate the session it just cleared.
-  }, [sessionId, startSession]);
+    // URL 파라미터가 바뀔 때만(진짜로 다른 세션을 불러올 때만) 실행됨 — store가
+    // 업데이트될 때마다 실행되면 안 됨. 그렇지 않으면 요약 화면에서 세션을
+    // 종료해도(이 화면은 그 아래에 마운트된 채로 남아있음) 바로 다시 실행되면서
+    // 방금 지운 세션을 재생성해버림.
+  }, [sessionId, templateId, startSession]);
 
   const handleClose = () => {
     router.back();
