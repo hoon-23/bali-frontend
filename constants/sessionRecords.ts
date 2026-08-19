@@ -1,3 +1,7 @@
+import type { TemplateItem } from "../store/templatesStore";
+
+export type SessionStatus = "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
+
 export type SetRecord = {
   setNumber: number;
   weight: number;
@@ -30,6 +34,8 @@ export type UpcomingWorkout = {
   duration: string;
   muscleGroup: import("./muscleGroups").MuscleGroup;
   templateId: string;
+  status: SessionStatus;
+  items: TemplateItem[];
 };
 
 export const UPCOMING_WORKOUTS: UpcomingWorkout[] = [
@@ -41,6 +47,11 @@ export const UPCOMING_WORKOUTS: UpcomingWorkout[] = [
     duration: "45분",
     muscleGroup: "back",
     templateId: "t2",
+    status: "SCHEDULED",
+    items: [
+      { id: "u1-1", exerciseId: "e6", sortOrder: 0, targetSets: 4, targetReps: 10, targetWeight: 50 },
+      { id: "u1-2", exerciseId: "e5", sortOrder: 1, targetSets: 3, targetReps: 6, targetWeight: 100 },
+    ],
   },
   {
     id: "u2",
@@ -50,6 +61,11 @@ export const UPCOMING_WORKOUTS: UpcomingWorkout[] = [
     duration: "50분",
     muscleGroup: "legs",
     templateId: "t3",
+    status: "SCHEDULED",
+    items: [
+      { id: "u2-1", exerciseId: "e3", sortOrder: 0, targetSets: 4, targetReps: 8, targetWeight: 80 },
+      { id: "u2-2", exerciseId: "e4", sortOrder: 1, targetSets: 3, targetReps: 12, targetWeight: 100 },
+    ],
   },
 ];
 
