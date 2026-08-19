@@ -36,12 +36,7 @@ export default function TemplatesScreen() {
                 <Pressable
                   key={workout.id}
                   style={styles.upcomingRow}
-                  onPress={() =>
-                    router.push({
-                      pathname: `/workout/${Date.now()}`,
-                      params: { templateId: workout.templateId },
-                    })
-                  }
+                  onPress={() => router.push(`/upcoming/${workout.id}`)}
                 >
                   <Image source={MUSCLE_GROUP_IMAGES[workout.muscleGroup]} style={styles.thumbnail} />
                   <View style={styles.upcomingInfo}>
