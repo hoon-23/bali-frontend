@@ -33,7 +33,7 @@ export default function LoginScreen() {
       />
       <View style={styles.content}>
         <View style={styles.titleBlock}>
-          <Text style={styles.wordmark}>Bali</Text>
+          <Text style={styles.wordmark}>Swayt</Text>
           <Text style={styles.tagline}>강력한 근력 운동 추적</Text>
         </View>
 
