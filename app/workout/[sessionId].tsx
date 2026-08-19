@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getExerciseById } from "../../constants/exercises";
 import { useTemplatesStore } from "../../store/templatesStore";
+import { useUpcomingWorkoutsStore } from "../../store/upcomingWorkoutsStore";
 import {
   ActualField,
   ExerciseLog,
@@ -52,6 +53,27 @@ function buildLogsFromTemplate(templateId: string | undefined): ExerciseLog[] {
   }));
 }
 
+function buildLogsForSession(
+  sessionId: string,
+  templateId: string | undefined
+): ExerciseLog[] {
+  const upcoming = useUpcomingWorkoutsStore.getState().getUpcomingWorkout(sessionId);
+  if (upcoming) {
+    return upcoming.items.map((item) => ({
+      id: item.id,
+      name: getExerciseById(item.exerciseId)?.name ?? "알 수 없는 운동",
+      targetSets: item.targetSets ?? 0,
+      targetReps: item.targetReps ?? 0,
+      targetWeight: item.targetWeight ?? 0,
+      actualSets: "",
+      actualReps: "",
+      actualWeight: "",
+      completed: false,
+    }));
+  }
+  return buildLogsFromTemplate(templateId);
+}
+
 export default function WorkoutSessionScreen() {
   const { sessionId, templateId } = useLocalSearchParams<{
     sessionId: string;
@@ -69,7 +91,7 @@ export default function WorkoutSessionScreen() {
 
   useEffect(() => {
     if (sessionId !== useWorkoutSessionStore.getState().sessionId) {
-      startSession(sessionId, buildLogsFromTemplate(templateId));
+      startSession(sessionId, buildLogsForSession(sessionId, templateId));
     }
     // URL 파라미터가 바뀔 때만(진짜로 다른 세션을 불러올 때만) 실행됨 — store가
     // 업데이트될 때마다 실행되면 안 됨. 그렇지 않으면 요약 화면에서 세션을
