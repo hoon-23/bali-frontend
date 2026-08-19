@@ -10,10 +10,10 @@ type SocialProvider = {
 };
 
 const SOCIAL_PROVIDERS: SocialProvider[] = [
-  { id: "kakao", label: "카카오로 시작하기", backgroundColor: "#FEE500", textColor: "#191919" },
-  { id: "naver", label: "네이버로 시작하기", backgroundColor: "#03C75A", textColor: "#FFFFFF" },
-  { id: "apple", label: "Apple로 시작하기", backgroundColor: "#FFFFFF", textColor: "#000000" },
-  { id: "google", label: "Google로 시작하기", backgroundColor: "#4285F4", textColor: "#FFFFFF" },
+  { id: "kakao", label: "KakaoTalk으로 계속하기", backgroundColor: "#FEE500", textColor: "#191919" },
+  { id: "naver", label: "Naver로 계속하기", backgroundColor: "#03C75A", textColor: "#FFFFFF" },
+  { id: "apple", label: "Apple로 계속하기", backgroundColor: "#FFFFFF", textColor: "#000000" },
+  { id: "google", label: "Google로 계속하기", backgroundColor: "#4285F4", textColor: "#FFFFFF" },
 ];
 
 export default function LoginScreen() {
@@ -32,8 +32,10 @@ export default function LoginScreen() {
         end={{ x: 0.5, y: 1 }}
       />
       <View style={styles.content}>
-        <Text style={styles.wordmark}>Bali</Text>
-        <Text style={styles.tagline}>강력한 근력 운동 추적</Text>
+        <View style={styles.titleBlock}>
+          <Text style={styles.wordmark}>Bali</Text>
+          <Text style={styles.tagline}>강력한 근력 운동 추적</Text>
+        </View>
 
         <View style={styles.buttonGroup}>
           {SOCIAL_PROVIDERS.map((provider) => (
@@ -49,8 +51,10 @@ export default function LoginScreen() {
           ))}
         </View>
 
+        <View style={styles.spacer} />
+
         <Text style={styles.footer}>
-          로그인 시 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.
+          계속 진행하면 이용약관과 개인정보처리방침에 동의한 것입니다
         </Text>
       </View>
     </View>
@@ -68,26 +72,31 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: "flex-end",
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingBottom: 48,
-    paddingTop: 96,
+    paddingBottom: 32,
+    paddingTop: 100,
+  },
+  titleBlock: {
+    alignItems: "center",
     gap: 8,
+    marginBottom: 40,
   },
   wordmark: {
-    color: "#FFFFFF",
-    fontSize: 40,
+    color: "#2DD4BF",
+    fontSize: 36,
     fontWeight: "700",
   },
   tagline: {
     color: "#A0A0A0",
     fontSize: 14,
-    marginBottom: 32,
   },
   buttonGroup: {
     width: "100%",
     gap: 12,
+  },
+  spacer: {
+    flex: 1,
   },
   button: {
     width: "100%",
@@ -103,6 +112,5 @@ const styles = StyleSheet.create({
     color: "#6B6B6B",
     fontSize: 12,
     textAlign: "center",
-    marginTop: 24,
   },
 });
