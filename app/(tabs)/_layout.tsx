@@ -33,7 +33,7 @@ export default function TabsLayout() {
       >
         <Tabs.Screen name="home" options={{ title: "홈" }} />
         <Tabs.Screen name="templates" options={{ title: "기록" }} />
-        <Tabs.Screen name="stats" options={{ title: "통계" }} />
+        <Tabs.Screen name="stats" options={{ title: "리포트" }} />
         <Tabs.Screen name="profile" options={{ title: "프로필" }} />
       </Tabs>
 
