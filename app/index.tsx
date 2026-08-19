@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -16,10 +18,22 @@ const SOCIAL_PROVIDERS: SocialProvider[] = [
   { id: "google", label: "Google로 계속하기", backgroundColor: "#4285F4", textColor: "#FFFFFF" },
 ];
 
+const LAST_LOGIN_PROVIDER_KEY = "swayt:last-login-provider";
+
 export default function LoginScreen() {
   const router = useRouter();
+  const [lastProviderId, setLastProviderId] = useState<SocialProvider["id"] | null>(null);
 
-  const handleSocialLogin = () => {
+  useEffect(() => {
+    AsyncStorage.getItem(LAST_LOGIN_PROVIDER_KEY).then((storedId) => {
+      if (storedId && SOCIAL_PROVIDERS.some((provider) => provider.id === storedId)) {
+        setLastProviderId(storedId as SocialProvider["id"]);
+      }
+    });
+  }, []);
+
+  const handleSocialLogin = (providerId: SocialProvider["id"]) => {
+    AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, providerId);
     router.push("/home");
   };
 
@@ -42,11 +56,18 @@ export default function LoginScreen() {
             <Pressable
               key={provider.id}
               style={[styles.button, { backgroundColor: provider.backgroundColor }]}
-              onPress={handleSocialLogin}
+              onPress={() => handleSocialLogin(provider.id)}
             >
               <Text style={[styles.buttonText, { color: provider.textColor }]}>
                 {provider.label}
               </Text>
+              {lastProviderId === provider.id && (
+                <View style={styles.recentBadge}>
+                  <View style={styles.recentBadgePill}>
+                    <Text style={styles.recentBadgeText}>최근</Text>
+                  </View>
+                </View>
+              )}
             </Pressable>
           ))}
         </View>
@@ -107,6 +128,24 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  recentBadge: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+  },
+  recentBadgePill: {
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  recentBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
   },
   footer: {
     color: "#6B6B6B",
