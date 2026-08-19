@@ -36,7 +36,9 @@ yarn-error.*
 # Claude Code local settings
 .claude/
 
-# Superpowers plans/specs (local working docs, not project source)
+# Superpowers plans/review (일회성 로컬 작업 문서, spec은 영구 보존 대상이라 커밋함)
+/docs/plans
+/docs/review
 .superpowers/
 
 # JetBrains IDE
