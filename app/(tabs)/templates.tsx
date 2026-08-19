@@ -5,11 +5,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
-import { SESSION_RECORDS, UPCOMING_WORKOUTS } from "../../constants/sessionRecords";
+import { SESSION_RECORDS } from "../../constants/sessionRecords";
 import { CARD_SHADOW } from "../../constants/shadow";
+import { useUpcomingWorkoutsStore } from "../../store/upcomingWorkoutsStore";
 
 export default function TemplatesScreen() {
   const router = useRouter();
+  const workouts = useUpcomingWorkoutsStore((state) => state.workouts);
 
   return (
     <ScreenBackground>
@@ -32,7 +34,7 @@ export default function TemplatesScreen() {
           <View>
             <Text style={styles.sectionTitle}>예정된 운동</Text>
             <View style={styles.list}>
-              {UPCOMING_WORKOUTS.map((workout) => (
+              {workouts.map((workout) => (
                 <Pressable
                   key={workout.id}
                   style={styles.upcomingRow}

@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { getExerciseById } from "../../constants/exercises";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { TemplateItem } from "../../store/templatesStore";
+import type { TemplateItem } from "../../store/templatesStore";
 import { useUpcomingWorkoutsStore } from "../../store/upcomingWorkoutsStore";
+import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 type Draft = Record<string, { sets: string; reps: string; weight: string }>;
 
@@ -31,6 +32,7 @@ export default function UpcomingWorkoutScreen() {
   const workout = useUpcomingWorkoutsStore((state) => state.getUpcomingWorkout(id));
   const updateItem = useUpcomingWorkoutsStore((state) => state.updateItem);
   const markStarted = useUpcomingWorkoutsStore((state) => state.markStarted);
+  const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>({});
@@ -98,6 +100,24 @@ export default function UpcomingWorkoutScreen() {
   };
 
   const handleStart = () => {
+    if (activeSessionId && activeSessionId !== workout.id) {
+      Alert.alert(
+        "진행 중인 운동이 있습니다",
+        "새로 시작하면 기존 기록이 사라집니다.",
+        [
+          { text: "취소", style: "cancel" },
+          {
+            text: "새로 시작",
+            style: "destructive",
+            onPress: () => {
+              markStarted(workout.id);
+              router.push(`/workout/${workout.id}`);
+            },
+          },
+        ],
+      );
+      return;
+    }
     markStarted(workout.id);
     router.push(`/workout/${workout.id}`);
   };

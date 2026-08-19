@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { UPCOMING_WORKOUTS, UpcomingWorkout } from "../constants/sessionRecords";
-import { TemplateItem } from "./templatesStore";
+import type { TemplateItem } from "./templatesStore";
 
 type UpcomingWorkoutsState = {
   workouts: UpcomingWorkout[];
