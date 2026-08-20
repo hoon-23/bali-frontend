@@ -5,11 +5,19 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useAuthStore } from "../store/authStore";
-import { getRefreshToken, setRefreshToken } from "../lib/auth/tokenStorage";
-import { API_BASE_URL } from "../lib/api/client";
-import axios from "axios";
+import { getRefreshToken } from "../lib/auth/tokenStorage";
+import { refreshAccessToken } from "../lib/api/client";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: any) => {
+        if (error?.response?.status === 401) return false;
+        return failureCount < 3;
+      },
+    },
+  },
+});
 
 GoogleSignin.configure({ iosClientId: "803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn.apps.googleusercontent.com" });
 
@@ -24,9 +32,7 @@ export default function RootLayout() {
       const refreshToken = await getRefreshToken();
       if (refreshToken) {
         try {
-          const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken });
-          setAccessToken(data.accessToken);
-          await setRefreshToken(data.refreshToken);
+          await refreshAccessToken();
         } catch {
           // refresh 실패 시 로그인 화면에 그대로 머무름 (accessToken null 유지)
         }
@@ -35,12 +41,12 @@ export default function RootLayout() {
     })();
   }, [setAccessToken]);
 
-  // apiClient의 401 인터셉터가 refresh까지 실패해 authStore.logout()을 호출하면
-  // isAuthenticated가 false로 바뀌고, 여기서 감지해 로그인 화면으로 되돌린다.
+  // 콜드 스타트 부트스트랩이 끝나면(성공/실패 무관) 인증 상태에 맞는 화면으로 보낸다.
+  // apiClient의 401 인터셉터가 refresh까지 실패해 authStore.logout()을 호출하는 경우에도
+  // isAuthenticated가 false로 바뀌며 이 effect가 다시 실행되어 로그인 화면으로 되돌린다.
   useEffect(() => {
-    if (bootstrapped && !isAuthenticated) {
-      router.replace("/");
-    }
+    if (!bootstrapped) return;
+    router.replace(isAuthenticated ? "/home" : "/");
   }, [bootstrapped, isAuthenticated, router]);
 
   if (!bootstrapped) {

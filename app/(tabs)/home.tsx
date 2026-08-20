@@ -42,8 +42,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
 
-  const { data: me } = useMe();
-  const { data: weeklyCurrent } = useWeeklyCurrent();
+  const { data: me, isError: meError, refetch: refetchMe } = useMe();
+  const { data: weeklyCurrent, isError: weeklyCurrentError, refetch: refetchWeeklyCurrent } = useWeeklyCurrent();
   const { data: exercises } = useExercises();
   const {
     data: sessions,
@@ -87,6 +87,21 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {(meError || weeklyCurrentError) && (
+            <View style={styles.card}>
+              <Text style={styles.legendText}>불러오지 못했어요</Text>
+              <Pressable
+                style={styles.startButton}
+                onPress={() => {
+                  refetchMe();
+                  refetchWeeklyCurrent();
+                }}
+              >
+                <Text style={styles.startButtonText}>다시 시도</Text>
+              </Pressable>
+            </View>
+          )}
+
           <View style={styles.header}>
             <View>
               <Text style={styles.greetingSub}>안녕하세요</Text>

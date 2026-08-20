@@ -3,9 +3,13 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
+import { apiClient } from "../../lib/api/client";
+import { getRefreshToken } from "../../lib/auth/tokenStorage";
+import { useAuthStore } from "../../store/authStore";
 
 const USER_NAME = "지훈";
 const USER_EMAIL = "jihoon@bali.app";
@@ -41,8 +45,22 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setLogoutModalVisible(false);
+    const refreshToken = await getRefreshToken();
+    if (refreshToken) {
+      try {
+        await apiClient.post("/api/v1/auth/logout", { refreshToken });
+      } catch {
+        // 서버 로그아웃 실패해도 로컬 로그아웃은 계속 진행
+      }
+    }
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // Google 세션이 아니었거나 이미 로그아웃된 경우 무시
+    }
+    useAuthStore.getState().logout();
     router.replace("/");
   };
 
