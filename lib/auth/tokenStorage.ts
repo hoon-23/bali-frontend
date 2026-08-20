@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 
-const REFRESH_TOKEN_KEY = "swayt:refresh-token";
+const REFRESH_TOKEN_KEY = "swayt-refresh-token";
 
 export async function getRefreshToken(): Promise<string | null> {
   return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
