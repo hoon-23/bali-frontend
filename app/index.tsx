@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { apiClient } from "../lib/api/client";
+import { useAuthStore } from "../store/authStore";
+import { setRefreshToken } from "../lib/auth/tokenStorage";
 
 type SocialProvider = {
   id: "kakao" | "naver" | "apple" | "google";
@@ -23,6 +27,8 @@ const LAST_LOGIN_PROVIDER_KEY = "swayt:last-login-provider";
 export default function LoginScreen() {
   const router = useRouter();
   const [lastProviderId, setLastProviderId] = useState<SocialProvider["id"] | null>(null);
+  const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(LAST_LOGIN_PROVIDER_KEY).then((storedId) => {
@@ -32,7 +38,36 @@ export default function LoginScreen() {
     });
   }, []);
 
+  const finishLogin = async (provider: "google" | "apple", token: string) => {
+    const { data } = await apiClient.post("/api/v1/auth/login", { provider, token });
+    setAccessToken(data.accessToken);
+    await setRefreshToken(data.refreshToken);
+    await AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, provider);
+    router.replace("/home");
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoggingIn(true);
+    try {
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error("Google 로그인에서 idToken을 받지 못했습니다.");
+      await finishLogin("google", idToken);
+    } catch (error: any) {
+      if (error?.code !== "SIGN_IN_CANCELLED") {
+        Alert.alert("로그인 실패", "Google 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
+      }
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   const handleSocialLogin = (providerId: SocialProvider["id"]) => {
+    if (providerId === "google") {
+      handleGoogleLogin();
+      return;
+    }
+    // kakao/naver/apple(Task 7 이전)은 기존 mock 동작 유지
     AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, providerId);
     router.push("/home");
   };
@@ -57,6 +92,7 @@ export default function LoginScreen() {
               key={provider.id}
               style={[styles.button, { backgroundColor: provider.backgroundColor }]}
               onPress={() => handleSocialLogin(provider.id)}
+              disabled={loggingIn}
             >
               <Text style={[styles.buttonText, { color: provider.textColor }]}>
                 {provider.label}
