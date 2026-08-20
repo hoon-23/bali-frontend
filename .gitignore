@@ -33,13 +33,16 @@ yarn-error.*
 # local env files
 .env*.local
 
-# Claude Code local settings
+# Claude Code local settings 및 관련 문서 (공개 저장소에는 올리지 않음)
 .claude/
+.superpowers/
+CLAUDE.md
+AGENTS.md
 
-# Superpowers plans/review (일회성 로컬 작업 문서, spec은 영구 보존 대상이라 커밋함)
+# Superpowers plans/review/specs (일회성 로컬 작업 문서, 공개 저장소에는 올리지 않음)
 /docs/plans
 /docs/review
-.superpowers/
+/docs/specs
 
 # JetBrains IDE
 .idea/
