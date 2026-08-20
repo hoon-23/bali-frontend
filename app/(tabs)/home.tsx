@@ -5,34 +5,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
-import { MUSCLE_GROUP_IMAGES, MUSCLE_GROUP_LABELS, MuscleGroup } from "../../constants/muscleGroups";
+import { MUSCLE_GROUP_IMAGES, MUSCLE_GROUP_LABELS } from "../../constants/muscleGroups";
+import { toDisplayMuscleGroup } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
-
-const USER_NAME = "지훈";
-
-const WORKOUT_MINUTES = 392; // 6h 32m
-const WORKOUT_TARGET_MINUTES = 480; // 8h
-const SESSIONS_DONE = 5;
-const SESSIONS_TARGET = 6;
-
-const STRENGTH_TIME = "4h20m";
-const CARDIO_TIME = "2h12m";
-const STREAK_DAYS = 12;
-
-const SUGGESTED_WORKOUT: {
-  name: string;
-  level: string;
-  duration: string;
-  muscleGroup: MuscleGroup;
-  templateId: string;
-} = {
-  name: "전신 운동",
-  level: "초급",
-  duration: "30분",
-  muscleGroup: "chest",
-  templateId: "t4",
-};
+import { useMe } from "../../hooks/api/useMe";
+import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
+import { useExercises, ApiExercise } from "../../hooks/api/useExercises";
+import { useUpcomingSessions, getTodayISODate } from "../../hooks/api/useUpcomingSessions";
+import {
+  deriveUpcomingCardState,
+  estimateSessionDurationMinutes,
+  ApiSession,
+  UpcomingCardState,
+} from "../../lib/session/sessionDisplay";
+import { minutesToDurationText } from "../../lib/format/duration";
 
 const RING_SIZE = 88;
 const RING_STROKE = 10;
@@ -48,33 +35,43 @@ export default function HomeScreen() {
   const router = useRouter();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
 
+  const { data: me } = useMe();
+  const { data: weeklyCurrent } = useWeeklyCurrent();
+  const { data: exercises } = useExercises();
+  const {
+    data: sessions,
+    isLoading: sessionsLoading,
+    isError: sessionsError,
+    refetch: refetchSessions,
+  } = useUpcomingSessions();
+
   const goToMonthlyReport = () => {
     router.push({ pathname: "/stats", params: { view: "monthly" } });
   };
 
-  const handleStartWorkout = () => {
-    const target = {
-      pathname: `/workout/${Date.now()}`,
-      params: { templateId: SUGGESTED_WORKOUT.templateId },
-    } as const;
+  const cardState: UpcomingCardState | null = sessions
+    ? deriveUpcomingCardState(sessions, getTodayISODate())
+    : null;
 
+  const handleStartWorkout = (sessionId: string) => {
+    const target = { pathname: `/workout/${sessionId}` } as const;
     if (activeSessionId) {
       Alert.alert(
         "진행 중인 운동이 있습니다",
         "새로 시작하면 기존 기록이 사라집니다.",
         [
           { text: "취소", style: "cancel" },
-          {
-            text: "새로 시작",
-            style: "destructive",
-            onPress: () => router.push(target),
-          },
+          { text: "새로 시작", style: "destructive", onPress: () => router.push(target) },
         ],
       );
       return;
     }
     router.push(target);
   };
+
+  const sessionsDone = weeklyCurrent?.completedSessionsCount ?? 0;
+  const sessionsTarget = me?.weeklyGoalSessions ?? 0;
+  const sessionsProgress = sessionsTarget > 0 ? sessionsDone / sessionsTarget : 0;
 
   return (
     <ScreenBackground>
@@ -86,7 +83,7 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.greetingSub}>안녕하세요</Text>
-              <Text style={styles.greeting}>{USER_NAME}님</Text>
+              <Text style={styles.greeting}>{me?.nickname ?? "—"}님</Text>
             </View>
             <Pressable style={styles.bellButton} hitSlop={8}>
               <Ionicons name="notifications" size={18} color="#FBBF24" />
@@ -110,36 +107,12 @@ export default function HomeScreen() {
                     cx={RING_SIZE / 2}
                     cy={RING_SIZE / 2}
                     r={RING_RADIUS}
-                    stroke="#2DD4BF"
-                    strokeWidth={RING_STROKE}
-                    strokeLinecap="round"
-                    fill="none"
-                    strokeDasharray={RING_CIRCUMFERENCE}
-                    strokeDashoffset={ringOffset(WORKOUT_MINUTES / WORKOUT_TARGET_MINUTES)}
-                    rotation={-90}
-                    origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-                  />
-                  <Circle
-                    cx={RING_SIZE / 2}
-                    cy={RING_SIZE / 2}
-                    r={RING_RADIUS - RING_STROKE - 4}
-                    stroke="rgba(255, 255, 255, 0.08)"
-                    strokeWidth={RING_STROKE}
-                    fill="none"
-                  />
-                  <Circle
-                    cx={RING_SIZE / 2}
-                    cy={RING_SIZE / 2}
-                    r={RING_RADIUS - RING_STROKE - 4}
                     stroke="#A78BFA"
                     strokeWidth={RING_STROKE}
                     strokeLinecap="round"
                     fill="none"
-                    strokeDasharray={2 * Math.PI * (RING_RADIUS - RING_STROKE - 4)}
-                    strokeDashoffset={
-                      2 * Math.PI * (RING_RADIUS - RING_STROKE - 4) *
-                      (1 - SESSIONS_DONE / SESSIONS_TARGET)
-                    }
+                    strokeDasharray={RING_CIRCUMFERENCE}
+                    strokeDashoffset={ringOffset(sessionsProgress)}
                     rotation={-90}
                     origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
                   />
@@ -147,16 +120,14 @@ export default function HomeScreen() {
               </View>
               <View style={styles.progressLegend}>
                 <View style={styles.legendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: "#2DD4BF" }]} />
+                  <View style={[styles.legendDot, { backgroundColor: "#A78BFA" }]} />
                   <Text style={styles.legendText}>
-                    운동시간 {Math.floor(WORKOUT_MINUTES / 60)}h{WORKOUT_MINUTES % 60}m /{" "}
-                    {WORKOUT_TARGET_MINUTES / 60}h
+                    세션 {sessionsDone} / {sessionsTarget}
                   </Text>
                 </View>
                 <View style={styles.legendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: "#A78BFA" }]} />
                   <Text style={styles.legendText}>
-                    세션 {SESSIONS_DONE} / {SESSIONS_TARGET}
+                    운동시간 {weeklyCurrent ? minutesToDurationText(weeklyCurrent.totalWorkoutMinutes) : "—"}
                   </Text>
                 </View>
               </View>
@@ -164,43 +135,134 @@ export default function HomeScreen() {
           </Pressable>
 
           <View style={styles.statsRow}>
-            <StatTile label="근력운동" value={STRENGTH_TIME} />
-            <StatTile label="유산소" value={CARDIO_TIME} />
-            <StatTile label="연속일" value={`${STREAK_DAYS}일`} onPress={goToMonthlyReport} />
+            <StatTile
+              label="근력운동"
+              value={weeklyCurrent ? minutesToDurationText(weeklyCurrent.strengthMinutes) : "—"}
+            />
+            <StatTile
+              label="유산소"
+              value={weeklyCurrent ? minutesToDurationText(weeklyCurrent.cardioMinutes) : "—"}
+            />
+            <StatTile
+              label="연속일"
+              value={me ? `${me.consecutiveDays}일` : "—"}
+              onPress={goToMonthlyReport}
+            />
           </View>
 
           <View>
             <Text style={styles.sectionTitle}>오늘의 운동</Text>
-            <View style={styles.card}>
-              <View style={styles.photoWrap}>
-                <Image
-                  source={MUSCLE_GROUP_IMAGES[SUGGESTED_WORKOUT.muscleGroup]}
-                  style={styles.photo}
-                  resizeMode="cover"
-                />
-                <View style={styles.photoBadge}>
-                  <Text style={styles.photoBadgeText}>
-                    {MUSCLE_GROUP_LABELS[SUGGESTED_WORKOUT.muscleGroup]}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.suggestedRow}>
-                <View>
-                  <Text style={styles.suggestedName}>{SUGGESTED_WORKOUT.name}</Text>
-                  <Text style={styles.suggestedMeta}>
-                    {SUGGESTED_WORKOUT.level} · {SUGGESTED_WORKOUT.duration}
-                  </Text>
-                </View>
-                <Pressable style={styles.startButton} onPress={handleStartWorkout}>
-                  <Text style={styles.startButtonText}>시작</Text>
+            {sessionsError ? (
+              <View style={styles.card}>
+                <Text style={styles.legendText}>불러오지 못했어요</Text>
+                <Pressable style={styles.startButton} onPress={() => refetchSessions()}>
+                  <Text style={styles.startButtonText}>다시 시도</Text>
                 </Pressable>
               </View>
-            </View>
+            ) : cardState?.kind === "EMPTY" ? (
+              <View style={styles.card}>
+                <Text style={styles.suggestedName}>예정된 운동이 없어요</Text>
+                <Pressable style={styles.startButton} onPress={() => router.push("/routines")}>
+                  <Text style={styles.startButtonText}>루틴 시작하기</Text>
+                </Pressable>
+              </View>
+            ) : cardState ? (
+              <TodayWorkoutCard
+                cardState={cardState}
+                exercises={exercises}
+                onStart={handleStartWorkout}
+                onPreview={(id) => router.push(`/upcoming/${id}`)}
+              />
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.legendText}>{sessionsLoading ? "불러오는 중..." : ""}</Text>
+              </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
+  );
+}
+
+type TodayWorkoutCardProps = {
+  cardState: Exclude<UpcomingCardState, { kind: "EMPTY" }>;
+  exercises: ApiExercise[] | undefined;
+  onStart: (sessionId: string) => void;
+  onPreview: (sessionId: string) => void;
+};
+
+function TodayWorkoutCard({ cardState, exercises, onStart, onPreview }: TodayWorkoutCardProps) {
+  if (cardState.kind === "COMPLETED_TODAY") {
+    return (
+      <View style={{ gap: 12 }}>
+        <View style={styles.card}>
+          <Text style={styles.suggestedName}>오늘 운동 완료! · {cardState.session.title}</Text>
+        </View>
+        {cardState.next && (
+          <SessionSummaryCard
+            session={cardState.next}
+            exercises={exercises}
+            metaLabel={`다음 운동 · ${cardState.next.date}`}
+            actionLabel="미리보기"
+            onAction={() => onPreview(cardState.next!.id)}
+          />
+        )}
+      </View>
+    );
+  }
+
+  const session = cardState.kind === "NEXT_UPCOMING" ? cardState.next : cardState.session;
+  const isToday = cardState.kind !== "NEXT_UPCOMING";
+  const durationMinutes = estimateSessionDurationMinutes(session.logs);
+  const actionLabel = cardState.kind === "IN_PROGRESS" ? "이어하기" : isToday ? "시작" : "미리보기";
+
+  return (
+    <SessionSummaryCard
+      session={session}
+      exercises={exercises}
+      metaLabel={isToday ? `${durationMinutes}분` : `다음 운동 · ${session.date}`}
+      actionLabel={actionLabel}
+      onAction={() => (isToday ? onStart(session.id) : onPreview(session.id))}
+    />
+  );
+}
+
+type SessionSummaryCardProps = {
+  session: ApiSession;
+  exercises: ApiExercise[] | undefined;
+  metaLabel: string;
+  actionLabel: string;
+  onAction: () => void;
+};
+
+function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onAction }: SessionSummaryCardProps) {
+  const firstExerciseId = session.logs[0]?.exerciseId;
+  const exercise = exercises?.find((e) => e.id === firstExerciseId);
+  const muscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.photoWrap}>
+        {muscleGroup && (
+          <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.photo} resizeMode="cover" />
+        )}
+        {muscleGroup && (
+          <View style={styles.photoBadge}>
+            <Text style={styles.photoBadgeText}>{MUSCLE_GROUP_LABELS[muscleGroup]}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.suggestedRow}>
+        <View>
+          <Text style={styles.suggestedName}>{session.title}</Text>
+          <Text style={styles.suggestedMeta}>{metaLabel}</Text>
+        </View>
+        <Pressable style={styles.startButton} onPress={onAction}>
+          <Text style={styles.startButtonText}>{actionLabel}</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
