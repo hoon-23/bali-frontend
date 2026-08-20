@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { apiClient } from "../lib/api/client";
 import { useAuthStore } from "../store/authStore";
 import { setRefreshToken } from "../lib/auth/tokenStorage";
@@ -62,12 +63,36 @@ export default function LoginScreen() {
     }
   };
 
+  const handleAppleLogin = async () => {
+    setLoggingIn(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) throw new Error("Apple 로그인에서 identityToken을 받지 못했습니다.");
+      await finishLogin("apple", credential.identityToken);
+    } catch (error: any) {
+      if (error?.code !== "ERR_REQUEST_CANCELED") {
+        Alert.alert("로그인 실패", "Apple 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
+      }
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   const handleSocialLogin = (providerId: SocialProvider["id"]) => {
     if (providerId === "google") {
       handleGoogleLogin();
       return;
     }
-    // kakao/naver/apple(Task 7 이전)은 기존 mock 동작 유지
+    if (providerId === "apple") {
+      handleAppleLogin();
+      return;
+    }
+    // kakao/naver는 기존 mock 동작 유지
     AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, providerId);
     router.push("/home");
   };
