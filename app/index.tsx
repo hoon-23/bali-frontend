@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { apiClient } from "../lib/api/client";
 import { useAuthStore } from "../store/authStore";
 import { setRefreshToken } from "../lib/auth/tokenStorage";
@@ -54,7 +54,7 @@ export default function LoginScreen() {
       if (!idToken) throw new Error("Google 로그인에서 idToken을 받지 못했습니다.");
       await finishLogin("google", idToken);
     } catch (error: any) {
-      if (error?.code !== "SIGN_IN_CANCELLED") {
+      if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
         Alert.alert("로그인 실패", "Google 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } finally {
