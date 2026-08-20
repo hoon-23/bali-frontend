@@ -14,6 +14,19 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) {
+    throw new Error("No refresh token available");
+  }
+  const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken });
+  useAuthStore.getState().setAccessToken(data.accessToken);
+  await setRefreshToken(data.refreshToken);
+  return data.accessToken;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -23,17 +36,14 @@ apiClient.interceptors.response.use(
     }
     originalRequest._retry = true;
 
-    const refreshToken = await getRefreshToken();
-    if (!refreshToken) {
-      useAuthStore.getState().logout();
-      throw error;
-    }
-
     try {
-      const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken });
-      useAuthStore.getState().setAccessToken(data.accessToken);
-      await setRefreshToken(data.refreshToken); // 구 refresh token은 폐기되므로 반드시 교체
-      originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const newAccessToken = await refreshPromise;
+      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {
       useAuthStore.getState().logout();
