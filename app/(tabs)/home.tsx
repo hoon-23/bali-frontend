@@ -31,6 +31,13 @@ function ringOffset(progress: number): number {
   return RING_CIRCUMFERENCE * (1 - clamped);
 }
 
+function toDDayLabel(dateStr: string): string {
+  const diffDays = Math.round(
+    (new Date(dateStr).getTime() - new Date(getTodayISODate()).getTime()) / 86400000
+  );
+  return `D-${diffDays}`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
@@ -55,7 +62,7 @@ export default function HomeScreen() {
 
   const handleStartWorkout = (sessionId: string) => {
     const target = { pathname: `/workout/${sessionId}` } as const;
-    if (activeSessionId) {
+    if (activeSessionId && activeSessionId !== sessionId) {
       Alert.alert(
         "진행 중인 운동이 있습니다",
         "새로 시작하면 기존 기록이 사라집니다.",
@@ -203,7 +210,7 @@ function TodayWorkoutCard({ cardState, exercises, onStart, onPreview }: TodayWor
           <SessionSummaryCard
             session={cardState.next}
             exercises={exercises}
-            metaLabel={`다음 운동 · ${cardState.next.date}`}
+            metaLabel={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
             actionLabel="미리보기"
             onAction={() => onPreview(cardState.next!.id)}
           />
@@ -221,7 +228,7 @@ function TodayWorkoutCard({ cardState, exercises, onStart, onPreview }: TodayWor
     <SessionSummaryCard
       session={session}
       exercises={exercises}
-      metaLabel={isToday ? `${durationMinutes}분` : `다음 운동 · ${session.date}`}
+      metaLabel={isToday ? `${durationMinutes}분` : `다음 운동 · ${toDDayLabel(session.date)}`}
       actionLabel={actionLabel}
       onAction={() => (isToday ? onStart(session.id) : onPreview(session.id))}
     />
