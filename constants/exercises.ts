@@ -72,3 +72,23 @@ export function toPhotoMuscleGroup(group: ExerciseMuscleGroup): PhotoMuscleGroup
       return "chest";
   }
 }
+
+export function toDisplayMuscleGroup(group: ExerciseMuscleGroup): PhotoMuscleGroup {
+  switch (group) {
+    case "BACK":
+      return "back";
+    case "CHEST":
+      return "chest";
+    case "LEGS":
+      return "legs";
+    case "CARDIO":
+      return "cardio";
+    case "SHOULDER":
+    case "BICEPS":
+    case "TRICEPS":
+    case "ABS":
+    default:
+      // 전용 썸네일 이미지가 없는 상체/코어 종목은 가슴 이미지로 대체(임시 처리)
+      return "chest";
+  }
+}
