@@ -8,7 +8,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.younghoon.swayt"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +24,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-secure-store",
+      [
+        "@react-native-google-signin/google-signin",
+        { "iosUrlScheme": "com.googleusercontent.apps.803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn" }
+      ]
     ]
   }
 }
