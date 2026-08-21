@@ -42,6 +42,10 @@ export default function ProfileScreen() {
   const handleSettingPress = (item: SettingItem) => {
     if (item.id === "logout") {
       setLogoutModalVisible(true);
+      return;
+    }
+    if (item.id === "privacy") {
+      router.push("/legal/privacy-policy");
     }
   };
 

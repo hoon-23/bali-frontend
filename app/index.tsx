@@ -136,7 +136,15 @@ export default function LoginScreen() {
         <View style={styles.spacer} />
 
         <Text style={styles.footer}>
-          계속 진행하면 이용약관과 개인정보처리방침에 동의한 것입니다
+          계속 진행하면 이용약관과{" "}
+          <Text style={styles.footerLink} onPress={() => router.push("/legal/privacy-policy")}>
+            개인정보처리방침
+          </Text>
+          에 동의한 것입니다
+        </Text>
+        <Text style={styles.overseasTransferNotice}>
+          Google/Apple 로그인 시 이메일, 로그인 식별값이 해당 사업자의 해외 서버로 전송될 수
+          있습니다. 자세한 내용은 개인정보처리방침의 국외 이전 항목을 확인해주세요.
         </Text>
       </View>
     </View>
@@ -212,5 +220,16 @@ const styles = StyleSheet.create({
     color: "#6B6B6B",
     fontSize: 12,
     textAlign: "center",
+  },
+  footerLink: {
+    color: "#2DD4BF",
+    textDecorationLine: "underline",
+  },
+  overseasTransferNotice: {
+    color: "#4D4D52",
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 14,
   },
 });
