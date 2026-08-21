@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { appAlert } from "../../lib/alert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -63,7 +64,7 @@ export default function HomeScreen() {
   const handleStartWorkout = (sessionId: string) => {
     const target = { pathname: `/workout/${sessionId}` } as const;
     if (activeSessionId && activeSessionId !== sessionId) {
-      Alert.alert(
+      appAlert(
         "진행 중인 운동이 있습니다",
         "새로 시작하면 기존 기록이 사라집니다.",
         [

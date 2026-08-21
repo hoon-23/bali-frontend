@@ -7,6 +7,7 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useAuthStore } from "../store/authStore";
 import { getRefreshToken } from "../lib/auth/tokenStorage";
 import { refreshAccessToken } from "../lib/api/client";
+import { AppAlertModal } from "../components/AppAlertModal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +64,7 @@ export default function RootLayout() {
           <Stack.Screen name="set-entry" options={{ presentation: "modal" }} />
           <Stack.Screen name="legal/privacy-policy" options={{ presentation: "modal" }} />
         </Stack>
+        <AppAlertModal />
       </QueryClientProvider>
     </SafeAreaProvider>
   );

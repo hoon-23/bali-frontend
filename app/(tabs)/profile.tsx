@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
+import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { getRefreshToken } from "../../lib/auth/tokenStorage";
 import { useAuthStore } from "../../store/authStore";
@@ -37,20 +36,8 @@ const SETTING_ITEMS: SettingItem[] = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
-
-  const handleSettingPress = (item: SettingItem) => {
-    if (item.id === "logout") {
-      setLogoutModalVisible(true);
-      return;
-    }
-    if (item.id === "privacy") {
-      router.push("/legal/privacy-policy");
-    }
-  };
 
   const handleConfirmLogout = async () => {
-    setLogoutModalVisible(false);
     const refreshToken = await getRefreshToken();
     if (refreshToken) {
       try {
@@ -59,13 +46,23 @@ export default function ProfileScreen() {
         // 서버 로그아웃 실패해도 로컬 로그아웃은 계속 진행
       }
     }
-    try {
-      await GoogleSignin.signOut();
-    } catch {
-      // Google 세션이 아니었거나 이미 로그아웃된 경우 무시
-    }
+    // 소셜 로그인이 가입/로그인을 겸하는 구조라, 구글 SDK 세션(GoogleSignin.signOut())까지
+    // 지우지 않는다 — 앱 로그아웃은 우리 쪽 토큰만 지우고, 다음 로그인은 다시 빠르게 되게 둔다.
     useAuthStore.getState().logout();
     router.replace("/");
+  };
+
+  const handleSettingPress = (item: SettingItem) => {
+    if (item.id === "logout") {
+      appAlert("로그아웃", "로그아웃 하시겠습니까?", [
+        { text: "취소", style: "cancel" },
+        { text: "로그아웃", style: "destructive", onPress: handleConfirmLogout },
+      ]);
+      return;
+    }
+    if (item.id === "privacy") {
+      router.push("/legal/privacy-policy");
+    }
   };
 
   const expProgress = Math.min(100, (EXP_CURRENT / EXP_TARGET) * 100);
@@ -126,37 +123,6 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
-
-      <Modal
-        visible={logoutModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setLogoutModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setLogoutModalVisible(false)}
-        >
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>로그아웃</Text>
-            <Text style={styles.modalMessage}>로그아웃 하시겠습니까?</Text>
-            <View style={styles.modalButtonRow}>
-              <Pressable
-                style={styles.modalButton}
-                onPress={() => setLogoutModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>취소</Text>
-              </Pressable>
-              <View style={styles.modalButtonDivider} />
-              <Pressable style={styles.modalButton} onPress={handleConfirmLogout}>
-                <Text style={[styles.modalButtonText, styles.modalButtonTextDanger]}>
-                  로그아웃
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </ScreenBackground>
   );
 }
@@ -296,62 +262,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   settingLabelDanger: {
-    color: "#F87171",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 320,
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    overflow: "hidden",
-    ...CARD_SHADOW,
-  },
-  modalTitle: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  modalMessage: {
-    color: "#A0A0A0",
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  modalButtonRow: {
-    flexDirection: "row",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.14)",
-    marginHorizontal: -20,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalButtonDivider: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255, 255, 255, 0.14)",
-  },
-  modalButtonText: {
-    color: "#EAEAEA",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  modalButtonTextDanger: {
     color: "#F87171",
   },
 });

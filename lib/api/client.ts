@@ -1,8 +1,19 @@
 import axios from "axios";
+import { NativeModules } from "react-native";
 import { useAuthStore } from "../../store/authStore";
 import { getRefreshToken, setRefreshToken } from "../auth/tokenStorage";
 
-export const API_BASE_URL = "http://localhost:8080";
+// 실물 기기에서는 "localhost"가 기기 자신을 가리켜서 개발 머신의 백엔드에 닿지 않는다.
+// JS 번들을 실제로 내려받은 호스트(scriptURL, 개발 머신의 LAN IP)를 재사용해서
+// 시뮬레이터/실물 기기 모두에서 동작하게 한다. Bridgeless/New Architecture에서는
+// NativeModules.SourceCode.scriptURL을 프로퍼티로 바로 읽으면 undefined라 getConstants()로 접근한다.
+function resolveApiBaseUrl(): string {
+  const scriptURL: string | undefined = NativeModules.SourceCode?.getConstants?.()?.scriptURL;
+  const host = scriptURL?.match(/^https?:\/\/([^:/]+)/)?.[1];
+  return host ? `http://${host}:8080` : "http://localhost:8080";
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL });
 

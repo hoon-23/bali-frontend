@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { appAlert } from "../../lib/alert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -34,11 +35,11 @@ export default function NewRoutineScreen() {
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert("루틴 이름을 입력해주세요");
+      appAlert("루틴 이름을 입력해주세요");
       return;
     }
     if (items.length === 0) {
-      Alert.alert("운동을 1개 이상 추가해주세요");
+      appAlert("운동을 1개 이상 추가해주세요");
       return;
     }
     addTemplate({

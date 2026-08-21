@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { apiClient } from "../lib/api/client";
 import { useAuthStore } from "../store/authStore";
 import { setRefreshToken } from "../lib/auth/tokenStorage";
+import { appAlert } from "../lib/alert";
 
 type SocialProvider = {
   id: "kakao" | "naver" | "apple" | "google";
@@ -40,7 +41,8 @@ export default function LoginScreen() {
   }, []);
 
   const finishLogin = async (provider: "google" | "apple", token: string) => {
-    const { data } = await apiClient.post("/api/v1/auth/login", { provider, token });
+    // 백엔드 AuthProvider enum(GOOGLE/APPLE/...)은 대문자 고정이라 맞춰서 보낸다.
+    const { data } = await apiClient.post("/api/v1/auth/login", { provider: provider.toUpperCase(), token });
     setAccessToken(data.accessToken);
     await setRefreshToken(data.refreshToken);
     await AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, provider);
@@ -51,12 +53,14 @@ export default function LoginScreen() {
     setLoggingIn(true);
     try {
       const response = await GoogleSignin.signIn();
+      // 시스템 OAuth 시트에서 취소하면 에러를 던지지 않고 이 형태로 resolve된다.
+      if (response.type === "cancelled") return;
       const idToken = response.data?.idToken;
       if (!idToken) throw new Error("Google 로그인에서 idToken을 받지 못했습니다.");
       await finishLogin("google", idToken);
     } catch (error: any) {
       if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
-        Alert.alert("로그인 실패", "Google 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
+        appAlert("로그인 실패", "Google 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } finally {
       setLoggingIn(false);
@@ -76,7 +80,7 @@ export default function LoginScreen() {
       await finishLogin("apple", credential.identityToken);
     } catch (error: any) {
       if (error?.code !== "ERR_REQUEST_CANCELED") {
-        Alert.alert("로그인 실패", "Apple 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
+        appAlert("로그인 실패", "Apple 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } finally {
       setLoggingIn(false);

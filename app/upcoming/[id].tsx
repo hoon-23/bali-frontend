@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { appAlert } from "../../lib/alert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -101,7 +102,7 @@ export default function UpcomingWorkoutScreen() {
 
   const handleStart = () => {
     if (activeSessionId && activeSessionId !== workout.id) {
-      Alert.alert(
+      appAlert(
         "진행 중인 운동이 있습니다",
         "새로 시작하면 기존 기록이 사라집니다.",
         [
