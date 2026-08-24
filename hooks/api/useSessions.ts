@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
+import { getTodayISODate } from "./useUpcomingSessions";
+
+function addDaysISODate(baseISODate: string, deltaDays: number): string {
+  const date = new Date(`${baseISODate}T00:00:00`);
+  date.setDate(date.getDate() + deltaDays);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export type SetTiming = {
   setIndex: number;
@@ -51,6 +61,17 @@ export function useCreateSession() {
   });
 }
 
+export type SessionLogUpdateItem = {
+  logId: string;
+  exerciseId: string;
+  sortOrder: number;
+  targetSets?: number;
+  targetReps?: number;
+  targetWeight?: number;
+  targetDurationSeconds?: number;
+  targetPace?: string;
+};
+
 export function usePatchSession() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,10 +82,30 @@ export function usePatchSession() {
       sessionId: string;
       status?: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
       perceivedDifficulty?: number;
+      updateItems?: SessionLogUpdateItem[];
     }) => (await apiClient.patch<ApiSessionDetail>(`/api/v1/sessions/${sessionId}`, payload)).data,
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["sessions", variables.sessionId] });
       queryClient.invalidateQueries({ queryKey: ["upcomingSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["sessionHistory"] });
+    },
+  });
+}
+
+// "기록" 탭의 지난 기록 목록용 — 오늘까지의 세션을 최신순으로 반환.
+// 오늘 시작했지만 아직 SCHEDULED인 세션은 templates.tsx에서 상태로 걸러내서
+// "예정된 운동" 쪽과 겹치지 않게 한다(오늘 이미 완료/진행한 세션은 여기 나와야 함).
+export function useSessionHistory() {
+  const to = getTodayISODate();
+  const from = addDaysISODate(to, -90);
+
+  return useQuery({
+    queryKey: ["sessionHistory", from, to],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ApiSessionDetail[]>("/api/v1/sessions", {
+        params: { from, to },
+      });
+      return data.slice().sort((a, b) => b.date.localeCompare(a.date));
     },
   });
 }

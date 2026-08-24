@@ -9,7 +9,7 @@ import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { CATEGORY_LABELS, TemplateCategory } from "../../store/templatesStore";
 import { DraftItem, useRoutineBuilderStore } from "../../store/routineBuilderStore";
-import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { useCreateTemplate } from "../../hooks/api/useTemplates";
 
 const CATEGORIES: TemplateCategory[] = ["PUSH", "PULL", "LEGS", "STRENGTH"];
@@ -160,7 +160,7 @@ function RoutineItemRow({ item, exercise, onRemove, onChangeField }: RoutineItem
   return (
     <View style={styles.itemCard}>
       <View style={styles.itemHeader}>
-        <Text style={styles.itemName}>{exercise?.name ?? "알 수 없는 운동"}</Text>
+        <Text style={styles.itemName}>{exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}</Text>
         <Pressable onPress={onRemove} hitSlop={8}>
           <Ionicons name="close-circle" size={20} color="#6B6B6B" />
         </Pressable>

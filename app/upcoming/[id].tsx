@@ -6,121 +6,140 @@ import { appAlert } from "../../lib/alert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { getExerciseById } from "../../constants/exercises";
+import { toDisplayMuscleGroup } from "../../constants/exercises";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { CARD_SHADOW } from "../../constants/shadow";
-import type { TemplateItem } from "../../store/templatesStore";
-import { useUpcomingWorkoutsStore } from "../../store/upcomingWorkoutsStore";
+import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiSessionLogDetail, useSession, usePatchSession } from "../../hooks/api/useSessions";
+import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
+import { estimateSessionDurationMinutes } from "../../lib/session/sessionDisplay";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 type Draft = Record<string, { sets: string; reps: string; weight: string }>;
 
-function buildDraft(items: TemplateItem[]): Draft {
+function buildDraft(logs: ApiSessionLogDetail[]): Draft {
   const next: Draft = {};
-  items.forEach((item) => {
-    next[item.id] = {
-      sets: String(item.targetSets ?? ""),
-      reps: String(item.targetReps ?? ""),
-      weight: String(item.targetWeight ?? ""),
+  logs.forEach((log) => {
+    next[log.id] = {
+      sets: String(log.targetSets ?? ""),
+      reps: String(log.targetReps ?? ""),
+      weight: String(log.targetWeight ?? ""),
     };
   });
   return next;
 }
 
+function formatDateLabel(dateISO: string, todayISODate: string): string {
+  const diffDays = Math.round(
+    (new Date(dateISO).getTime() - new Date(todayISODate).getTime()) / 86400000
+  );
+  if (diffDays === 0) return "오늘";
+  if (diffDays === 1) return "내일";
+  const date = new Date(dateISO);
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
 export default function UpcomingWorkoutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const workout = useUpcomingWorkoutsStore((state) => state.getUpcomingWorkout(id));
-  const updateItem = useUpcomingWorkoutsStore((state) => state.updateItem);
-  const markStarted = useUpcomingWorkoutsStore((state) => state.markStarted);
+  const { data: session } = useSession(id);
+  const exerciseMap = useExerciseMap();
+  const patchSession = usePatchSession();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>({});
-  const [errorItemIds, setErrorItemIds] = useState<Set<string>>(new Set());
+  const [errorLogIds, setErrorLogIds] = useState<Set<string>>(new Set());
+  const [starting, setStarting] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  if (!workout) {
+  if (!session) {
     return null;
   }
 
+  const logs = session.logs.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+  const firstExercise = logs[0] ? exerciseMap.get(logs[0].exerciseId) : undefined;
+  const muscleGroup = firstExercise ? toDisplayMuscleGroup(firstExercise.muscleGroup) : null;
+
   const handleEditPress = () => {
-    setDraft(buildDraft(workout.items));
-    setErrorItemIds(new Set());
+    setDraft(buildDraft(logs));
+    setErrorLogIds(new Set());
     setIsEditing(true);
   };
 
   const handleCancelPress = () => {
     setIsEditing(false);
-    setErrorItemIds(new Set());
+    setErrorLogIds(new Set());
   };
 
-  const handleDraftChange = (
-    itemId: string,
-    field: "sets" | "reps" | "weight",
-    value: string
-  ) => {
-    setDraft((prev) => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value } }));
+  const handleDraftChange = (logId: string, field: "sets" | "reps" | "weight", value: string) => {
+    setDraft((prev) => ({ ...prev, [logId]: { ...prev[logId], [field]: value } }));
   };
 
-  const handleSavePress = () => {
+  const handleSavePress = async () => {
     const nextErrors = new Set<string>();
-    const parsed: Record<
-      string,
-      { targetSets: number; targetReps: number; targetWeight: number }
-    > = {};
-
-    workout.items.forEach((item) => {
-      const entry = draft[item.id];
+    const updateItems = logs.map((log) => {
+      const entry = draft[log.id];
       const sets = Number(entry?.sets);
       const reps = Number(entry?.reps);
       const weight = Number(entry?.weight);
       const valid =
-        Number.isFinite(sets) &&
-        sets > 0 &&
-        Number.isFinite(reps) &&
-        reps > 0 &&
-        Number.isFinite(weight) &&
-        weight > 0;
+        Number.isFinite(sets) && sets > 0 && Number.isFinite(reps) && reps > 0 &&
+        Number.isFinite(weight) && weight > 0;
 
-      if (!valid) {
-        nextErrors.add(item.id);
-      } else {
-        parsed[item.id] = { targetSets: sets, targetReps: reps, targetWeight: weight };
-      }
+      if (!valid) nextErrors.add(log.id);
+
+      return {
+        logId: log.id,
+        exerciseId: log.exerciseId,
+        sortOrder: log.sortOrder,
+        targetSets: valid ? sets : log.targetSets ?? undefined,
+        targetReps: valid ? reps : log.targetReps ?? undefined,
+        targetWeight: valid ? weight : log.targetWeight ?? undefined,
+      };
     });
 
     if (nextErrors.size > 0) {
-      setErrorItemIds(nextErrors);
+      setErrorLogIds(nextErrors);
       return;
     }
 
-    Object.entries(parsed).forEach(([itemId, updates]) => {
-      updateItem(workout.id, itemId, updates);
-    });
-    setIsEditing(false);
+    setSaving(true);
+    try {
+      await patchSession.mutateAsync({ sessionId: id, updateItems });
+      setIsEditing(false);
+    } catch {
+      appAlert("수정 사항을 저장하지 못했어요. 다시 시도해주세요.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleStart = () => {
-    if (activeSessionId && activeSessionId !== workout.id) {
+  const handleStart = async () => {
+    if (activeSessionId && activeSessionId !== id) {
       appAlert(
         "진행 중인 운동이 있습니다",
         "새로 시작하면 기존 기록이 사라집니다.",
         [
           { text: "취소", style: "cancel" },
-          {
-            text: "새로 시작",
-            style: "destructive",
-            onPress: () => {
-              markStarted(workout.id);
-              router.push(`/workout/${workout.id}`);
-            },
-          },
+          { text: "새로 시작", style: "destructive", onPress: () => startWorkout() },
         ],
       );
       return;
     }
-    markStarted(workout.id);
-    router.push(`/workout/${workout.id}`);
+    startWorkout();
+  };
+
+  const startWorkout = async () => {
+    setStarting(true);
+    try {
+      await patchSession.mutateAsync({ sessionId: id, status: "IN_PROGRESS" });
+      router.push(`/workout/${id}`);
+    } catch {
+      appAlert("운동을 시작하지 못했어요. 다시 시도해주세요.");
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
@@ -139,55 +158,58 @@ export default function UpcomingWorkoutScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.summaryCard}>
-            <Image source={MUSCLE_GROUP_IMAGES[workout.muscleGroup]} style={styles.thumbnail} />
+            {muscleGroup && (
+              <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.thumbnail} />
+            )}
             <View style={styles.summaryInfo}>
-              <Text style={styles.summaryDate}>{workout.date}</Text>
-              <Text style={styles.summaryName}>{workout.name}</Text>
+              <Text style={styles.summaryDate}>{formatDateLabel(session.date, getTodayISODate())}</Text>
+              <Text style={styles.summaryName}>{session.title}</Text>
               <Text style={styles.summaryMeta}>
-                {workout.level} · {workout.duration}
+                {estimateSessionDurationMinutes(logs)}분 · {logs.length}개 운동
               </Text>
             </View>
           </View>
 
           <Text style={styles.sectionTitle}>운동 목록</Text>
           <View style={styles.list}>
-            {workout.items.map((item) => {
-              const exercise = getExerciseById(item.exerciseId);
-              const hasError = errorItemIds.has(item.id);
+            {logs.map((log) => {
+              const exercise = exerciseMap.get(log.exerciseId);
+              const exerciseName = exercise ? formatExerciseName(exercise) : "알 수 없는 운동";
+              const hasError = errorLogIds.has(log.id);
 
               if (!isEditing) {
                 return (
-                  <View key={item.id} style={styles.itemCard}>
-                    <Text style={styles.itemName}>{exercise?.name ?? "알 수 없는 운동"}</Text>
+                  <View key={log.id} style={styles.itemCard}>
+                    <Text style={styles.itemName}>{exerciseName}</Text>
                     <Text style={styles.itemTarget}>
-                      {item.targetSets}세트 × {item.targetReps}회 × {item.targetWeight}kg
+                      {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회 × {log.targetWeight ?? 0}kg
                     </Text>
                   </View>
                 );
               }
 
-              const entry = draft[item.id] ?? { sets: "", reps: "", weight: "" };
+              const entry = draft[log.id] ?? { sets: "", reps: "", weight: "" };
               return (
-                <View key={item.id} style={styles.itemCard}>
-                  <Text style={styles.itemName}>{exercise?.name ?? "알 수 없는 운동"}</Text>
+                <View key={log.id} style={styles.itemCard}>
+                  <Text style={styles.itemName}>{exerciseName}</Text>
                   <View style={styles.itemEditRow}>
                     <EditField
                       label="세트"
                       value={entry.sets}
                       hasError={hasError}
-                      onChangeText={(value) => handleDraftChange(item.id, "sets", value)}
+                      onChangeText={(value) => handleDraftChange(log.id, "sets", value)}
                     />
                     <EditField
                       label="횟수"
                       value={entry.reps}
                       hasError={hasError}
-                      onChangeText={(value) => handleDraftChange(item.id, "reps", value)}
+                      onChangeText={(value) => handleDraftChange(log.id, "reps", value)}
                     />
                     <EditField
                       label="무게(kg)"
                       value={entry.weight}
                       hasError={hasError}
-                      onChangeText={(value) => handleDraftChange(item.id, "weight", value)}
+                      onChangeText={(value) => handleDraftChange(log.id, "weight", value)}
                     />
                   </View>
                   {hasError && (
@@ -202,11 +224,11 @@ export default function UpcomingWorkoutScreen() {
         <View style={styles.buttonRow}>
           {isEditing ? (
             <>
-              <Pressable style={styles.secondaryButton} onPress={handleCancelPress}>
+              <Pressable style={styles.secondaryButton} onPress={handleCancelPress} disabled={saving}>
                 <Text style={styles.secondaryButtonText}>취소</Text>
               </Pressable>
-              <Pressable style={styles.primaryButton} onPress={handleSavePress}>
-                <Text style={styles.primaryButtonText}>저장</Text>
+              <Pressable style={styles.primaryButton} onPress={handleSavePress} disabled={saving}>
+                <Text style={styles.primaryButtonText}>{saving ? "저장하는 중..." : "저장"}</Text>
               </Pressable>
             </>
           ) : (
@@ -214,8 +236,8 @@ export default function UpcomingWorkoutScreen() {
               <Pressable style={styles.secondaryButton} onPress={handleEditPress}>
                 <Text style={styles.secondaryButtonText}>수정</Text>
               </Pressable>
-              <Pressable style={styles.primaryButton} onPress={handleStart}>
-                <Text style={styles.primaryButtonText}>시작하기</Text>
+              <Pressable style={styles.primaryButton} onPress={handleStart} disabled={starting}>
+                <Text style={styles.primaryButtonText}>{starting ? "시작하는 중..." : "시작하기"}</Text>
               </Pressable>
             </>
           )}

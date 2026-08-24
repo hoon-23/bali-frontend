@@ -5,35 +5,48 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { ExerciseRecord, SESSION_RECORDS } from "../../constants/sessionRecords";
 import { CARD_SHADOW } from "../../constants/shadow";
+import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiSessionDetail, ApiSessionLogDetail, useSession } from "../../hooks/api/useSessions";
 
-function chunkNames(names: string[], size: number): string[] {
-  const lines: string[] = [];
-  for (let i = 0; i < names.length; i += size) {
-    lines.push(names.slice(i, i + size).join(", "));
-  }
-  return lines;
+function formatFullKoreanDate(dateISO: string): string {
+  const date = new Date(dateISO);
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
+function statusLabel(status: ApiSessionDetail["status"]): string {
+  if (status === "COMPLETED") return "완료";
+  if (status === "IN_PROGRESS") return "진행중";
+  return "예정";
+}
+
+function formatSetSeconds(startedAt: string, endedAt: string): string {
+  const seconds = Math.max(
+    0,
+    Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+  );
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
 export default function SessionRecordScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const session = SESSION_RECORDS.find((record) => record.id === id);
+  const { data: session } = useSession(id);
+  const exerciseMap = useExerciseMap();
 
-  const defaultExpandedId =
-    session?.exercises.find((exercise) => exercise.sets.some((set) => set.inProgress))?.id ?? null;
+  const logs = session
+    ? session.logs.slice().sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
+  const defaultExpandedId = logs.find((log) => !log.completed)?.id ?? null;
   const [expandedId, setExpandedId] = useState<string | null>(defaultExpandedId);
 
   if (!session) {
     return null;
   }
 
-  const nameLines = chunkNames(
-    session.exercises.map((exercise) => exercise.name),
-    2,
-  );
-  const isInProgress = session.status === "진행중";
+  const isInProgress = session.status === "IN_PROGRESS";
 
   return (
     <ScreenBackground>
@@ -50,36 +63,35 @@ export default function SessionRecordScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.date}>{session.date}</Text>
+          <Text style={styles.date}>{formatFullKoreanDate(session.date)}</Text>
 
           <View style={styles.card}>
             <View style={styles.summaryHeader}>
-              <Text style={styles.summaryTitle}>{session.category}</Text>
+              <Text style={styles.summaryTitle}>{session.title}</Text>
               <View style={[styles.statusBadge, isInProgress && styles.statusBadgeActive]}>
                 <Text
                   style={[styles.statusBadgeText, isInProgress && styles.statusBadgeTextActive]}
                 >
-                  {session.status}
+                  {statusLabel(session.status)}
                 </Text>
               </View>
             </View>
-            {nameLines.map((line) => (
-              <Text key={line} style={styles.summaryLine}>
-                {line}
-              </Text>
-            ))}
           </View>
 
-          <Text style={styles.sectionTitle}>세트 내역</Text>
+          <Text style={styles.sectionTitle}>운동 내역</Text>
           <View style={styles.list}>
-            {session.exercises.map((exercise) => (
-              <ExerciseAccordion
-                key={exercise.id}
-                exercise={exercise}
-                expanded={expandedId === exercise.id}
-                onToggle={() => setExpandedId((prev) => (prev === exercise.id ? null : exercise.id))}
-              />
-            ))}
+            {logs.map((log) => {
+              const exercise = exerciseMap.get(log.exerciseId);
+              return (
+                <ExerciseAccordion
+                  key={log.id}
+                  log={log}
+                  exerciseName={exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}
+                  expanded={expandedId === log.id}
+                  onToggle={() => setExpandedId((prev) => (prev === log.id ? null : log.id))}
+                />
+              );
+            })}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -88,50 +100,58 @@ export default function SessionRecordScreen() {
 }
 
 type ExerciseAccordionProps = {
-  exercise: ExerciseRecord;
+  log: ApiSessionLogDetail;
+  exerciseName: string;
   expanded: boolean;
   onToggle: () => void;
 };
 
-function ExerciseAccordion({ exercise, expanded, onToggle }: ExerciseAccordionProps) {
+function ExerciseAccordion({ log, exerciseName, expanded, onToggle }: ExerciseAccordionProps) {
+  const hasActual = log.actualSets != null || log.actualReps != null || log.actualWeight != null;
+
   return (
     <View style={styles.card}>
       <Pressable style={styles.exerciseHeader} onPress={onToggle}>
         <View>
-          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <Text style={styles.exerciseName}>{exerciseName}</Text>
           <Text style={styles.exerciseTarget}>
-            목표 {exercise.targetSets}세트 × {exercise.targetReps}회 × {exercise.targetWeight}kg
+            목표 {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회 × {log.targetWeight ?? 0}kg
           </Text>
         </View>
-        <Ionicons
-          name={expanded ? "chevron-up" : "chevron-down"}
-          size={18}
-          color="#6B6B6B"
-        />
+        <View style={styles.exerciseHeaderRight}>
+          <View style={[styles.completeBadge, log.completed && styles.completeBadgeActive]}>
+            <Text style={[styles.completeBadgeText, log.completed && styles.completeBadgeTextActive]}>
+              {log.completed ? "완료" : "미완료"}
+            </Text>
+          </View>
+          <Ionicons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color="#6B6B6B"
+          />
+        </View>
       </Pressable>
 
       {expanded && (
-        <View style={styles.setList}>
-          {exercise.sets.map((set, index) => (
-            <View
-              key={set.setNumber}
-              style={[styles.setRow, index > 0 && styles.setRowDivider]}
-            >
-              <View>
-                <Text style={styles.setExerciseName}>{exercise.name}</Text>
-                <Text style={styles.setDetail}>
-                  {set.weight}kg × {set.reps}회
-                </Text>
-              </View>
-              {set.inProgress ? (
-                <View style={styles.setBadgeActive}>
-                  <Text style={styles.setBadgeActiveText}>Set {set.setNumber} · 진행중</Text>
-                </View>
-              ) : (
-                <Text style={styles.setNumber}>Set {set.setNumber}</Text>
-              )}
+        <View style={styles.detailBody}>
+          <Text style={styles.detailLine}>
+            기록{" "}
+            {hasActual
+              ? `${log.actualSets ?? 0}세트 × ${log.actualReps ?? 0}회 × ${log.actualWeight ?? 0}kg`
+              : "없음"}
+          </Text>
+          {log.setTimings && log.setTimings.length > 0 && (
+            <View style={styles.timingRow}>
+              {log.setTimings
+                .slice()
+                .sort((a, b) => a.setIndex - b.setIndex)
+                .map((timing) => (
+                  <Text key={timing.setIndex} style={styles.timingChip}>
+                    세트 {timing.setIndex + 1} · {formatSetSeconds(timing.startedAt, timing.endedAt)}
+                  </Text>
+                ))}
             </View>
-          ))}
+          )}
         </View>
       )}
     </View>
@@ -187,17 +207,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
   },
   summaryTitle: {
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "700",
-  },
-  summaryLine: {
-    color: "#A0A0A0",
-    fontSize: 13,
-    lineHeight: 20,
   },
   statusBadge: {
     paddingVertical: 4,
@@ -229,6 +243,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  exerciseHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   exerciseName: {
     color: "#FFFFFF",
     fontSize: 15,
@@ -239,43 +258,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  setList: {
+  completeBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  completeBadgeActive: {
+    backgroundColor: "rgba(45, 212, 191, 0.15)",
+  },
+  completeBadgeText: {
+    color: "#6B6B6B",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  completeBadgeTextActive: {
+    color: "#2DD4BF",
+  },
+  detailBody: {
     marginTop: 12,
-  },
-  setRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  setRowDivider: {
+    gap: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(255, 255, 255, 0.08)",
+    paddingTop: 10,
   },
-  setExerciseName: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
+  detailLine: {
+    color: "#D0D0D0",
+    fontSize: 13,
   },
-  setDetail: {
-    color: "#A0A0A0",
-    fontSize: 12,
-    marginTop: 2,
+  timingRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  setNumber: {
+  timingChip: {
     color: "#6B6B6B",
     fontSize: 12,
-    fontWeight: "600",
-  },
-  setBadgeActive: {
-    backgroundColor: "rgba(251, 191, 36, 0.15)",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
-  setBadgeActiveText: {
-    color: "#FBBF24",
-    fontSize: 11,
-    fontWeight: "700",
   },
 });

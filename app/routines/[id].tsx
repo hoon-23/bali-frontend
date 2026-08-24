@@ -9,7 +9,7 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { CATEGORY_LABELS } from "../../store/templatesStore";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
-import { useExerciseMap } from "../../hooks/api/useExercises";
+import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { useTemplate } from "../../hooks/api/useTemplates";
 import { useCreateSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
@@ -78,7 +78,9 @@ export default function RoutineDetailScreen() {
               const exercise = exerciseMap.get(item.exerciseId);
               return (
                 <View key={item.id} style={styles.itemCard}>
-                  <Text style={styles.itemName}>{exercise?.name ?? "알 수 없는 운동"}</Text>
+                  <Text style={styles.itemName}>
+                    {exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}
+                  </Text>
                   <Text style={styles.itemTarget}>
                     {item.targetDurationSeconds
                       ? `${Math.round(item.targetDurationSeconds / 60)}분`

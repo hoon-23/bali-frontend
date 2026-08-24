@@ -1,8 +1,8 @@
 export type SessionLog = {
   exerciseId: string;
-  targetSets?: number;
-  targetReps?: number;
-  targetDurationSeconds?: number;
+  targetSets?: number | null;
+  targetReps?: number | null;
+  targetDurationSeconds?: number | null;
 };
 
 export type ApiSession = {

@@ -11,10 +11,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getExerciseById } from "../../constants/exercises";
 import { appAlert } from "../../lib/alert";
-import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiSessionDetail, useSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
 import { useTemplatesStore } from "../../store/templatesStore";
-import { useUpcomingWorkoutsStore } from "../../store/upcomingWorkoutsStore";
 import {
   ActualField,
   ExerciseLog,
@@ -61,29 +60,6 @@ function buildLogsFromTemplate(templateId: string | undefined): ExerciseLog[] {
   }));
 }
 
-function buildLogsForSession(
-  sessionId: string,
-  templateId: string | undefined
-): ExerciseLog[] {
-  const upcoming = useUpcomingWorkoutsStore.getState().getUpcomingWorkout(sessionId);
-  if (upcoming) {
-    return upcoming.items.map((item) => ({
-      id: item.id,
-      exerciseId: item.exerciseId,
-      name: getExerciseById(item.exerciseId)?.name ?? "알 수 없는 운동",
-      targetSets: item.targetSets ?? 0,
-      targetReps: item.targetReps ?? 0,
-      targetWeight: item.targetWeight ?? 0,
-      actualSets: "",
-      actualReps: "",
-      actualWeight: "",
-      completed: false,
-      setTimings: [],
-    }));
-  }
-  return buildLogsFromTemplate(templateId);
-}
-
 // 실제 백엔드 세션 응답을 화면 로컬 상태로 변환. logId를 그대로 써서
 // PATCH .../logs/{logId} 호출 시 서버 로그와 매칭시킨다.
 function buildLogsFromApiSession(
@@ -93,19 +69,22 @@ function buildLogsFromApiSession(
   return session.logs
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((log) => ({
-      id: log.id,
-      exerciseId: log.exerciseId,
-      name: exerciseMap.get(log.exerciseId)?.name ?? "알 수 없는 운동",
-      targetSets: log.targetSets ?? 0,
-      targetReps: log.targetReps ?? 0,
-      targetWeight: log.targetWeight ?? 0,
-      actualSets: log.actualSets != null ? String(log.actualSets) : "",
-      actualReps: log.actualReps != null ? String(log.actualReps) : "",
-      actualWeight: log.actualWeight != null ? String(log.actualWeight) : "",
-      completed: log.completed,
-      setTimings: log.setTimings ?? [],
-    }));
+    .map((log) => {
+      const exercise = exerciseMap.get(log.exerciseId);
+      return {
+        id: log.id,
+        exerciseId: log.exerciseId,
+        name: exercise ? formatExerciseName(exercise) : "알 수 없는 운동",
+        targetSets: log.targetSets ?? 0,
+        targetReps: log.targetReps ?? 0,
+        targetWeight: log.targetWeight ?? 0,
+        actualSets: log.actualSets != null ? String(log.actualSets) : "",
+        actualReps: log.actualReps != null ? String(log.actualReps) : "",
+        actualWeight: log.actualWeight != null ? String(log.actualWeight) : "",
+        completed: log.completed,
+        setTimings: log.setTimings ?? [],
+      };
+    });
 }
 
 export default function WorkoutSessionScreen() {
@@ -132,15 +111,14 @@ export default function WorkoutSessionScreen() {
 
   useEffect(() => {
     if (sessionId === useWorkoutSessionStore.getState().sessionId) return;
-    // 실제 세션 조회가 성공하면 그 데이터로, 실패(404 등)하면 기존 로컬 mock
-    // 조립 로직으로 폴백한다 — upcoming/[id].tsx 등 아직 mock ID로 진입하는
-    // 경로를 깨지 않기 위함.
+    // 실제 세션 조회가 성공하면 그 데이터로, 실패(404 등 — 삭제된 세션이나
+    // 개발 중 남은 잘못된 링크)하면 로컬 mock 템플릿 조립 로직으로 폴백한다.
     if (apiSession) {
       startSession(sessionId, buildLogsFromApiSession(apiSession, exerciseMap), true);
       return;
     }
     if (sessionFetchFailed) {
-      startSession(sessionId, buildLogsForSession(sessionId, templateId), false);
+      startSession(sessionId, buildLogsFromTemplate(templateId), false);
     }
     // apiSession/sessionFetchFailed 둘 다 아직이면(조회 중) 대기 — 다음 렌더에서 재평가됨.
   }, [sessionId, templateId, apiSession, sessionFetchFailed, exerciseMap, startSession]);

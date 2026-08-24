@@ -7,7 +7,7 @@ import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { ExerciseMuscleGroup, MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
-import { useExercises } from "../../hooks/api/useExercises";
+import { formatExerciseName, useExercises } from "../../hooks/api/useExercises";
 
 const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "CHEST",
@@ -30,7 +30,9 @@ export default function ExercisePickerScreen() {
   const results = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
     const matched = trimmedQuery
-      ? exercises.filter((exercise) => exercise.name.toLowerCase().includes(trimmedQuery))
+      ? exercises.filter((exercise) =>
+          formatExerciseName(exercise).toLowerCase().includes(trimmedQuery)
+        )
       : exercises;
     return filter ? matched.filter((exercise) => exercise.muscleGroup === filter) : matched;
   }, [exercises, query, filter]);
@@ -97,7 +99,7 @@ export default function ExercisePickerScreen() {
               onPress={() => handleSelect(exercise.id)}
             >
               <View>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
+                <Text style={styles.exerciseName}>{formatExerciseName(exercise)}</Text>
                 <Text style={styles.exerciseGroup}>{MUSCLE_GROUP_KOREAN[exercise.muscleGroup]}</Text>
               </View>
               <Ionicons name="add-circle-outline" size={22} color="#2DD4BF" />

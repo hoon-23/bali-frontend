@@ -6,8 +6,15 @@ import { ExerciseMuscleGroup } from "../../constants/exercises";
 export type ApiExercise = {
   id: string;
   name: string;
+  variant: string | null;
   muscleGroup: ExerciseMuscleGroup;
 };
+
+// 같은 이름이라도 그립/자세 variant가 다른 별개 운동일 수 있어서
+// (예: 랫풀다운 언더그립/와이드그립/...), 사람이 구분할 수 있게 표시용으로 합침.
+export function formatExerciseName(exercise: Pick<ApiExercise, "name" | "variant">): string {
+  return exercise.variant ? `${exercise.name} · ${exercise.variant}` : exercise.name;
+}
 
 export function useExercises() {
   return useQuery({
