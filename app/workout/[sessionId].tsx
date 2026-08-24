@@ -9,11 +9,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getExerciseById } from "../../constants/exercises";
 import { appAlert } from "../../lib/alert";
 import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiSessionDetail, useSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
-import { useTemplatesStore } from "../../store/templatesStore";
+import { ApiTemplate, useTemplate } from "../../hooks/api/useTemplates";
 import {
   ActualField,
   ExerciseLog,
@@ -21,9 +20,8 @@ import {
   useWorkoutSessionStore,
 } from "../../store/workoutSessionStore";
 
-// templatesId 없이 운동이 시작되는 드문 경우를 위한 fallback
-// (모든 "운동 시작" 진입점이 templateId를 넘기게 되면 발생하지 않아야 하지만,
-// 혹시라도 그런 경우 화면이 빈 채로 렌더링되는 걸 방지함).
+// 세션 조회가 실패했는데(삭제된 세션 등) templateId조차 없는 극히 드문 경우를 위한
+// 최후의 fallback — 화면이 완전히 빈 채로 렌더링되는 것만 방지한다.
 const FALLBACK_LOGS: ExerciseLog[] = [
   {
     id: "1",
@@ -40,24 +38,26 @@ const FALLBACK_LOGS: ExerciseLog[] = [
   },
 ];
 
-function buildLogsFromTemplate(templateId: string | undefined): ExerciseLog[] {
-  if (!templateId) return FALLBACK_LOGS;
-  const template = useTemplatesStore.getState().getTemplate(templateId);
-  if (!template) return FALLBACK_LOGS;
-
-  return template.items.map((item) => ({
-    id: item.id,
-    exerciseId: item.exerciseId,
-    name: getExerciseById(item.exerciseId)?.name ?? "알 수 없는 운동",
-    targetSets: item.targetSets ?? 0,
-    targetReps: item.targetReps ?? 0,
-    targetWeight: item.targetWeight ?? 0,
-    actualSets: "",
-    actualReps: "",
-    actualWeight: "",
-    completed: false,
-    setTimings: [],
-  }));
+function buildLogsFromApiTemplate(
+  template: ApiTemplate,
+  exerciseMap: Map<string, ApiExercise>
+): ExerciseLog[] {
+  return template.items.map((item) => {
+    const exercise = exerciseMap.get(item.exerciseId);
+    return {
+      id: item.id,
+      exerciseId: item.exerciseId,
+      name: exercise ? formatExerciseName(exercise) : "알 수 없는 운동",
+      targetSets: item.targetSets ?? 0,
+      targetReps: item.targetReps ?? 0,
+      targetWeight: item.targetWeight ?? 0,
+      actualSets: "",
+      actualReps: "",
+      actualWeight: "",
+      completed: false,
+      setTimings: [],
+    };
+  });
 }
 
 // 실제 백엔드 세션 응답을 화면 로컬 상태로 변환. logId를 그대로 써서
@@ -95,6 +95,7 @@ export default function WorkoutSessionScreen() {
   const router = useRouter();
 
   const { data: apiSession, isError: sessionFetchFailed } = useSession(sessionId);
+  const { data: fallbackTemplate } = useTemplate(templateId);
   const exerciseMap = useExerciseMap();
   const patchSession = usePatchSession();
   const patchSessionLog = usePatchSessionLog();
@@ -112,16 +113,19 @@ export default function WorkoutSessionScreen() {
   useEffect(() => {
     if (sessionId === useWorkoutSessionStore.getState().sessionId) return;
     // 실제 세션 조회가 성공하면 그 데이터로, 실패(404 등 — 삭제된 세션이나
-    // 개발 중 남은 잘못된 링크)하면 로컬 mock 템플릿 조립 로직으로 폴백한다.
+    // 개발 중 남은 잘못된 링크)하면 templateId로 실제 템플릿을 다시 조립해서 폴백한다.
     if (apiSession) {
       startSession(sessionId, buildLogsFromApiSession(apiSession, exerciseMap), true);
       return;
     }
     if (sessionFetchFailed) {
-      startSession(sessionId, buildLogsFromTemplate(templateId), false);
+      const logs = fallbackTemplate
+        ? buildLogsFromApiTemplate(fallbackTemplate, exerciseMap)
+        : FALLBACK_LOGS;
+      startSession(sessionId, logs, false);
     }
     // apiSession/sessionFetchFailed 둘 다 아직이면(조회 중) 대기 — 다음 렌더에서 재평가됨.
-  }, [sessionId, templateId, apiSession, sessionFetchFailed, exerciseMap, startSession]);
+  }, [sessionId, apiSession, sessionFetchFailed, fallbackTemplate, exerciseMap, startSession]);
 
   const handleClose = () => {
     router.back();

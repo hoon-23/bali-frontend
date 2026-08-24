@@ -68,7 +68,6 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="workout/[sessionId]" options={{ presentation: "modal" }} />
           <Stack.Screen name="workout/summary" options={{ presentation: "modal" }} />
-          <Stack.Screen name="set-entry" options={{ presentation: "modal" }} />
           <Stack.Screen name="legal/privacy-policy" options={{ presentation: "modal" }} />
         </Stack>
         <AppAlertModal />

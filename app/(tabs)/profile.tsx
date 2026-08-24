@@ -9,16 +9,17 @@ import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { getRefreshToken } from "../../lib/auth/tokenStorage";
 import { useAuthStore } from "../../store/authStore";
+import { useMe } from "../../hooks/api/useMe";
 
-const USER_NAME = "지훈";
-const USER_EMAIL = "jihoon@bali.app";
+// 레벨/경험치는 백엔드에 아직 개념 자체가 없는 프로토타입 데이터 — 실 설계 전까지 하드코딩 유지.
 const LEVEL = 5;
 const EXP_CURRENT = 650;
 const EXP_TARGET = 1000;
 
+// 총 운동일/총 운동시간은 백엔드에 전용 집계가 없어서 임시로 하드코딩 유지 —
+// 백엔드에 lifetime 집계 필드 추가를 요청해둠 (프론트에서 직접 합산하지 않는 방향).
 const TOTAL_WORKOUT_DAYS = 156;
 const TOTAL_WORKOUT_TIME = "84h 20m";
-const STREAK_DAYS = 12;
 
 type SettingItem = {
   id: string;
@@ -36,6 +37,7 @@ const SETTING_ITEMS: SettingItem[] = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { data: me } = useMe();
 
   const handleConfirmLogout = async () => {
     const refreshToken = await getRefreshToken();
@@ -76,10 +78,10 @@ export default function ProfileScreen() {
         >
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{USER_NAME[0]}</Text>
+              <Text style={styles.avatarText}>{me?.nickname?.[0] ?? "?"}</Text>
             </View>
-            <Text style={styles.name}>{USER_NAME}님</Text>
-            <Text style={styles.email}>{USER_EMAIL}</Text>
+            <Text style={styles.name}>{me?.nickname ?? "—"}님</Text>
+            <Text style={styles.email}>{me?.email ?? ""}</Text>
           </View>
 
           <View style={styles.card}>
@@ -99,7 +101,7 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <StatTile label="총 운동일" value={`${TOTAL_WORKOUT_DAYS}일`} />
             <StatTile label="총 운동시간" value={TOTAL_WORKOUT_TIME} />
-            <StatTile label="연속일" value={`${STREAK_DAYS}일`} />
+            <StatTile label="연속일" value={me ? `${me.consecutiveDays}일` : "—"} />
           </View>
 
           <View style={styles.card}>

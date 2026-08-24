@@ -3,6 +3,7 @@ import { apiClient } from "../../lib/api/client";
 
 export type MeResponse = {
   nickname: string;
+  email: string;
   weeklyGoalSessions: number;
   consecutiveDays: number;
 };
