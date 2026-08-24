@@ -43,6 +43,14 @@
         {
           "urlScheme": "com.younghoon.swayt"
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0F1210"
+        }
       ]
     ]
   }

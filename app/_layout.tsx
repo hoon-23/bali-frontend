@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
@@ -58,14 +59,15 @@ export default function RootLayout() {
   }, [bootstrapped, isAuthenticated, router]);
 
   if (!bootstrapped) {
-    return null; // 짧은 순간이라 별도 스플래시 UI 없이 빈 화면
+    // 흰 화면 대신 앱 기본 배경색으로 채워 스플래시→앱 전환 시 깜빡임을 방지
+    return <View style={{ flex: 1, backgroundColor: "#0B0B0F" }} />;
   }
 
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B0B0F" } }}>
           <Stack.Screen name="workout/[sessionId]" options={{ presentation: "modal" }} />
           <Stack.Screen name="workout/summary" options={{ presentation: "modal" }} />
           <Stack.Screen name="legal/privacy-policy" options={{ presentation: "modal" }} />
