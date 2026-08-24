@@ -5,6 +5,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { login as kakaoLogin } from "@react-native-seoul/kakao-login";
+import NaverLogin from "@react-native-seoul/naver-login";
 import { apiClient } from "../lib/api/client";
 import { useAuthStore } from "../store/authStore";
 import { setRefreshToken } from "../lib/auth/tokenStorage";
@@ -40,7 +42,7 @@ export default function LoginScreen() {
     });
   }, []);
 
-  const finishLogin = async (provider: "google" | "apple", token: string) => {
+  const finishLogin = async (provider: SocialProvider["id"], token: string) => {
     // 백엔드 AuthProvider enum(GOOGLE/APPLE/...)은 대문자 고정이라 맞춰서 보낸다.
     const { data } = await apiClient.post("/api/v1/auth/login", { provider: provider.toUpperCase(), token });
     setAccessToken(data.accessToken);
@@ -79,9 +81,47 @@ export default function LoginScreen() {
       if (!credential.identityToken) throw new Error("Apple 로그인에서 identityToken을 받지 못했습니다.");
       await finishLogin("apple", credential.identityToken);
     } catch (error: any) {
+      console.error("[apple-login]", error?.code, error?.message, error?.response?.status, error?.response?.data);
       if (error?.code !== "ERR_REQUEST_CANCELED") {
         appAlert("로그인 실패", "Apple 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
       }
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
+  const handleKakaoLogin = async () => {
+    setLoggingIn(true);
+    try {
+      const token = await kakaoLogin();
+      if (!token.idToken) throw new Error("Kakao 로그인에서 idToken을 받지 못했습니다. OIDC 설정을 확인해주세요.");
+      await finishLogin("kakao", token.idToken);
+    } catch (error: any) {
+      console.error("[kakao-login]", error?.code, error?.message, error?.response?.status, JSON.stringify(error?.response?.data));
+      if (error?.code !== "E_CANCELLED_OPERATION") {
+        appAlert("로그인 실패", "Kakao 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
+      }
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
+  const handleNaverLogin = async () => {
+    setLoggingIn(true);
+    try {
+      const response = await NaverLogin.login();
+      if (!response.isSuccess || !response.successResponse) {
+        console.error("[naver-login] failureResponse", JSON.stringify(response.failureResponse));
+        // 사용자가 직접 취소한 경우엔 실패 알림을 띄우지 않는다.
+        if (!response.failureResponse?.isCancel) {
+          appAlert("로그인 실패", "Naver 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
+        }
+        return;
+      }
+      await finishLogin("naver", response.successResponse.accessToken);
+    } catch (error: any) {
+      console.error("[naver-login]", error?.code, error?.message, error?.response?.status, error?.response?.data);
+      appAlert("로그인 실패", "Naver 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setLoggingIn(false);
     }
@@ -96,9 +136,11 @@ export default function LoginScreen() {
       handleAppleLogin();
       return;
     }
-    // kakao/naver는 기존 mock 동작 유지
-    AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, providerId);
-    router.push("/home");
+    if (providerId === "kakao") {
+      handleKakaoLogin();
+      return;
+    }
+    handleNaverLogin();
   };
 
   return (

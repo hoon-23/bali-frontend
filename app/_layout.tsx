@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import NaverLogin from "@react-native-seoul/naver-login";
 import { useAuthStore } from "../store/authStore";
 import { getRefreshToken } from "../lib/auth/tokenStorage";
 import { refreshAccessToken } from "../lib/api/client";
@@ -21,6 +22,12 @@ const queryClient = new QueryClient({
 });
 
 GoogleSignin.configure({ iosClientId: "803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn.apps.googleusercontent.com" });
+NaverLogin.initialize({
+  appName: "Swayt",
+  consumerKey: "yTFErRaCn2FXtqC_mrRE",
+  consumerSecret: "lwFm23x2Iz",
+  serviceUrlSchemeIOS: "com.younghoon.swayt",
+});
 
 export default function RootLayout() {
   const [bootstrapped, setBootstrapped] = useState(false);

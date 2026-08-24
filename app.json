@@ -28,7 +28,21 @@
       "expo-secure-store",
       [
         "@react-native-google-signin/google-signin",
-        { "iosUrlScheme": "com.googleusercontent.apps.803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn" }
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn"
+        }
+      ],
+      [
+        "@react-native-seoul/kakao-login",
+        {
+          "kakaoAppKey": "7bd6051805157395e2d371f795275e31"
+        }
+      ],
+      [
+        "@react-native-seoul/naver-login",
+        {
+          "urlScheme": "com.younghoon.swayt"
+        }
       ]
     ]
   }
