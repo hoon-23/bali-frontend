@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B0F",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.younghoon.swayt"
@@ -47,9 +48,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#0F1210"
+          "image": "./assets/splash-background.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#0B0B0F"
         }
       ]
     ]
