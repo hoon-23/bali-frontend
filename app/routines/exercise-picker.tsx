@@ -5,8 +5,9 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { ExerciseMuscleGroup, MUSCLE_GROUP_KOREAN, searchExercises } from "../../constants/exercises";
+import { ExerciseMuscleGroup, MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
+import { useExercises } from "../../hooks/api/useExercises";
 
 const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "CHEST",
@@ -22,13 +23,17 @@ const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
 export default function ExercisePickerScreen() {
   const router = useRouter();
   const addItem = useRoutineBuilderStore((state) => state.addItem);
+  const { data: exercises = [] } = useExercises();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
 
   const results = useMemo(() => {
-    const matched = searchExercises(query);
+    const trimmedQuery = query.trim().toLowerCase();
+    const matched = trimmedQuery
+      ? exercises.filter((exercise) => exercise.name.toLowerCase().includes(trimmedQuery))
+      : exercises;
     return filter ? matched.filter((exercise) => exercise.muscleGroup === filter) : matched;
-  }, [query, filter]);
+  }, [exercises, query, filter]);
 
   const handleSelect = (exerciseId: string) => {
     addItem(exerciseId);

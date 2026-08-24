@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -10,20 +10,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getExerciseById } from "../../constants/exercises";
+import { appAlert } from "../../lib/alert";
+import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiSessionDetail, useSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
 import { useTemplatesStore } from "../../store/templatesStore";
 import { useUpcomingWorkoutsStore } from "../../store/upcomingWorkoutsStore";
 import {
   ActualField,
   ExerciseLog,
+  SetTiming,
   useWorkoutSessionStore,
 } from "../../store/workoutSessionStore";
 
-// templateId 없이 운동이 시작되는 드문 경우를 위한 fallback
+// templatesId 없이 운동이 시작되는 드문 경우를 위한 fallback
 // (모든 "운동 시작" 진입점이 templateId를 넘기게 되면 발생하지 않아야 하지만,
 // 혹시라도 그런 경우 화면이 빈 채로 렌더링되는 걸 방지함).
 const FALLBACK_LOGS: ExerciseLog[] = [
   {
     id: "1",
+    exerciseId: "e1",
     name: "벤치프레스",
     targetSets: 4,
     targetReps: 10,
@@ -32,6 +37,7 @@ const FALLBACK_LOGS: ExerciseLog[] = [
     actualReps: "",
     actualWeight: "",
     completed: false,
+    setTimings: [],
   },
 ];
 
@@ -42,6 +48,7 @@ function buildLogsFromTemplate(templateId: string | undefined): ExerciseLog[] {
 
   return template.items.map((item) => ({
     id: item.id,
+    exerciseId: item.exerciseId,
     name: getExerciseById(item.exerciseId)?.name ?? "알 수 없는 운동",
     targetSets: item.targetSets ?? 0,
     targetReps: item.targetReps ?? 0,
@@ -50,6 +57,7 @@ function buildLogsFromTemplate(templateId: string | undefined): ExerciseLog[] {
     actualReps: "",
     actualWeight: "",
     completed: false,
+    setTimings: [],
   }));
 }
 
@@ -61,6 +69,7 @@ function buildLogsForSession(
   if (upcoming) {
     return upcoming.items.map((item) => ({
       id: item.id,
+      exerciseId: item.exerciseId,
       name: getExerciseById(item.exerciseId)?.name ?? "알 수 없는 운동",
       targetSets: item.targetSets ?? 0,
       targetReps: item.targetReps ?? 0,
@@ -69,9 +78,34 @@ function buildLogsForSession(
       actualReps: "",
       actualWeight: "",
       completed: false,
+      setTimings: [],
     }));
   }
   return buildLogsFromTemplate(templateId);
+}
+
+// 실제 백엔드 세션 응답을 화면 로컬 상태로 변환. logId를 그대로 써서
+// PATCH .../logs/{logId} 호출 시 서버 로그와 매칭시킨다.
+function buildLogsFromApiSession(
+  session: ApiSessionDetail,
+  exerciseMap: Map<string, ApiExercise>
+): ExerciseLog[] {
+  return session.logs
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((log) => ({
+      id: log.id,
+      exerciseId: log.exerciseId,
+      name: exerciseMap.get(log.exerciseId)?.name ?? "알 수 없는 운동",
+      targetSets: log.targetSets ?? 0,
+      targetReps: log.targetReps ?? 0,
+      targetWeight: log.targetWeight ?? 0,
+      actualSets: log.actualSets != null ? String(log.actualSets) : "",
+      actualReps: log.actualReps != null ? String(log.actualReps) : "",
+      actualWeight: log.actualWeight != null ? String(log.actualWeight) : "",
+      completed: log.completed,
+      setTimings: log.setTimings ?? [],
+    }));
 }
 
 export default function WorkoutSessionScreen() {
@@ -81,30 +115,70 @@ export default function WorkoutSessionScreen() {
   }>();
   const router = useRouter();
 
+  const { data: apiSession, isError: sessionFetchFailed } = useSession(sessionId);
+  const exerciseMap = useExerciseMap();
+  const patchSession = usePatchSession();
+  const patchSessionLog = usePatchSessionLog();
+
   const storedSessionId = useWorkoutSessionStore((state) => state.sessionId);
+  const isRealSession = useWorkoutSessionStore((state) => state.isRealSession);
   const logs = useWorkoutSessionStore((state) => state.logs);
   const expandedId = useWorkoutSessionStore((state) => state.expandedId);
   const startSession = useWorkoutSessionStore((state) => state.startSession);
   const setExpandedId = useWorkoutSessionStore((state) => state.setExpandedId);
   const updateField = useWorkoutSessionStore((state) => state.updateField);
+  const recordSetTiming = useWorkoutSessionStore((state) => state.recordSetTiming);
   const completeLog = useWorkoutSessionStore((state) => state.completeLog);
 
   useEffect(() => {
-    if (sessionId !== useWorkoutSessionStore.getState().sessionId) {
-      startSession(sessionId, buildLogsForSession(sessionId, templateId));
+    if (sessionId === useWorkoutSessionStore.getState().sessionId) return;
+    // 실제 세션 조회가 성공하면 그 데이터로, 실패(404 등)하면 기존 로컬 mock
+    // 조립 로직으로 폴백한다 — upcoming/[id].tsx 등 아직 mock ID로 진입하는
+    // 경로를 깨지 않기 위함.
+    if (apiSession) {
+      startSession(sessionId, buildLogsFromApiSession(apiSession, exerciseMap), true);
+      return;
     }
-    // URL 파라미터가 바뀔 때만(진짜로 다른 세션을 불러올 때만) 실행됨 — store가
-    // 업데이트될 때마다 실행되면 안 됨. 그렇지 않으면 요약 화면에서 세션을
-    // 종료해도(이 화면은 그 아래에 마운트된 채로 남아있음) 바로 다시 실행되면서
-    // 방금 지운 세션을 재생성해버림.
-  }, [sessionId, templateId, startSession]);
+    if (sessionFetchFailed) {
+      startSession(sessionId, buildLogsForSession(sessionId, templateId), false);
+    }
+    // apiSession/sessionFetchFailed 둘 다 아직이면(조회 중) 대기 — 다음 렌더에서 재평가됨.
+  }, [sessionId, templateId, apiSession, sessionFetchFailed, exerciseMap, startSession]);
 
   const handleClose = () => {
     router.back();
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    if (isRealSession) {
+      try {
+        await patchSession.mutateAsync({ sessionId, status: "COMPLETED" });
+      } catch {
+        appAlert("운동 종료 처리에 실패했어요. 다시 시도해주세요.");
+        return;
+      }
+    }
     router.push("/workout/summary");
+  };
+
+  const handleCompleteLog = async (log: ExerciseLog) => {
+    if (isRealSession) {
+      try {
+        await patchSessionLog.mutateAsync({
+          sessionId,
+          logId: log.id,
+          completed: true,
+          actualSets: log.actualSets ? Number(log.actualSets) : undefined,
+          actualReps: log.actualReps ? Number(log.actualReps) : undefined,
+          actualWeight: log.actualWeight ? Number(log.actualWeight) : undefined,
+          setTimings: log.setTimings,
+        });
+      } catch {
+        appAlert("기록 저장에 실패했어요. 다시 시도해주세요.");
+        return;
+      }
+    }
+    completeLog(log.id);
   };
 
   if (sessionId !== storedSessionId) {
@@ -129,9 +203,11 @@ export default function WorkoutSessionScreen() {
             key={log.id}
             log={log}
             expanded={expandedId === log.id}
+            showTimer={isRealSession}
             onToggleExpand={() => setExpandedId(log.id)}
             onChangeField={(field, value) => updateField(log.id, field, value)}
-            onComplete={() => completeLog(log.id)}
+            onRecordSetTiming={(timing) => recordSetTiming(log.id, timing)}
+            onComplete={() => handleCompleteLog(log)}
           />
         ))}
       </ScrollView>
@@ -146,16 +222,20 @@ export default function WorkoutSessionScreen() {
 type ExerciseCardProps = {
   log: ExerciseLog;
   expanded: boolean;
+  showTimer: boolean;
   onToggleExpand: () => void;
   onChangeField: (field: ActualField, value: string) => void;
+  onRecordSetTiming: (timing: SetTiming) => void;
   onComplete: () => void;
 };
 
 function ExerciseCard({
   log,
   expanded,
+  showTimer,
   onToggleExpand,
   onChangeField,
+  onRecordSetTiming,
   onComplete,
 }: ExerciseCardProps) {
   const status = log.completed ? "완료" : expanded ? "진행중" : "대기";
@@ -182,6 +262,13 @@ function ExerciseCard({
 
       {expanded && (
         <View style={styles.cardBody}>
+          {showTimer && !log.completed && (
+            <SetTimer
+              setTimings={log.setTimings}
+              targetSets={log.targetSets}
+              onRecordSetTiming={onRecordSetTiming}
+            />
+          )}
           <View style={styles.inputRow}>
             <ExerciseInput
               label="세트"
@@ -202,6 +289,94 @@ function ExerciseCard({
           <Pressable style={styles.completeButton} onPress={onComplete}>
             <Text style={styles.completeButtonText}>완료로 표시</Text>
           </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+type SetTimerProps = {
+  setTimings: SetTiming[];
+  targetSets: number;
+  onRecordSetTiming: (timing: SetTiming) => void;
+};
+
+// 세트별 스톱워치. pause 없음 — "세트 시작" → "세트 완료" 한 번씩만 눌러
+// 세트 하나의 시작/종료 시각을 기록한다(휴식시간은 추적하지 않음).
+// 목표 세트 수를 넘겨도 계속 기록할 수 있게 두되(추가 세트를 실제로 더 하는 경우 대비),
+// 목표 초과 여부만 라벨로 구분해서 보여준다.
+function SetTimer({ setTimings, targetSets, onRecordSetTiming }: SetTimerProps) {
+  const [running, setRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startedAtRef = useRef<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const currentSetIndex = setTimings.length;
+  const isOverTarget = targetSets > 0 && currentSetIndex + 1 > targetSets;
+
+  const handleStart = () => {
+    const now = new Date();
+    startedAtRef.current = now.toISOString();
+    setElapsedSeconds(0);
+    setRunning(true);
+    intervalRef.current = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+  };
+
+  const handleStop = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setRunning(false);
+    if (startedAtRef.current) {
+      onRecordSetTiming({
+        setIndex: currentSetIndex,
+        startedAt: startedAtRef.current,
+        endedAt: new Date().toISOString(),
+      });
+    }
+    startedAtRef.current = null;
+    setElapsedSeconds(0);
+  };
+
+  const formatSeconds = (total: number) => {
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  return (
+    <View style={styles.timerWrap}>
+      <View style={styles.timerRow}>
+        <Text style={[styles.timerLabel, isOverTarget && styles.timerLabelOverTarget]}>
+          세트 {currentSetIndex + 1}
+          {isOverTarget ? " (목표 초과)" : ""}
+        </Text>
+        <Text style={styles.timerClock}>{formatSeconds(elapsedSeconds)}</Text>
+        <Pressable
+          style={[styles.timerButton, running && styles.timerButtonActive]}
+          onPress={running ? handleStop : handleStart}
+        >
+          <Text style={styles.timerButtonText}>{running ? "세트 완료" : "세트 시작"}</Text>
+        </Pressable>
+      </View>
+      {setTimings.length > 0 && (
+        <View style={styles.timerHistory}>
+          {setTimings.map((timing) => {
+            const seconds = Math.round(
+              (new Date(timing.endedAt).getTime() - new Date(timing.startedAt).getTime()) / 1000
+            );
+            return (
+              <Text key={timing.setIndex} style={styles.timerHistoryText}>
+                세트 {timing.setIndex + 1}: {formatSeconds(Math.max(0, seconds))}
+              </Text>
+            );
+          })}
         </View>
       )}
     </View>
@@ -293,6 +468,55 @@ const styles = StyleSheet.create({
   cardBody: {
     marginTop: 16,
     gap: 16,
+  },
+  timerWrap: {
+    backgroundColor: "#0B0B0F",
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  timerLabel: {
+    color: "#A0A0A0",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  timerLabelOverTarget: {
+    color: "#F87171",
+  },
+  timerClock: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  timerButton: {
+    backgroundColor: "#2DD4BF",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  timerButtonActive: {
+    backgroundColor: "#F87171",
+  },
+  timerButtonText: {
+    color: "#0B0B0F",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  timerHistory: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  timerHistoryText: {
+    color: "#6B6B6B",
+    fontSize: 12,
   },
   inputRow: {
     flexDirection: "row",

@@ -1,30 +1,51 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { getExerciseById } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { CATEGORY_LABELS, useTemplatesStore } from "../../store/templatesStore";
+import { appAlert } from "../../lib/alert";
+import { CATEGORY_LABELS } from "../../store/templatesStore";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
+import { useExerciseMap } from "../../hooks/api/useExercises";
+import { useTemplate } from "../../hooks/api/useTemplates";
+import { useCreateSession, usePatchSession } from "../../hooks/api/useSessions";
+import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 
 export default function RoutineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const template = useTemplatesStore((state) => state.getTemplate(id));
+  const { data: template } = useTemplate(id);
+  const exerciseMap = useExerciseMap();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
+  const createSession = useCreateSession();
+  const patchSession = usePatchSession();
+  const [starting, setStarting] = useState(false);
 
   if (!template) {
     return null;
   }
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (activeSessionId) {
       router.push(`/workout/${activeSessionId}`);
       return;
     }
-    router.push({ pathname: `/workout/${Date.now()}`, params: { templateId: template.id } });
+    setStarting(true);
+    try {
+      const session = await createSession.mutateAsync({
+        date: getTodayISODate(),
+        templateId: template.id,
+      });
+      await patchSession.mutateAsync({ sessionId: session.id, status: "IN_PROGRESS" });
+      router.push(`/workout/${session.id}`);
+    } catch {
+      appAlert("운동을 시작하지 못했어요. 다시 시도해주세요.");
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
@@ -54,7 +75,7 @@ export default function RoutineDetailScreen() {
           <Text style={styles.sectionTitle}>운동 목록</Text>
           <View style={styles.list}>
             {template.items.map((item) => {
-              const exercise = getExerciseById(item.exerciseId);
+              const exercise = exerciseMap.get(item.exerciseId);
               return (
                 <View key={item.id} style={styles.itemCard}>
                   <Text style={styles.itemName}>{exercise?.name ?? "알 수 없는 운동"}</Text>
@@ -69,8 +90,10 @@ export default function RoutineDetailScreen() {
           </View>
         </ScrollView>
 
-        <Pressable style={styles.startButton} onPress={handleStart}>
-          <Text style={styles.startButtonText}>이 루틴으로 시작하기</Text>
+        <Pressable style={styles.startButton} onPress={handleStart} disabled={starting}>
+          <Text style={styles.startButtonText}>
+            {starting ? "시작하는 중..." : "이 루틴으로 시작하기"}
+          </Text>
         </Pressable>
       </SafeAreaView>
     </ScreenBackground>

@@ -4,14 +4,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { getExerciseById, MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
+import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { CATEGORY_LABELS, useTemplatesStore, WorkoutTemplate } from "../../store/templatesStore";
+import { CATEGORY_LABELS } from "../../store/templatesStore";
+import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiTemplate, useTemplates } from "../../hooks/api/useTemplates";
 
-function getMuscleGroupChips(template: WorkoutTemplate): string[] {
+function getMuscleGroupChips(template: ApiTemplate, exerciseMap: Map<string, ApiExercise>): string[] {
   const groups = new Set<string>();
   template.items.forEach((item) => {
-    const exercise = getExerciseById(item.exerciseId);
+    const exercise = exerciseMap.get(item.exerciseId);
     if (exercise) groups.add(MUSCLE_GROUP_KOREAN[exercise.muscleGroup]);
   });
   return Array.from(groups);
@@ -19,7 +21,8 @@ function getMuscleGroupChips(template: WorkoutTemplate): string[] {
 
 export default function RoutinesScreen() {
   const router = useRouter();
-  const templates = useTemplatesStore((state) => state.templates);
+  const { data: templates = [] } = useTemplates();
+  const exerciseMap = useExerciseMap();
 
   return (
     <ScreenBackground>
@@ -43,7 +46,7 @@ export default function RoutinesScreen() {
           showsVerticalScrollIndicator={false}
         >
           {templates.map((template) => {
-            const chips = getMuscleGroupChips(template);
+            const chips = getMuscleGroupChips(template, exerciseMap);
             return (
               <Pressable
                 key={template.id}

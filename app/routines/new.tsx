@@ -6,10 +6,11 @@ import { appAlert } from "../../lib/alert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { getExerciseById } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { CATEGORY_LABELS, TemplateCategory, useTemplatesStore } from "../../store/templatesStore";
+import { CATEGORY_LABELS, TemplateCategory } from "../../store/templatesStore";
 import { DraftItem, useRoutineBuilderStore } from "../../store/routineBuilderStore";
+import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { useCreateTemplate } from "../../hooks/api/useTemplates";
 
 const CATEGORIES: TemplateCategory[] = ["PUSH", "PULL", "LEGS", "STRENGTH"];
 
@@ -23,7 +24,8 @@ export default function NewRoutineScreen() {
   const removeItem = useRoutineBuilderStore((state) => state.removeItem);
   const updateItemField = useRoutineBuilderStore((state) => state.updateItemField);
   const reset = useRoutineBuilderStore((state) => state.reset);
-  const addTemplate = useTemplatesStore((state) => state.addTemplate);
+  const exerciseMap = useExerciseMap();
+  const createTemplate = useCreateTemplate();
 
   useEffect(() => {
     reset();
@@ -42,19 +44,23 @@ export default function NewRoutineScreen() {
       appAlert("운동을 1개 이상 추가해주세요");
       return;
     }
-    addTemplate({
-      name: name.trim(),
-      category,
-      items: items.map((item, index) => ({
-        id: item.id,
-        exerciseId: item.exerciseId,
-        sortOrder: index,
-        targetSets: Number(item.targetSets) || 0,
-        targetReps: Number(item.targetReps) || 0,
-        targetWeight: Number(item.targetWeight) || 0,
-      })),
-    });
-    router.back();
+    createTemplate.mutate(
+      {
+        name: name.trim(),
+        category,
+        items: items.map((item, index) => ({
+          exerciseId: item.exerciseId,
+          sortOrder: index,
+          targetSets: Number(item.targetSets) || 0,
+          targetReps: Number(item.targetReps) || 0,
+          targetWeight: Number(item.targetWeight) || 0,
+        })),
+      },
+      {
+        onSuccess: () => router.back(),
+        onError: () => appAlert("루틴 저장에 실패했어요. 다시 시도해주세요."),
+      }
+    );
   };
 
   return (
@@ -127,6 +133,7 @@ export default function NewRoutineScreen() {
                 <RoutineItemRow
                   key={item.id}
                   item={item}
+                  exercise={exerciseMap.get(item.exerciseId)}
                   onRemove={() => removeItem(item.id)}
                   onChangeField={(field, value) => updateItemField(item.id, field, value)}
                 />
@@ -144,13 +151,12 @@ export default function NewRoutineScreen() {
 
 type RoutineItemRowProps = {
   item: DraftItem;
+  exercise: ApiExercise | undefined;
   onRemove: () => void;
   onChangeField: (field: "targetSets" | "targetReps" | "targetWeight", value: string) => void;
 };
 
-function RoutineItemRow({ item, onRemove, onChangeField }: RoutineItemRowProps) {
-  const exercise = getExerciseById(item.exerciseId);
-
+function RoutineItemRow({ item, exercise, onRemove, onChangeField }: RoutineItemRowProps) {
   return (
     <View style={styles.itemCard}>
       <View style={styles.itemHeader}>
