@@ -6,35 +6,50 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
+import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
+import { useMe } from "../../hooks/api/useMe";
+import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
+import { DailyAnalysisEntry, useDailyAnalysis, useWeeklyByDate } from "../../hooks/api/useAnalysis";
 
 type ReportView = "weekly" | "monthly";
 
-const STREAK_DAYS = 12;
-const WORKOUT_MINUTES = 392; // 6h 32m
-const WORKOUT_TARGET_MINUTES = 480; // 8h
-
-const WEEKDAY_LABELS_SUN_FIRST = ["일", "월", "화", "수", "목", "금", "토"];
-const DAILY_TARGET_MINUTES = 60;
-const WEEK_ACTIVITY_MINUTES = [30, 45, 70, 40, 55, 65, 35]; // Sun..Sat
-const HIGHLIGHTED_DAY_INDEX = 2; // Tue, matches the PPT's "today" marker
-const ACTIVE_PILL_INDICES = [1, 4, 5]; // Mon, Thu, Fri
-
-const MUSCLE_FOCUS = [
-  { label: "CHEST", percent: 62, sets: 42 },
-  { label: "BACK", percent: 71, sets: 48 },
-  { label: "LEGS", percent: 82, sets: 55 },
-];
-
 const WEEKDAY_LABELS_MON_FIRST = ["월", "화", "수", "목", "금", "토", "일"];
+const DAILY_TARGET_MINUTES = 60;
+const WEEKLY_TARGET_MINUTES = 480; // 8h — 백엔드에 사용자 목표 개념이 없어 고정 표시값
 
-function getMockCountForDay(day: number): number {
-  return (day * 3 + 1) % 4;
+function toISODate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysISODate(baseISODate: string, deltaDays: number): string {
+  const date = new Date(`${baseISODate}T00:00:00`);
+  date.setDate(date.getDate() + deltaDays);
+  return toISODate(date);
+}
+
+// weekOffset(0=이번 주, -1=지난 주 ...) 기준 그 주 월요일 날짜.
+function getMondayISODate(offset: number): string {
+  const now = new Date();
+  const mondayOfThisWeek = (now.getDay() + 6) % 7; // 0 = 월요일
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - mondayOfThisWeek + offset * 7);
+  return toISODate(monday);
+}
+
+function getWeekRangeLabel(weekOf: string): string {
+  const monday = new Date(`${weekOf}T00:00:00`);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return `${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${sunday.getMonth() + 1}월 ${sunday.getDate()}일`;
 }
 
 function getHeatColor(count: number): string {
   if (count <= 0) return "rgba(45, 212, 191, 0.08)";
-  if (count === 1) return "rgba(45, 212, 191, 0.3)";
-  if (count === 2) return "rgba(45, 212, 191, 0.55)";
+  if (count <= 2) return "rgba(45, 212, 191, 0.3)";
+  if (count <= 5) return "rgba(45, 212, 191, 0.55)";
   return "#2DD4BF";
 }
 
@@ -55,14 +70,14 @@ function getMonthGrid(year: number, month: number): (number | null)[][] {
   return weeks;
 }
 
-function getWeekRangeLabel(offset: number): string {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7; // 0 = Monday
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - day + offset * 7);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return `${monday.getMonth() + 1}월 ${monday.getDate()}일 - ${sunday.getMonth() + 1}월 ${sunday.getDate()}일`;
+function formatHours(totalMinutes: number): string {
+  return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+}
+
+function dailyMapByDate(daily: DailyAnalysisEntry[] | undefined): Map<string, DailyAnalysisEntry> {
+  const map = new Map<string, DailyAnalysisEntry>();
+  daily?.forEach((entry) => map.set(entry.date, entry));
+  return map;
 }
 
 export default function StatsScreen() {
@@ -77,7 +92,15 @@ export default function StatsScreen() {
     }
   }, [params.view]);
 
-  const weekRangeLabel = useMemo(() => getWeekRangeLabel(weekOffset), [weekOffset]);
+  const { data: me } = useMe();
+
+  const weekOf = useMemo(() => getMondayISODate(weekOffset), [weekOffset]);
+  const weekSunday = useMemo(() => addDaysISODate(weekOf, 6), [weekOf]);
+  const weekRangeLabel = useMemo(() => getWeekRangeLabel(weekOf), [weekOf]);
+
+  const weeklyCurrent = useWeeklyCurrent();
+  const weeklyPast = useWeeklyByDate(weekOffset < 0 ? weekOf : null);
+  const dailyThisWeek = useDailyAnalysis(weekOf, weekSunday, view === "weekly");
 
   const monthDisplayDate = useMemo(() => {
     const now = new Date();
@@ -89,7 +112,47 @@ export default function StatsScreen() {
     [monthDisplayDate],
   );
 
-  const maxBarValue = Math.max(...WEEK_ACTIVITY_MINUTES, DAILY_TARGET_MINUTES);
+  const monthStart = useMemo(() => toISODate(new Date(monthDisplayDate.getFullYear(), monthDisplayDate.getMonth(), 1)), [monthDisplayDate]);
+  const monthEnd = useMemo(() => toISODate(new Date(monthDisplayDate.getFullYear(), monthDisplayDate.getMonth() + 1, 0)), [monthDisplayDate]);
+  const dailyThisMonth = useDailyAnalysis(monthStart, monthEnd, view === "monthly");
+
+  // 이번 주(offset 0)는 /weekly/current(집계 진행 중, 근육군별 볼륨 없음), 과거 주는 /weekly/{weekOf}
+  const totalWorkoutMinutes =
+    weekOffset === 0 ? weeklyCurrent.data?.totalWorkoutMinutes : weeklyPast.data?.summary?.totalWorkoutMinutes;
+  const volumeByMuscleGroup = weekOffset < 0 ? weeklyPast.data?.summary?.volumeByMuscleGroup : undefined;
+  const pastWeekUnavailable = weekOffset < 0 && weeklyPast.data !== undefined && weeklyPast.data?.summary == null;
+
+  const topMuscleGroups = useMemo(() => {
+    if (!volumeByMuscleGroup) return [];
+    const entries = Object.entries(volumeByMuscleGroup).filter(([, volume]) => (volume ?? 0) > 0) as [
+      string,
+      number,
+    ][];
+    const total = entries.reduce((sum, [, volume]) => sum + volume, 0);
+    if (total <= 0) return [];
+    return entries
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([group, volume]) => ({
+        label: MUSCLE_GROUP_KOREAN[group as keyof typeof MUSCLE_GROUP_KOREAN] ?? group,
+        percent: Math.round((volume / total) * 100),
+        volume: Math.round(volume),
+      }));
+  }, [volumeByMuscleGroup]);
+
+  const weekDailyByDate = useMemo(() => dailyMapByDate(dailyThisWeek.data), [dailyThisWeek.data]);
+  const weekBarMinutes = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => weekDailyByDate.get(addDaysISODate(weekOf, i))?.totalMinutes ?? 0),
+    [weekDailyByDate, weekOf],
+  );
+  const todayIndex = weekOffset === 0 ? (new Date().getDay() + 6) % 7 : -1;
+  const maxBarValue = Math.max(...weekBarMinutes, DAILY_TARGET_MINUTES);
+
+  const monthDailyByDate = useMemo(() => dailyMapByDate(dailyThisMonth.data), [dailyThisMonth.data]);
+  const monthTotalMinutes = useMemo(
+    () => dailyThisMonth.data?.reduce((sum, entry) => sum + entry.totalMinutes, 0) ?? 0,
+    [dailyThisMonth.data],
+  );
 
   return (
     <ScreenBackground>
@@ -116,14 +179,22 @@ export default function StatsScreen() {
                   <Ionicons name="chevron-back" size={18} color="#2DD4BF" />
                 </Pressable>
                 <Text style={styles.dateRangeText}>{weekRangeLabel}</Text>
-                <Pressable onPress={() => setWeekOffset((offset) => offset + 1)} hitSlop={8}>
-                  <Ionicons name="chevron-forward" size={18} color="#2DD4BF" />
+                <Pressable
+                  onPress={() => setWeekOffset((offset) => Math.min(0, offset + 1))}
+                  hitSlop={8}
+                  disabled={weekOffset >= 0}
+                >
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={weekOffset >= 0 ? "#3A3A42" : "#2DD4BF"}
+                  />
                 </Pressable>
               </View>
 
               <View style={styles.dayPillRow}>
-                {WEEKDAY_LABELS_SUN_FIRST.map((label, index) => {
-                  const active = ACTIVE_PILL_INDICES.includes(index);
+                {WEEKDAY_LABELS_MON_FIRST.map((label, index) => {
+                  const active = weekBarMinutes[index] > 0;
                   return (
                     <View key={label} style={[styles.dayPill, active && styles.dayPillActive]}>
                       <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>
@@ -147,21 +218,19 @@ export default function StatsScreen() {
                 </View>
 
                 <View style={styles.barChart}>
-                  {WEEK_ACTIVITY_MINUTES.map((value, index) => (
+                  {weekBarMinutes.map((value, index) => (
                     <View key={index} style={styles.barColumn}>
                       <View
                         style={[
                           styles.bar,
                           {
-                            height: 90 * (value / maxBarValue),
+                            height: Math.max(2, 90 * (value / maxBarValue)),
                             backgroundColor:
-                              index === HIGHLIGHTED_DAY_INDEX
-                                ? "#2DD4BF"
-                                : "rgba(45, 212, 191, 0.35)",
+                              index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
                           },
                         ]}
                       />
-                      <Text style={styles.barLabel}>{WEEKDAY_LABELS_SUN_FIRST[index]}</Text>
+                      <Text style={styles.barLabel}>{WEEKDAY_LABELS_MON_FIRST[index]}</Text>
                     </View>
                   ))}
                 </View>
@@ -171,14 +240,16 @@ export default function StatsScreen() {
                 <View style={styles.totalTimeRow}>
                   <Text style={styles.cardTitle}>총 운동시간</Text>
                   <Text style={styles.totalTimeValue}>
-                    {Math.floor(WORKOUT_MINUTES / 60)}h {WORKOUT_MINUTES % 60}m
+                    {totalWorkoutMinutes != null ? formatHours(totalWorkoutMinutes) : "—"}
                   </Text>
                 </View>
                 <View style={styles.progressTrack}>
                   <View
                     style={[
                       styles.progressFill,
-                      { width: `${Math.min(100, (WORKOUT_MINUTES / WORKOUT_TARGET_MINUTES) * 100)}%` },
+                      {
+                        width: `${Math.min(100, ((totalWorkoutMinutes ?? 0) / WEEKLY_TARGET_MINUTES) * 100)}%`,
+                      },
                     ]}
                   />
                 </View>
@@ -187,19 +258,27 @@ export default function StatsScreen() {
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
                 <View style={styles.card}>
-                  {MUSCLE_FOCUS.map((item, index) => (
-                    <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
-                      <View style={styles.muscleRow}>
-                        <Text style={styles.muscleLabel}>{item.label}</Text>
-                        <Text style={styles.muscleValue}>
-                          {item.percent}% · {item.sets}세트
-                        </Text>
+                  {weekOffset === 0 ? (
+                    <Text style={styles.emptyStateText}>이번 주 데이터는 아직 집계 중이에요.</Text>
+                  ) : pastWeekUnavailable ? (
+                    <Text style={styles.emptyStateText}>이 주는 운동 기록이 없어요.</Text>
+                  ) : topMuscleGroups.length === 0 ? (
+                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
+                  ) : (
+                    topMuscleGroups.map((item, index) => (
+                      <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
+                        <View style={styles.muscleRow}>
+                          <Text style={styles.muscleLabel}>{item.label}</Text>
+                          <Text style={styles.muscleValue}>
+                            {item.percent}% · {item.volume}kg
+                          </Text>
+                        </View>
+                        <View style={styles.progressTrack}>
+                          <View style={[styles.progressFill, { width: `${item.percent}%` }]} />
+                        </View>
                       </View>
-                      <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: `${item.percent}%` }]} />
-                      </View>
-                    </View>
-                  ))}
+                    ))
+                  )}
                 </View>
               </View>
             </>
@@ -208,13 +287,11 @@ export default function StatsScreen() {
               <View style={styles.summaryRow}>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>연속일</Text>
-                  <Text style={styles.summaryValue}>{STREAK_DAYS}일</Text>
+                  <Text style={styles.summaryValue}>{me ? `${me.consecutiveDays}일` : "—"}</Text>
                 </View>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>총 운동시간</Text>
-                  <Text style={styles.summaryValue}>
-                    {Math.floor(WORKOUT_MINUTES / 60)}h {WORKOUT_MINUTES % 60}m
-                  </Text>
+                  <Text style={styles.summaryValue}>{formatHours(monthTotalMinutes)}</Text>
                 </View>
               </View>
 
@@ -227,8 +304,16 @@ export default function StatsScreen() {
                     <Pressable onPress={() => setMonthOffset((offset) => offset - 1)} hitSlop={8}>
                       <Ionicons name="chevron-back" size={18} color="#A0A0A0" />
                     </Pressable>
-                    <Pressable onPress={() => setMonthOffset((offset) => offset + 1)} hitSlop={8}>
-                      <Ionicons name="chevron-forward" size={18} color="#A0A0A0" />
+                    <Pressable
+                      onPress={() => setMonthOffset((offset) => Math.min(0, offset + 1))}
+                      hitSlop={8}
+                      disabled={monthOffset >= 0}
+                    >
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={monthOffset >= 0 ? "#3A3A42" : "#A0A0A0"}
+                      />
                     </Pressable>
                   </View>
                 </View>
@@ -243,22 +328,31 @@ export default function StatsScreen() {
 
                 {monthWeeks.map((week, weekIndex) => (
                   <View key={weekIndex} style={styles.weekRow}>
-                    {week.map((day, dayIndex) => (
-                      <View
-                        key={dayIndex}
-                        style={[
-                          styles.dayCell,
-                          day !== null && { backgroundColor: getHeatColor(getMockCountForDay(day)) },
-                        ]}
-                      />
-                    ))}
+                    {week.map((day, dayIndex) => {
+                      const dateStr =
+                        day !== null
+                          ? toISODate(new Date(monthDisplayDate.getFullYear(), monthDisplayDate.getMonth(), day))
+                          : null;
+                      const count = dateStr ? monthDailyByDate.get(dateStr)?.completedSets ?? 0 : 0;
+                      return (
+                        <View
+                          key={dayIndex}
+                          style={[styles.dayCell, day !== null && { backgroundColor: getHeatColor(count) }]}
+                        />
+                      );
+                    })}
                   </View>
                 ))}
 
                 <View style={styles.legendRow}>
-                  {["0회", "1회", "2회", "3회+"].map((label, index) => (
+                  {["0세트", "1-2세트", "3-5세트", "6세트+"].map((label, index) => (
                     <View key={label} style={styles.legendItem}>
-                      <View style={[styles.legendSwatch, { backgroundColor: getHeatColor(index) }]} />
+                      <View
+                        style={[
+                          styles.legendSwatch,
+                          { backgroundColor: getHeatColor(index === 0 ? 0 : index === 1 ? 1 : index === 2 ? 3 : 6) },
+                        ]}
+                      />
                       <Text style={styles.legendText}>{label}</Text>
                     </View>
                   ))}
@@ -422,6 +516,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  emptyStateText: {
+    color: "#6B6B6B",
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 8,
   },
   muscleRowSpacing: {
     marginTop: 16,
