@@ -78,3 +78,47 @@ export function useWeeklyByDate(weekOf: string | null) {
     },
   });
 }
+
+// 월간 분석 응답 — weekOf 대신 monthOf(그 달 1일, YYYY-MM-01)만 다르고 나머지 구조는 WeeklyAnalysisResponse와 동일.
+export type MonthlyAnalysisResponse = {
+  monthOf: string;
+  status: "SUCCESS" | "FAILED" | "NO_ACTIVITY";
+  summary: AnalysisSummaryResponse | null;
+  insights: string[];
+};
+
+// /monthly/current(진행 중인 이번 달)는 weekly/current와 동일하게 즉석 계산된 flat 응답이라
+// volumeByMuscleGroup 등 summary 세부값 없이 합계만 내려준다 (실측 확인, 문서와 다름).
+export type MonthlyCurrentResponse = {
+  monthOf: string;
+  totalWorkoutMinutes: number;
+  strengthMinutes: number;
+  cardioMinutes: number;
+  completedSessionsCount: number;
+};
+
+export function useMonthlyCurrent() {
+  return useQuery({
+    queryKey: ["monthlyCurrent"],
+    queryFn: async () =>
+      (await apiClient.get<MonthlyCurrentResponse>("/api/v1/analysis/monthly/current")).data,
+  });
+}
+
+// 이미 배치가 처리한 과거 달 하나를 monthOf(그 달 1일, YYYY-MM-01)로 조회.
+// 아직 처리되지 않은 미래/너무 이른 달은 404 — 그 경우 null로 취급(화면에서 빈 상태 표시).
+export function useMonthlyByDate(monthOf: string | null) {
+  return useQuery({
+    queryKey: ["monthlyAnalysis", monthOf],
+    enabled: !!monthOf,
+    queryFn: async () => {
+      try {
+        const { data } = await apiClient.get<MonthlyAnalysisResponse>(`/api/v1/analysis/monthly/${monthOf}`);
+        return data;
+      } catch (error: any) {
+        if (error?.response?.status === 404) return null;
+        throw error;
+      }
+    },
+  });
+}
