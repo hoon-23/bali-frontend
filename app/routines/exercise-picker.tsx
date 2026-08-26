@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { ExerciseMuscleGroup, MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
+import { appAlert } from "../../lib/alert";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { formatExerciseName, useExercises } from "../../hooks/api/useExercises";
+import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
 
 const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "CHEST",
@@ -21,8 +23,11 @@ const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
 ];
 
 export default function ExercisePickerScreen() {
+  const { templateId } = useLocalSearchParams<{ templateId?: string }>();
   const router = useRouter();
   const addItem = useRoutineBuilderStore((state) => state.addItem);
+  const { data: template } = useTemplate(templateId);
+  const updateTemplate = useUpdateTemplate();
   const { data: exercises = [] } = useExercises();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
@@ -37,7 +42,28 @@ export default function ExercisePickerScreen() {
     return filter ? matched.filter((exercise) => exercise.muscleGroup === filter) : matched;
   }, [exercises, query, filter]);
 
-  const handleSelect = (exerciseId: string) => {
+  const handleSelect = async (exerciseId: string) => {
+    // templateId가 있으면 "루틴 상세"에서 기존 루틴에 운동을 추가하는 경로 —
+    // 빌더 스토어를 안 거치고 템플릿을 바로 PUT으로 갱신한다.
+    if (templateId && template) {
+      try {
+        await updateTemplate.mutateAsync({
+          id: template.id,
+          payload: {
+            name: template.name,
+            category: template.category,
+            items: [
+              ...toItemsPayload(template.items),
+              { exerciseId, sortOrder: template.items.length, targetSets: 3, targetReps: 10, targetWeight: 20 },
+            ],
+          },
+        });
+        router.back();
+      } catch {
+        appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
+      }
+      return;
+    }
     addItem(exerciseId);
     router.back();
   };
@@ -47,10 +73,10 @@ export default function ExercisePickerScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="close" size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>운동 추가하기</Text>
-          <View style={styles.backButton} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.searchWrap}>
@@ -135,6 +161,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.14)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerSpacer: {
+    width: 36,
+    height: 36,
   },
   headerTitle: {
     color: "#FFFFFF",

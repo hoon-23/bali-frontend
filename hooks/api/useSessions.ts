@@ -1,15 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
-import { getTodayISODate } from "./useUpcomingSessions";
-
-function addDaysISODate(baseISODate: string, deltaDays: number): string {
-  const date = new Date(`${baseISODate}T00:00:00`);
-  date.setDate(date.getDate() + deltaDays);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export type SetTiming = {
   setIndex: number;
@@ -55,9 +45,28 @@ export function useSession(id: string | undefined) {
 }
 
 export function useCreateSession() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { date: string; templateId?: string | null }) =>
       (await apiClient.post<ApiSessionDetail>("/api/v1/sessions", payload)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upcomingSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["sessionHistory"] });
+    },
+  });
+}
+
+// 세션 삭제 — 예정된(SCHEDULED) 운동 예약 취소용
+export function useDeleteSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      await apiClient.delete(`/api/v1/sessions/${sessionId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upcomingSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["sessionHistory"] });
+    },
   });
 }
 
@@ -92,21 +101,28 @@ export function usePatchSession() {
   });
 }
 
-// "기록" 탭의 지난 기록 목록용 — 오늘까지의 세션을 최신순으로 반환.
+export type SessionHistoryPage = {
+  content: ApiSessionDetail[];
+  hasNext: boolean;
+  nextCursor: string | null;
+};
+
+const SESSION_HISTORY_PAGE_SIZE = 20;
+
+// "기록" 탭의 지난 기록 목록용 — 커서 기반 무한스크롤(date DESC, 동일 date는 id DESC).
 // 오늘 시작했지만 아직 SCHEDULED인 세션은 templates.tsx에서 상태로 걸러내서
 // "예정된 운동" 쪽과 겹치지 않게 한다(오늘 이미 완료/진행한 세션은 여기 나와야 함).
 export function useSessionHistory() {
-  const to = getTodayISODate();
-  const from = addDaysISODate(to, -90);
-
-  return useQuery({
-    queryKey: ["sessionHistory", from, to],
-    queryFn: async () => {
-      const { data } = await apiClient.get<ApiSessionDetail[]>("/api/v1/sessions", {
-        params: { from, to },
+  return useInfiniteQuery({
+    queryKey: ["sessionHistory"],
+    queryFn: async ({ pageParam }) => {
+      const { data } = await apiClient.get<SessionHistoryPage>("/api/v1/sessions", {
+        params: { size: SESSION_HISTORY_PAGE_SIZE, cursor: pageParam },
       });
-      return data.slice().sort((a, b) => b.date.localeCompare(a.date));
+      return data;
     },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasNext ? lastPage.nextCursor ?? undefined : undefined),
   });
 }
 

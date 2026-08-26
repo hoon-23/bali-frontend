@@ -4,25 +4,31 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
-import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
+import {
+  IN_PROGRESS_BANNER_RESERVED_HEIGHT,
+  SCREEN_HORIZONTAL_MARGIN,
+  TAB_BAR_BOTTOM_MARGIN,
+  TAB_BAR_HEIGHT,
+} from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
+import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
+import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
 import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
-import { DailyAnalysisEntry, useDailyAnalysis, useWeeklyByDate } from "../../hooks/api/useAnalysis";
+import {
+  AnalysisSummaryResponse,
+  DailyAnalysisEntry,
+  useDailyAnalysis,
+  useMonthlyByDate,
+  useMonthlyCurrent,
+  useWeeklyByDate,
+} from "../../hooks/api/useAnalysis";
 
 type ReportView = "weekly" | "monthly";
 
-const WEEKDAY_LABELS_MON_FIRST = ["월", "화", "수", "목", "금", "토", "일"];
 const DAILY_TARGET_MINUTES = 60;
 const WEEKLY_TARGET_MINUTES = 480; // 8h — 백엔드에 사용자 목표 개념이 없어 고정 표시값
-
-function toISODate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function addDaysISODate(baseISODate: string, deltaDays: number): string {
   const date = new Date(`${baseISODate}T00:00:00`);
@@ -53,23 +59,6 @@ function getHeatColor(count: number): string {
   return "#2DD4BF";
 }
 
-function getMonthGrid(year: number, month: number): (number | null)[][] {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // 0 = Monday
-
-  const cells: (number | null)[] = [
-    ...Array(firstWeekday).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const weeks: (number | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) {
-    weeks.push(cells.slice(i, i + 7));
-  }
-  return weeks;
-}
-
 function formatHours(totalMinutes: number): string {
   return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
 }
@@ -80,11 +69,34 @@ function dailyMapByDate(daily: DailyAnalysisEntry[] | undefined): Map<string, Da
   return map;
 }
 
+type TopMuscleGroup = { label: string; percent: number; volume: number };
+
+function computeTopMuscleGroups(
+  volumeByMuscleGroup: AnalysisSummaryResponse["volumeByMuscleGroup"] | undefined
+): TopMuscleGroup[] {
+  if (!volumeByMuscleGroup) return [];
+  const entries = Object.entries(volumeByMuscleGroup).filter(([, volume]) => (volume ?? 0) > 0) as [
+    string,
+    number,
+  ][];
+  const total = entries.reduce((sum, [, volume]) => sum + volume, 0);
+  if (total <= 0) return [];
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([group, volume]) => ({
+      label: MUSCLE_GROUP_KOREAN[group as keyof typeof MUSCLE_GROUP_KOREAN] ?? group,
+      percent: Math.round((volume / total) * 100),
+      volume: Math.round(volume),
+    }));
+}
+
 export default function StatsScreen() {
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<ReportView>(params.view === "monthly" ? "monthly" : "weekly");
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
+  const inProgressSessionId = useInProgressSessionId();
 
   useEffect(() => {
     if (params.view === "monthly") {
@@ -116,29 +128,25 @@ export default function StatsScreen() {
   const monthEnd = useMemo(() => toISODate(new Date(monthDisplayDate.getFullYear(), monthDisplayDate.getMonth() + 1, 0)), [monthDisplayDate]);
   const dailyThisMonth = useDailyAnalysis(monthStart, monthEnd, view === "monthly");
 
+  const monthlyCurrent = useMonthlyCurrent();
+  const monthlyPast = useMonthlyByDate(monthOffset < 0 ? monthStart : null);
+  // 이번 달(offset 0)은 /monthly/current(집계 진행 중, 근육군별 볼륨 없음), 과거 달은 /monthly/{monthOf}
+  const monthTotalMinutes =
+    monthOffset === 0 ? monthlyCurrent.data?.totalWorkoutMinutes : monthlyPast.data?.summary?.totalWorkoutMinutes;
+  const monthVolumeByMuscleGroup = monthOffset < 0 ? monthlyPast.data?.summary?.volumeByMuscleGroup : undefined;
+  const monthPastUnavailable = monthOffset < 0 && monthlyPast.data !== undefined && monthlyPast.data?.summary == null;
+  const topMuscleGroupsMonth = useMemo(
+    () => computeTopMuscleGroups(monthVolumeByMuscleGroup),
+    [monthVolumeByMuscleGroup],
+  );
+
   // 이번 주(offset 0)는 /weekly/current(집계 진행 중, 근육군별 볼륨 없음), 과거 주는 /weekly/{weekOf}
   const totalWorkoutMinutes =
     weekOffset === 0 ? weeklyCurrent.data?.totalWorkoutMinutes : weeklyPast.data?.summary?.totalWorkoutMinutes;
   const volumeByMuscleGroup = weekOffset < 0 ? weeklyPast.data?.summary?.volumeByMuscleGroup : undefined;
   const pastWeekUnavailable = weekOffset < 0 && weeklyPast.data !== undefined && weeklyPast.data?.summary == null;
 
-  const topMuscleGroups = useMemo(() => {
-    if (!volumeByMuscleGroup) return [];
-    const entries = Object.entries(volumeByMuscleGroup).filter(([, volume]) => (volume ?? 0) > 0) as [
-      string,
-      number,
-    ][];
-    const total = entries.reduce((sum, [, volume]) => sum + volume, 0);
-    if (total <= 0) return [];
-    return entries
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([group, volume]) => ({
-        label: MUSCLE_GROUP_KOREAN[group as keyof typeof MUSCLE_GROUP_KOREAN] ?? group,
-        percent: Math.round((volume / total) * 100),
-        volume: Math.round(volume),
-      }));
-  }, [volumeByMuscleGroup]);
+  const topMuscleGroups = useMemo(() => computeTopMuscleGroups(volumeByMuscleGroup), [volumeByMuscleGroup]);
 
   const weekDailyByDate = useMemo(() => dailyMapByDate(dailyThisWeek.data), [dailyThisWeek.data]);
   const weekBarMinutes = useMemo(
@@ -149,16 +157,15 @@ export default function StatsScreen() {
   const maxBarValue = Math.max(...weekBarMinutes, DAILY_TARGET_MINUTES);
 
   const monthDailyByDate = useMemo(() => dailyMapByDate(dailyThisMonth.data), [dailyThisMonth.data]);
-  const monthTotalMinutes = useMemo(
-    () => dailyThisMonth.data?.reduce((sum, entry) => sum + entry.totalMinutes, 0) ?? 0,
-    [dailyThisMonth.data],
-  );
 
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            inProgressSessionId && { paddingBottom: styles.scrollContent.paddingBottom + IN_PROGRESS_BANNER_RESERVED_HEIGHT },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
@@ -291,7 +298,9 @@ export default function StatsScreen() {
                 </View>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>총 운동시간</Text>
-                  <Text style={styles.summaryValue}>{formatHours(monthTotalMinutes)}</Text>
+                  <Text style={styles.summaryValue}>
+                    {monthTotalMinutes != null ? formatHours(monthTotalMinutes) : "—"}
+                  </Text>
                 </View>
               </View>
 
@@ -356,6 +365,33 @@ export default function StatsScreen() {
                       <Text style={styles.legendText}>{label}</Text>
                     </View>
                   ))}
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.sectionTitle}>근육군별 집중도</Text>
+                <View style={styles.card}>
+                  {monthOffset === 0 ? (
+                    <Text style={styles.emptyStateText}>이번 달 데이터는 아직 집계 중이에요.</Text>
+                  ) : monthPastUnavailable ? (
+                    <Text style={styles.emptyStateText}>이 달은 운동 기록이 없어요.</Text>
+                  ) : topMuscleGroupsMonth.length === 0 ? (
+                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
+                  ) : (
+                    topMuscleGroupsMonth.map((item, index) => (
+                      <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
+                        <View style={styles.muscleRow}>
+                          <Text style={styles.muscleLabel}>{item.label}</Text>
+                          <Text style={styles.muscleValue}>
+                            {item.percent}% · {item.volume}kg
+                          </Text>
+                        </View>
+                        <View style={styles.progressTrack}>
+                          <View style={[styles.progressFill, { width: `${item.percent}%` }]} />
+                        </View>
+                      </View>
+                    ))
+                  )}
                 </View>
               </View>
             </>

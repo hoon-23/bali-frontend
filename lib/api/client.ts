@@ -42,6 +42,11 @@ let refreshPromise: Promise<string> | null = null;
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.error(
+      `[API] ${error.config?.method?.toUpperCase()} ${error.config?.url} ->`,
+      error.response?.status,
+      error.response?.data ?? error.message
+    );
     const originalRequest = error.config;
     const isAuthEndpoint = typeof originalRequest?.url === "string" && originalRequest.url.startsWith("/api/v1/auth/");
     if (isAuthEndpoint || error.response?.status !== 401 || originalRequest._retry) {

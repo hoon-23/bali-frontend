@@ -68,11 +68,11 @@ export default function NewRoutineScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <Ionicons name="close" size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>루틴 만들기</Text>
-          <Pressable onPress={handleSave} hitSlop={8}>
-            <Text style={styles.saveText}>저장</Text>
+          <Pressable style={styles.saveButton} onPress={handleSave} hitSlop={8}>
+            <Ionicons name="checkmark" size={20} color="#0B0B0F" />
           </Pressable>
         </View>
 
@@ -234,10 +234,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
-  saveText: {
-    color: "#2DD4BF",
-    fontSize: 15,
-    fontWeight: "700",
+  saveButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#2DD4BF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
