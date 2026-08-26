@@ -44,6 +44,9 @@ AGENTS.md
 /docs/review
 /docs/specs
 
+# 로드맵 문서 (로컬에서만 관리, 공개 저장소에는 올리지 않음)
+/docs/roadmap.md
+
 # JetBrains IDE
 .idea/
 
