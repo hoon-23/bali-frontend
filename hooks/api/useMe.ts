@@ -8,6 +8,13 @@ export type MeResponse = {
   consecutiveDays: number;
 };
 
+// 소셜 로그인 provider가 이메일을 안 준 경우 백엔드가 채워 넣는 내부 placeholder
+// ("{providerId}@{provider}.bali.internal") — email 컬럼 NOT NULL 제약 때문에 생기는
+// 마커일 뿐 실제 이메일이 아니라서 화면에 그대로 보여주면 안 된다.
+export function isPlaceholderEmail(email: string): boolean {
+  return email.endsWith(".bali.internal");
+}
+
 export function useMe() {
   return useQuery({
     queryKey: ["me"],

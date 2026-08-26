@@ -15,7 +15,7 @@ import { apiClient } from "../../lib/api/client";
 import { getRefreshToken } from "../../lib/auth/tokenStorage";
 import { useAuthStore } from "../../store/authStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
-import { useMe } from "../../hooks/api/useMe";
+import { isPlaceholderEmail, useMe } from "../../hooks/api/useMe";
 import { useLifetimeStats } from "../../hooks/api/useAnalysis";
 import { clearCachedPushToken, getCachedPushToken } from "../../lib/notifications";
 
@@ -110,7 +110,9 @@ export default function ProfileScreen() {
               <Text style={styles.avatarText}>{me?.nickname?.[0] ?? "?"}</Text>
             </View>
             <Text style={styles.name}>{me?.nickname ?? "—"}님</Text>
-            <Text style={styles.email}>{me?.email ?? ""}</Text>
+            {me?.email && !isPlaceholderEmail(me.email) && (
+              <Text style={styles.email}>{me.email}</Text>
+            )}
           </View>
 
           <View style={styles.card}>

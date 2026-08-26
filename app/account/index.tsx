@@ -9,7 +9,7 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { useAuthStore } from "../../store/authStore";
-import { useMe, useUpdateProfile, useWithdraw } from "../../hooks/api/useMe";
+import { isPlaceholderEmail, useMe, useUpdateProfile, useWithdraw } from "../../hooks/api/useMe";
 import { clearCachedPushToken, getCachedPushToken } from "../../lib/notifications";
 
 const NICKNAME_MAX_LENGTH = 20;
@@ -98,7 +98,9 @@ export default function AccountScreen() {
         <View style={styles.content}>
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>이메일</Text>
-            <Text style={styles.readonlyValue}>{me?.email ?? "—"}</Text>
+            <Text style={styles.readonlyValue}>
+              {me?.email && !isPlaceholderEmail(me.email) ? me.email : "—"}
+            </Text>
           </View>
 
           <View style={styles.card}>
