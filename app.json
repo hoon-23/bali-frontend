@@ -19,7 +19,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.younghoon.swayt"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -50,9 +51,23 @@
         {
           "image": "./assets/splash-background.png",
           "resizeMode": "cover",
-          "backgroundColor": "#0B0B0F"
+          "backgroundColor": "#0B0B0F",
+          "enableFullScreenImage_legacy": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2DD4BF"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8c37e3a2-0e18-4469-9f1f-2c227d6e2cb3"
+      }
+    },
+    "owner": "younghoonyu"
   }
 }

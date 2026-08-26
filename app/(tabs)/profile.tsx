@@ -3,14 +3,21 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
-import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
+import {
+  IN_PROGRESS_BANNER_RESERVED_HEIGHT,
+  SCREEN_HORIZONTAL_MARGIN,
+  TAB_BAR_BOTTOM_MARGIN,
+  TAB_BAR_HEIGHT,
+} from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { getRefreshToken } from "../../lib/auth/tokenStorage";
 import { useAuthStore } from "../../store/authStore";
+import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
 import { useLifetimeStats } from "../../hooks/api/useAnalysis";
+import { clearCachedPushToken, getCachedPushToken } from "../../lib/notifications";
 
 // 레벨/경험치는 백엔드에 아직 개념 자체가 없는 프로토타입 데이터 — 실 설계 전까지 하드코딩 유지.
 const LEVEL = 5;
@@ -41,6 +48,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { data: me } = useMe();
   const { data: lifetime } = useLifetimeStats();
+  const inProgressSessionId = useInProgressSessionId();
 
   const handleConfirmLogout = async () => {
     const refreshToken = await getRefreshToken();
@@ -50,6 +58,15 @@ export default function ProfileScreen() {
       } catch {
         // 서버 로그아웃 실패해도 로컬 로그아웃은 계속 진행
       }
+    }
+    const pushToken = await getCachedPushToken();
+    if (pushToken) {
+      try {
+        await apiClient.delete("/api/v1/notifications/device-token", { data: { token: pushToken } });
+      } catch {
+        // 토큰 해제 실패해도 로컬 로그아웃은 계속 진행
+      }
+      await clearCachedPushToken();
     }
     // 소셜 로그인이 가입/로그인을 겸하는 구조라, 구글 SDK 세션(GoogleSignin.signOut())까지
     // 지우지 않는다 — 앱 로그아웃은 우리 쪽 토큰만 지우고, 다음 로그인은 다시 빠르게 되게 둔다.
@@ -68,6 +85,12 @@ export default function ProfileScreen() {
     if (item.id === "privacy") {
       router.push("/legal/privacy-policy");
     }
+    if (item.id === "account") {
+      router.push("/account");
+    }
+    if (item.id === "notifications") {
+      router.push("/notifications");
+    }
   };
 
   const expProgress = Math.min(100, (EXP_CURRENT / EXP_TARGET) * 100);
@@ -76,7 +99,10 @@ export default function ProfileScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            inProgressSessionId && { paddingBottom: styles.scrollContent.paddingBottom + IN_PROGRESS_BANNER_RESERVED_HEIGHT },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.profileHeader}>
