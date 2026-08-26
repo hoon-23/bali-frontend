@@ -16,6 +16,9 @@ export type ExerciseLog = {
   actualSets: string;
   actualReps: string;
   actualWeight: string;
+  // 세트 수를 타이머 완료 횟수로 자동 집계할지 여부 — 사용자가 스테퍼로 한 번이라도
+  // 직접 조정하면 true가 되고, 그 뒤로는 자동 갱신을 멈추고 수동값을 유지한다.
+  actualSetsTouched: boolean;
   completed: boolean;
   setTimings: SetTiming[];
 };
@@ -30,6 +33,7 @@ type WorkoutSessionState = {
   startSession: (sessionId: string, logs: ExerciseLog[], isRealSession: boolean) => void;
   setExpandedId: (id: string | null) => void;
   updateField: (id: string, field: ActualField, value: string) => void;
+  adjustActualSets: (id: string, delta: number) => void;
   recordSetTiming: (logId: string, timing: SetTiming) => void;
   completeLog: (id: string) => void;
   endSession: () => void;
@@ -57,10 +61,29 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => 
       logs: state.logs.map((log) => (log.id === id ? { ...log, [field]: value } : log)),
     })),
 
+  adjustActualSets: (id, delta) =>
+    set((state) => ({
+      logs: state.logs.map((log) =>
+        log.id === id
+          ? {
+              ...log,
+              actualSetsTouched: true,
+              actualSets: String(Math.max(0, (Number(log.actualSets) || 0) + delta)),
+            }
+          : log
+      ),
+    })),
+
   recordSetTiming: (logId, timing) =>
     set((state) => ({
       logs: state.logs.map((log) =>
-        log.id === logId ? { ...log, setTimings: [...log.setTimings, timing] } : log
+        log.id === logId
+          ? {
+              ...log,
+              setTimings: [...log.setTimings, timing],
+              actualSets: log.actualSetsTouched ? log.actualSets : String(log.setTimings.length + 1),
+            }
+          : log
       ),
     })),
 
