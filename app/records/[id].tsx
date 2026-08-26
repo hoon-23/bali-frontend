@@ -6,8 +6,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
+import { appAlert } from "../../lib/alert";
 import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
-import { ApiSessionDetail, ApiSessionLogDetail, useSession } from "../../hooks/api/useSessions";
+import {
+  ApiSessionDetail,
+  ApiSessionLogDetail,
+  usePatchSession,
+  useSession,
+} from "../../hooks/api/useSessions";
 
 function formatFullKoreanDate(dateISO: string): string {
   const date = new Date(dateISO);
@@ -35,6 +41,7 @@ export default function SessionRecordScreen() {
   const router = useRouter();
   const { data: session } = useSession(id);
   const exerciseMap = useExerciseMap();
+  const patchSession = usePatchSession();
 
   const logs = session
     ? session.logs.slice().sort((a, b) => a.sortOrder - b.sortOrder)
@@ -48,6 +55,19 @@ export default function SessionRecordScreen() {
 
   const isInProgress = session.status === "IN_PROGRESS";
 
+  // 진행중으로 표기된 채 남은 지난 기록을 기록관리 차원에서 완료/예정으로 되돌릴 수 있게 한다.
+  const handleChangeStatus = (status: "COMPLETED" | "SCHEDULED") => {
+    patchSession.mutate({ sessionId: session.id, status });
+  };
+
+  const handleEditStatusPress = () => {
+    appAlert("기록 상태 변경", "이 세션을 어떤 상태로 바꿀까요?", [
+      { text: "취소", style: "cancel" },
+      { text: "완료로 변경", onPress: () => handleChangeStatus("COMPLETED") },
+      { text: "예정으로 변경", onPress: () => handleChangeStatus("SCHEDULED") },
+    ]);
+  };
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -56,7 +76,18 @@ export default function SessionRecordScreen() {
             <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>세션 기록</Text>
-          <View style={styles.backButton} />
+          {isInProgress ? (
+            <Pressable
+              style={styles.backButton}
+              onPress={handleEditStatusPress}
+              disabled={patchSession.isPending}
+              hitSlop={8}
+            >
+              <Ionicons name="create-outline" size={18} color="#FBBF24" />
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <ScrollView
@@ -184,6 +215,10 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "700",
+  },
+  headerSpacer: {
+    width: 36,
+    height: 36,
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,

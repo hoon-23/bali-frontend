@@ -1,15 +1,32 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Image,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
+} from "react-native";
 import { appAlert } from "../../lib/alert";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 import { ScreenBackground } from "../../components/ScreenBackground";
-import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
+import {
+  IN_PROGRESS_BANNER_RESERVED_HEIGHT,
+  SCREEN_HORIZONTAL_MARGIN,
+  TAB_BAR_BOTTOM_MARGIN,
+  TAB_BAR_HEIGHT,
+} from "../../constants/layout";
 import { MUSCLE_GROUP_IMAGES, MUSCLE_GROUP_LABELS } from "../../constants/muscleGroups";
 import { toDisplayMuscleGroup } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
+import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
 import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
 import { useExercises, ApiExercise } from "../../hooks/api/useExercises";
@@ -22,6 +39,11 @@ import {
 } from "../../lib/session/sessionDisplay";
 import { minutesToDurationText } from "../../lib/format/duration";
 
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const TODAY_CARD_GAP = 12; // todayCardList의 카드 사이 간격과 동일한 값 — 배너와의 간격도 이걸로 통일한다.
 const RING_SIZE = 88;
 const RING_STROKE = 10;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
@@ -39,9 +61,25 @@ function toDDayLabel(dateStr: string): string {
   return `D-${diffDays}`;
 }
 
+function sessionCardMeta(session: ApiSession): { metaLabel: string; actionLabel: string; muted: boolean } {
+  if (session.status === "COMPLETED") {
+    return { metaLabel: "오늘 완료", actionLabel: "완료", muted: true };
+  }
+  return {
+    metaLabel: `${estimateSessionDurationMinutes(session.logs)}분`,
+    actionLabel: session.status === "IN_PROGRESS" ? "이어하기" : "시작",
+    muted: false,
+  };
+}
+
 export default function HomeScreen() {
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
+  // "운동 진행 중" 배너((tabs)/_layout.tsx)가 떠 있으면 그만큼 하단 여백을 더 줘서
+  // 마지막 카드가 배너에 가려 탭이 안 먹히는 문제를 막는다.
+  const inProgressSessionId = useInProgressSessionId();
 
   const { data: me, isError: meError, refetch: refetchMe } = useMe();
   const { data: weeklyCurrent, isError: weeklyCurrentError, refetch: refetchWeeklyCurrent } = useWeeklyCurrent();
@@ -77,6 +115,14 @@ export default function HomeScreen() {
     router.push(target);
   };
 
+  const handleSessionAction = (session: ApiSession) => {
+    if (session.status === "COMPLETED") {
+      router.push(`/records/${session.id}`);
+      return;
+    }
+    handleStartWorkout(session.id);
+  };
+
   const sessionsDone = weeklyCurrent?.completedSessionsCount ?? 0;
   const sessionsTarget = me?.weeklyGoalSessions ?? 0;
   const sessionsProgress = sessionsTarget > 0 ? sessionsDone / sessionsTarget : 0;
@@ -85,7 +131,21 @@ export default function HomeScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          ref={scrollViewRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            inProgressSessionId && {
+              // 배너 위치(_layout.tsx)는 insets.bottom을 더해서 계산되는데
+              // 이 화면은 SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 있었음 —
+              // 그만큼 배너와 겹쳐 보였던 원인. 여기서도 같은 insets.bottom을 더해 맞춘다.
+              paddingBottom:
+                insets.bottom +
+                TAB_BAR_BOTTOM_MARGIN +
+                TAB_BAR_HEIGHT +
+                IN_PROGRESS_BANNER_RESERVED_HEIGHT +
+                TODAY_CARD_GAP,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {(meError || weeklyCurrentError) && (
@@ -189,12 +249,31 @@ export default function HomeScreen() {
                   <Text style={styles.startButtonText}>루틴 시작하기</Text>
                 </Pressable>
               </View>
-            ) : cardState ? (
-              <TodayWorkoutCard
-                cardState={cardState}
+            ) : cardState?.kind === "TODAY" ? (
+              <View style={styles.todayCardList}>
+                <TodaySessionCards
+                  sessions={cardState.sessions}
+                  exercises={exercises}
+                  onAction={handleSessionAction}
+                  onExpand={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+                />
+                {cardState.sessions.every((s) => s.status === "COMPLETED") && cardState.next && (
+                  <SessionSummaryCard
+                    session={cardState.next}
+                    exercises={exercises}
+                    metaLabel={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
+                    actionLabel="미리보기"
+                    onAction={() => router.push(`/upcoming/${cardState.next!.id}`)}
+                  />
+                )}
+              </View>
+            ) : cardState?.kind === "NEXT_UPCOMING" ? (
+              <SessionSummaryCard
+                session={cardState.next}
                 exercises={exercises}
-                onStart={handleStartWorkout}
-                onPreview={(id) => router.push(`/upcoming/${id}`)}
+                metaLabel={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
+                actionLabel="미리보기"
+                onAction={() => router.push(`/upcoming/${cardState.next.id}`)}
               />
             ) : (
               <View style={styles.card}>
@@ -208,46 +287,46 @@ export default function HomeScreen() {
   );
 }
 
-type TodayWorkoutCardProps = {
-  cardState: Exclude<UpcomingCardState, { kind: "EMPTY" }>;
+type TodaySessionCardsProps = {
+  sessions: ApiSession[];
   exercises: ApiExercise[] | undefined;
-  onStart: (sessionId: string) => void;
-  onPreview: (sessionId: string) => void;
+  onAction: (session: ApiSession) => void;
+  // 압축 행이 펼쳐질 때 새로 드러난 사진+버튼이 탭바/배너에 가려지지 않게 스크롤을 끝까지 내린다.
+  onExpand: () => void;
 };
 
-function TodayWorkoutCard({ cardState, exercises, onStart, onPreview }: TodayWorkoutCardProps) {
-  if (cardState.kind === "COMPLETED_TODAY") {
-    return (
-      <View style={{ gap: 12 }}>
-        <View style={styles.card}>
-          <Text style={styles.suggestedName}>오늘 운동 완료! · {cardState.session.title}</Text>
-        </View>
-        {cardState.next && (
-          <SessionSummaryCard
-            session={cardState.next}
-            exercises={exercises}
-            metaLabel={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
-            actionLabel="미리보기"
-            onAction={() => onPreview(cardState.next!.id)}
-          />
-        )}
-      </View>
-    );
-  }
-
-  const session = cardState.kind === "NEXT_UPCOMING" ? cardState.next : cardState.session;
-  const isToday = cardState.kind !== "NEXT_UPCOMING";
-  const durationMinutes = estimateSessionDurationMinutes(session.logs);
-  const actionLabel = cardState.kind === "IN_PROGRESS" ? "이어하기" : isToday ? "시작" : "미리보기";
+// 우선순위가 가장 높은 세션(정렬은 deriveUpcomingCardState가 이미 해둠)만 사진 카드로,
+// 나머지는 SecondarySessionRow로 압축해서 보여준다.
+function TodaySessionCards({ sessions, exercises, onAction, onExpand }: TodaySessionCardsProps) {
+  const [primarySession, ...secondarySessions] = sessions;
+  const primaryMeta = sessionCardMeta(primarySession);
 
   return (
-    <SessionSummaryCard
-      session={session}
-      exercises={exercises}
-      metaLabel={isToday ? `${durationMinutes}분` : `다음 운동 · ${toDDayLabel(session.date)}`}
-      actionLabel={actionLabel}
-      onAction={() => (isToday ? onStart(session.id) : onPreview(session.id))}
-    />
+    <>
+      <SessionSummaryCard
+        session={primarySession}
+        exercises={exercises}
+        metaLabel={primaryMeta.metaLabel}
+        actionLabel={primaryMeta.actionLabel}
+        muted={primaryMeta.muted}
+        onAction={() => onAction(primarySession)}
+      />
+      {secondarySessions.map((session) => {
+        const meta = sessionCardMeta(session);
+        return (
+          <SecondarySessionRow
+            key={session.id}
+            session={session}
+            exercises={exercises}
+            metaLabel={meta.metaLabel}
+            actionLabel={meta.actionLabel}
+            muted={meta.muted}
+            onAction={() => onAction(session)}
+            onExpand={onExpand}
+          />
+        );
+      })}
+    </>
   );
 }
 
@@ -257,15 +336,18 @@ type SessionSummaryCardProps = {
   metaLabel: string;
   actionLabel: string;
   onAction: () => void;
+  // 이미 끝난 세션 카드 — "이어하기"처럼 계속할 수 있다는 인상을 주지 않게
+  // 버튼을 액션형(민트)이 아닌 안내형(회색)으로 보여준다.
+  muted?: boolean;
 };
 
-function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onAction }: SessionSummaryCardProps) {
+function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onAction, muted }: SessionSummaryCardProps) {
   const firstExerciseId = session.logs[0]?.exerciseId;
   const exercise = exercises?.find((e) => e.id === firstExerciseId);
   const muscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
 
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={onAction}>
       <View style={styles.photoWrap}>
         {muscleGroup && (
           <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.photo} resizeMode="cover" />
@@ -277,15 +359,76 @@ function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onActi
         )}
       </View>
       <View style={styles.suggestedRow}>
-        <View>
+        <View style={styles.suggestedTitleGroup}>
           <Text style={styles.suggestedName}>{session.title}</Text>
           <Text style={styles.suggestedMeta}>{metaLabel}</Text>
         </View>
-        <Pressable style={styles.startButton} onPress={onAction}>
-          <Text style={styles.startButtonText}>{actionLabel}</Text>
-        </Pressable>
+        <View style={styles.cardIndicator}>
+          <Text style={[styles.cardIndicatorText, muted && styles.cardIndicatorTextMuted]}>{actionLabel}</Text>
+          <Ionicons name="chevron-forward" size={16} color={muted ? "#6B6B6B" : "#2DD4BF"} />
+        </View>
       </View>
-    </View>
+    </Pressable>
+  );
+}
+
+type SecondarySessionRowProps = SessionSummaryCardProps & {
+  // 펼쳐졌을 때(접힐 때는 X) 호출 — 새로 드러난 사진+버튼이 탭바/배너에 가리지 않게 스크롤한다.
+  onExpand: () => void;
+};
+
+// 오늘 세션이 여러 개일 때 첫 번째(가장 우선순위 높은)만 사진 카드로 보여주고
+// 나머지는 압축된 행으로 두었다가, 탭하면 그 자리에서 사진+버튼이 펼쳐진다 —
+// 큰 사진 카드가 여러 개 연달아 쌓이면 같은 카드가 중복 렌더링된 것처럼 보여서 생긴 개선.
+function SecondarySessionRow({ session, exercises, metaLabel, actionLabel, onAction, muted, onExpand }: SecondarySessionRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const firstExerciseId = session.logs[0]?.exerciseId;
+  const exercise = exercises?.find((e) => e.id === firstExerciseId);
+  const muscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
+
+  useEffect(() => {
+    if (!expanded) return;
+    // 레이아웃이 실제로 반영된 뒤(다음 프레임) 스크롤해야 새 콘텐츠 높이가 반영된다.
+    const id = requestAnimationFrame(() => onExpand());
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded]);
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded((prev) => !prev);
+  };
+
+  return (
+    <Pressable style={styles.secondaryCard} onPress={toggle}>
+      <View style={styles.secondaryHeaderRow}>
+        <View style={styles.secondaryTitleGroup}>
+          <Text style={styles.suggestedName}>{session.title}</Text>
+          <Text style={styles.suggestedMeta}>{metaLabel}</Text>
+        </View>
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color="#6B6B6B" />
+      </View>
+      {expanded && (
+        <View style={styles.secondaryExpanded}>
+          <View style={styles.photoWrap}>
+            {muscleGroup && (
+              <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.photo} resizeMode="cover" />
+            )}
+            {muscleGroup && (
+              <View style={styles.photoBadge}>
+                <Text style={styles.photoBadgeText}>{MUSCLE_GROUP_LABELS[muscleGroup]}</Text>
+              </View>
+            )}
+          </View>
+          <Pressable
+            style={[styles.startButton, styles.secondaryActionButton, muted && styles.startButtonMuted]}
+            onPress={onAction}
+          >
+            <Text style={[styles.startButtonText, muted && styles.startButtonTextMuted]}>{actionLabel}</Text>
+          </Pressable>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -411,6 +554,32 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 12,
   },
+  todayCardList: {
+    gap: TODAY_CARD_GAP,
+  },
+  secondaryCard: {
+    backgroundColor: "#1C1C25",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255, 255, 255, 0.14)",
+    padding: 16,
+    ...CARD_SHADOW,
+  },
+  secondaryHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  secondaryTitleGroup: {
+    flex: 1,
+  },
+  secondaryExpanded: {
+    marginTop: 16,
+    gap: 16,
+  },
+  secondaryActionButton: {
+    alignSelf: "flex-start",
+  },
   photoWrap: {
     borderRadius: 12,
     overflow: "hidden",
@@ -449,15 +618,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  suggestedTitleGroup: {
+    flex: 1,
+  },
+  cardIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  cardIndicatorText: {
+    color: "#2DD4BF",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  cardIndicatorTextMuted: {
+    color: "#6B6B6B",
+  },
   startButton: {
     backgroundColor: "#2DD4BF",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
   },
+  startButtonMuted: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
   startButtonText: {
     color: "#0B0B0F",
     fontSize: 14,
     fontWeight: "700",
+  },
+  startButtonTextMuted: {
+    color: "#A0A0A0",
   },
 });

@@ -23,8 +23,14 @@ export function useUpcomingSessions() {
   return useQuery({
     queryKey: ["upcomingSessions", from, to],
     queryFn: async () => {
-      const { data } = await apiClient.get<ApiSession[]>("/api/v1/sessions", { params: { from, to } });
-      return data;
+      // GET /api/v1/sessions는 이제 항상 { content, hasNext, nextCursor } 형태로 응답한다
+      // (지난 기록 무한스크롤을 위한 커서 페이징 도입 시 배열 → 객체로 바뀐 breaking change).
+      // 예정된 운동은 30일 내 소수라 size 하나로 충분히 다 받아온다고 가정.
+      const { data } = await apiClient.get<{ content: ApiSession[]; hasNext: boolean; nextCursor: string | null }>(
+        "/api/v1/sessions",
+        { params: { from, to, size: 100 } }
+      );
+      return data.content;
     },
   });
 }

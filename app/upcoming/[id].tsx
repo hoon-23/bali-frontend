@@ -10,7 +10,7 @@ import { toDisplayMuscleGroup } from "../../constants/exercises";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
-import { ApiSessionLogDetail, useSession, usePatchSession } from "../../hooks/api/useSessions";
+import { ApiSessionLogDetail, useDeleteSession, useSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 import { estimateSessionDurationMinutes } from "../../lib/session/sessionDisplay";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
@@ -45,6 +45,7 @@ export default function UpcomingWorkoutScreen() {
   const { data: session } = useSession(id);
   const exerciseMap = useExerciseMap();
   const patchSession = usePatchSession();
+  const deleteSession = useDeleteSession();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -52,6 +53,7 @@ export default function UpcomingWorkoutScreen() {
   const [errorLogIds, setErrorLogIds] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   if (!session) {
     return null;
@@ -142,6 +144,27 @@ export default function UpcomingWorkoutScreen() {
     }
   };
 
+  const handleCancelSchedule = () => {
+    appAlert("예약을 취소할까요?", "예정된 운동에서 삭제됩니다.", [
+      { text: "돌아가기", style: "cancel" },
+      {
+        text: "예약 취소",
+        style: "destructive",
+        onPress: async () => {
+          setCancelling(true);
+          try {
+            await deleteSession.mutateAsync(id);
+            router.back();
+          } catch {
+            appAlert("예약 취소에 실패했어요. 다시 시도해주세요.");
+          } finally {
+            setCancelling(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -150,7 +173,7 @@ export default function UpcomingWorkoutScreen() {
             <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>예정된 운동</Text>
-          <View style={styles.backButton} />
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
@@ -242,6 +265,14 @@ export default function UpcomingWorkoutScreen() {
             </>
           )}
         </View>
+
+        {!isEditing && session.status === "SCHEDULED" && (
+          <Pressable style={styles.cancelScheduleButton} onPress={handleCancelSchedule} disabled={cancelling}>
+            <Text style={styles.cancelScheduleButtonText}>
+              {cancelling ? "취소하는 중..." : "예약 취소"}
+            </Text>
+          </Pressable>
+        )}
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -291,6 +322,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.14)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerSpacer: {
+    width: 36,
+    height: 36,
   },
   headerTitle: {
     color: "#FFFFFF",
@@ -397,7 +432,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  cancelScheduleButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  cancelScheduleButtonText: {
+    color: "#F87171",
+    fontSize: 13,
+    fontWeight: "600",
   },
   secondaryButton: {
     flex: 1,

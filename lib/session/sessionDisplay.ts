@@ -16,27 +16,30 @@ export type ApiSession = {
 };
 
 export type UpcomingCardState =
-  | { kind: "IN_PROGRESS"; session: ApiSession }
-  | { kind: "SCHEDULED_TODAY"; session: ApiSession }
-  | { kind: "COMPLETED_TODAY"; session: ApiSession; next: ApiSession | null }
+  // 오늘 세션이 하나 이상 있는 경우 — 예: 오늘 웨이트+유산소처럼 세션이 여러 개면
+  // 카드도 세션 수만큼 각자의 상태로 따로 보여준다.
+  | { kind: "TODAY"; sessions: ApiSession[]; next: ApiSession | null }
   | { kind: "NEXT_UPCOMING"; next: ApiSession }
   | { kind: "EMPTY" };
 
+const TODAY_STATUS_PRIORITY: Record<ApiSession["status"], number> = {
+  IN_PROGRESS: 0,
+  SCHEDULED: 1,
+  COMPLETED: 2,
+};
+
 export function deriveUpcomingCardState(sessions: ApiSession[], todayISODate: string): UpcomingCardState {
-  const todaySession = sessions.find((s) => s.date === todayISODate);
+  // 진행 중 > 예정 > 완료 순으로 정렬 — 아직 할 일이 남은 세션을 먼저 보여준다.
+  const todaySessions = sessions
+    .filter((s) => s.date === todayISODate)
+    .sort((a, b) => TODAY_STATUS_PRIORITY[a.status] - TODAY_STATUS_PRIORITY[b.status]);
   const future = sessions
     .filter((s) => s.date > todayISODate && s.status === "SCHEDULED")
     .sort((a, b) => a.date.localeCompare(b.date));
   const next = future[0] ?? null;
 
-  if (todaySession?.status === "IN_PROGRESS") {
-    return { kind: "IN_PROGRESS", session: todaySession };
-  }
-  if (todaySession?.status === "SCHEDULED") {
-    return { kind: "SCHEDULED_TODAY", session: todaySession };
-  }
-  if (todaySession?.status === "COMPLETED") {
-    return { kind: "COMPLETED_TODAY", session: todaySession, next };
+  if (todaySessions.length > 0) {
+    return { kind: "TODAY", sessions: todaySessions, next };
   }
   if (next) {
     return { kind: "NEXT_UPCOMING", next };
