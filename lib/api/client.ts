@@ -4,10 +4,15 @@ import { useAuthStore } from "../../store/authStore";
 import { getRefreshToken, setRefreshToken } from "../auth/tokenStorage";
 
 // 실물 기기에서는 "localhost"가 기기 자신을 가리켜서 개발 머신의 백엔드에 닿지 않는다.
-// JS 번들을 실제로 내려받은 호스트(scriptURL, 개발 머신의 LAN IP)를 재사용해서
-// 시뮬레이터/실물 기기 모두에서 동작하게 한다. Bridgeless/New Architecture에서는
+// Metro를 쓰는 dev client는 JS 번들을 내려받은 호스트(scriptURL, 개발 머신의 LAN IP)를
+// 재사용해서 알아낼 수 있지만, Metro 없이 JS가 바이너리에 번들되는 Release/standalone
+// 빌드는 scriptURL이 file:// 경로라 이 방법이 안 통한다 — 그럴 땐 EXPO_PUBLIC_API_BASE_URL로
+// 명시한 주소를 우선 사용한다(.env.example 참고). Bridgeless/New Architecture에서는
 // NativeModules.SourceCode.scriptURL을 프로퍼티로 바로 읽으면 undefined라 getConstants()로 접근한다.
 function resolveApiBaseUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    return process.env.EXPO_PUBLIC_API_BASE_URL;
+  }
   const scriptURL: string | undefined = NativeModules.SourceCode?.getConstants?.()?.scriptURL;
   const host = scriptURL?.match(/^https?:\/\/([^:/]+)/)?.[1];
   return host ? `http://${host}:8080` : "http://localhost:8080";
