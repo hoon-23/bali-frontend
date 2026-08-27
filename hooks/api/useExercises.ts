@@ -1,13 +1,16 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
-import { ExerciseMuscleGroup } from "../../constants/exercises";
+import { ExerciseEquipment, ExerciseMuscleGroup } from "../../constants/exercises";
 
 export type ApiExercise = {
   id: string;
   name: string;
   variant: string | null;
   muscleGroup: ExerciseMuscleGroup;
+  // 유산소 종목은 장비 분류가 없어 null로 내려옴.
+  equipment: ExerciseEquipment | null;
+  equipmentDisplayName: string | null;
 };
 
 // 같은 이름이라도 그립/자세 variant가 다른 별개 운동일 수 있어서

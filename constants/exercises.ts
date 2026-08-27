@@ -22,6 +22,18 @@ export const MUSCLE_GROUP_KOREAN: Record<ExerciseMuscleGroup, string> = {
   CARDIO: "유산소",
 };
 
+// bali-api의 Equipment enum을 그대로 따름(2026-08-27 백엔드 세션에서 확인).
+// 유산소 종목은 장비 분류 대상이 아니라 equipment가 null로 내려옴.
+export type ExerciseEquipment = "FREE_WEIGHT" | "MACHINE" | "CABLE" | "SMITH" | "BODYWEIGHT";
+
+export const EQUIPMENT_KOREAN: Record<ExerciseEquipment, string> = {
+  FREE_WEIGHT: "프리웨이트",
+  MACHINE: "머신",
+  CABLE: "케이블",
+  SMITH: "스미스",
+  BODYWEIGHT: "맨몸",
+};
+
 // 선별된 스톡 사진은 4개뿐(constants/muscleGroups.ts 참고). 운동의 muscleGroup은
 // 더 세분화(8개 값)되어 있어서, 각각을 가장 가까운 이미지로 매핑함 — 1:1 매핑이 아니라 근사치.
 export function toDisplayMuscleGroup(group: ExerciseMuscleGroup): PhotoMuscleGroup {

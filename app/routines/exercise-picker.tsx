@@ -5,7 +5,12 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { ExerciseMuscleGroup, MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
+import {
+  EQUIPMENT_KOREAN,
+  ExerciseEquipment,
+  ExerciseMuscleGroup,
+  MUSCLE_GROUP_KOREAN,
+} from "../../constants/exercises";
 import { appAlert } from "../../lib/alert";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { formatExerciseName, useExercises } from "../../hooks/api/useExercises";
@@ -22,6 +27,8 @@ const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "CARDIO",
 ];
 
+const EQUIPMENTS: ExerciseEquipment[] = ["FREE_WEIGHT", "MACHINE", "CABLE", "SMITH", "BODYWEIGHT"];
+
 export default function ExercisePickerScreen() {
   const { templateId } = useLocalSearchParams<{ templateId?: string }>();
   const router = useRouter();
@@ -31,6 +38,7 @@ export default function ExercisePickerScreen() {
   const { data: exercises = [] } = useExercises();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
+  const [equipmentFilter, setEquipmentFilter] = useState<ExerciseEquipment | null>(null);
 
   const results = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -39,8 +47,11 @@ export default function ExercisePickerScreen() {
           formatExerciseName(exercise).toLowerCase().includes(trimmedQuery)
         )
       : exercises;
-    return filter ? matched.filter((exercise) => exercise.muscleGroup === filter) : matched;
-  }, [exercises, query, filter]);
+    const byMuscleGroup = filter ? matched.filter((exercise) => exercise.muscleGroup === filter) : matched;
+    return equipmentFilter
+      ? byMuscleGroup.filter((exercise) => exercise.equipment === equipmentFilter)
+      : byMuscleGroup;
+  }, [exercises, query, filter, equipmentFilter]);
 
   const handleSelect = async (exerciseId: string) => {
     // templateId가 있으면 "루틴 상세"에서 기존 루틴에 운동을 추가하는 경로 —
@@ -114,6 +125,35 @@ export default function ExercisePickerScreen() {
           ))}
         </View>
 
+        <View style={styles.filterRow}>
+          <Pressable
+            style={[styles.filterChip, equipmentFilter === null && styles.filterChipActive]}
+            onPress={() => setEquipmentFilter(null)}
+          >
+            <Text
+              style={[styles.filterChipText, equipmentFilter === null && styles.filterChipTextActive]}
+            >
+              전체 장비
+            </Text>
+          </Pressable>
+          {EQUIPMENTS.map((equipment) => (
+            <Pressable
+              key={equipment}
+              style={[styles.filterChip, equipmentFilter === equipment && styles.filterChipActive]}
+              onPress={() => setEquipmentFilter(equipmentFilter === equipment ? null : equipment)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  equipmentFilter === equipment && styles.filterChipTextActive,
+                ]}
+              >
+                {EQUIPMENT_KOREAN[equipment]}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -126,7 +166,11 @@ export default function ExercisePickerScreen() {
             >
               <View>
                 <Text style={styles.exerciseName}>{formatExerciseName(exercise)}</Text>
-                <Text style={styles.exerciseGroup}>{MUSCLE_GROUP_KOREAN[exercise.muscleGroup]}</Text>
+                <Text style={styles.exerciseGroup}>
+                  {exercise.equipment
+                    ? `${MUSCLE_GROUP_KOREAN[exercise.muscleGroup]} · ${EQUIPMENT_KOREAN[exercise.equipment]}`
+                    : MUSCLE_GROUP_KOREAN[exercise.muscleGroup]}
+                </Text>
               </View>
               <Ionicons name="add-circle-outline" size={22} color="#2DD4BF" />
             </Pressable>
