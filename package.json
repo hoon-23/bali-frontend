@@ -40,7 +40,8 @@
     "start": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start'",
     "android": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --android'",
     "ios": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --ios'",
-    "web": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --web'"
+    "web": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --web'",
+    "typecheck": "tsc --noEmit"
   },
   "private": true
 }
