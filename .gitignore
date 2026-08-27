@@ -30,7 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (실제 시크릿이 들어감, .env.example만 추적)
+.env
 .env*.local
 
 # Claude Code local settings 및 관련 문서 (공개 저장소에는 올리지 않음)

@@ -30,10 +30,15 @@ const queryClient = new QueryClient({
 });
 
 GoogleSignin.configure({ iosClientId: "803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn.apps.googleusercontent.com" });
+// consumerKey/Secret은 실제 시크릿이라 소스에 직접 두지 않고 .env(git 미추적)로 주입한다.
+// .env.example 참고, 로컬은 .env, 클라우드 빌드는 EAS 환경변수에서 가져온다.
+if (!process.env.EXPO_PUBLIC_NAVER_CONSUMER_KEY || !process.env.EXPO_PUBLIC_NAVER_CONSUMER_SECRET) {
+  throw new Error("EXPO_PUBLIC_NAVER_CONSUMER_KEY/SECRET이 설정되지 않았습니다. .env.example을 참고하세요.");
+}
 NaverLogin.initialize({
   appName: "Swayt",
-  consumerKey: "yTFErRaCn2FXtqC_mrRE",
-  consumerSecret: "lwFm23x2Iz",
+  consumerKey: process.env.EXPO_PUBLIC_NAVER_CONSUMER_KEY,
+  consumerSecret: process.env.EXPO_PUBLIC_NAVER_CONSUMER_SECRET,
   serviceUrlSchemeIOS: "com.younghoon.swayt",
 });
 
