@@ -1,15 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { DevicePlatform } from "../hooks/api/useNotifications";
-
-// expo-notifications는 최상단에서 import하면 네이티브 모듈을 즉시 바인딩하려 시도한다.
-// 무료 Apple Personal Team 서명 빌드(Push capability 미지원)에서는 이 즉시 바인딩이
-// 앱 시작과 동시에 전역 크래시로 이어지므로, 실제로 쓰이는 함수 안에서만 지연 로딩한다.
-function loadNotifications(): typeof import("expo-notifications") {
-  return require("expo-notifications");
-}
 
 const PUSH_TOKEN_CACHE_KEY = "swayt-expo-push-token";
 
@@ -34,8 +28,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   if (!Device.isDevice) {
     return null;
   }
-
-  const Notifications = loadNotifications();
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
