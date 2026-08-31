@@ -68,6 +68,12 @@
         "projectId": "8c37e3a2-0e18-4469-9f1f-2c227d6e2cb3"
       }
     },
-    "owner": "younghoonyu"
+    "owner": "younghoonyu",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8c37e3a2-0e18-4469-9f1f-2c227d6e2cb3"
+    }
   }
 }

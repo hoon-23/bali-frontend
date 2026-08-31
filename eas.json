@@ -9,16 +9,25 @@
       "distribution": "internal",
       "ios": {
         "simulator": true
+      },
+      "channel": "development"
+    },
+    "development-device": {
+      "extends": "development",
+      "ios": {
+        "simulator": false
       }
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "simulator": true
-      }
+      },
+      "channel": "preview"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {

@@ -20,3 +20,30 @@ jobs:
       - run: npm ci
 
       - run: npm run typecheck
+
+  eas-update:
+    needs: typecheck
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - run: npm ci
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: |
+          eas update \
+            --branch develop \
+            --channel development \
+            --environment development \
+            --message "${{ github.event.head_commit.message }}" \
+            --non-interactive
