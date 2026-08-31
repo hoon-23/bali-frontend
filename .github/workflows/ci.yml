@@ -21,29 +21,28 @@ jobs:
 
       - run: npm run typecheck
 
-  eas-update:
-    needs: typecheck
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: "npm"
-
-      - run: npm ci
-
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - run: |
-          eas update \
-            --branch develop \
-            --channel development \
-            --environment development \
-            --message "${{ github.event.head_commit.message }}" \
-            --non-interactive
+  # eas-update:
+  #   Apple Developer Program(유료) 계정이 있어야 기기용 EAS Build로 development
+  #   채널을 임베드한 빌드를 만들 수 있음 — 그 전까지는 OTA를 받을 빌드가 없어서 보류.
+  #   유료 계정 가입 후 이 잡을 되살리고 EXPO_TOKEN 시크릿을 등록할 것.
+  #   needs: typecheck
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: actions/setup-node@v5
+  #       with:
+  #         node-version-file: ".nvmrc"
+  #         cache: "npm"
+  #     - run: npm ci
+  #     - uses: expo/expo-github-action@v8
+  #       with:
+  #         eas-version: latest
+  #         token: ${{ secrets.EXPO_TOKEN }}
+  #     - run: |
+  #         eas update \
+  #           --branch develop \
+  #           --channel development \
+  #           --environment development \
+  #           --message "${{ github.event.head_commit.message }}" \
+  #           --non-interactive
