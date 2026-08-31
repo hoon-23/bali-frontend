@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Bell, ChevronRight, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -32,16 +32,16 @@ function formatWorkoutTime(totalMinutes: number): string {
 
 type SettingItem = {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: LucideIcon;
   label: string;
   danger?: boolean;
 };
 
 const SETTING_ITEMS: SettingItem[] = [
-  { id: "notifications", icon: "notifications-outline", label: "알림 설정" },
-  { id: "account", icon: "person-outline", label: "계정 정보" },
-  { id: "privacy", icon: "document-text-outline", label: "개인정보처리방침" },
-  { id: "logout", icon: "log-out-outline", label: "로그아웃", danger: true },
+  { id: "notifications", icon: Bell, label: "알림 설정" },
+  { id: "account", icon: User, label: "계정 정보" },
+  { id: "privacy", icon: FileText, label: "개인정보처리방침" },
+  { id: "logout", icon: LogOut, label: "로그아웃", danger: true },
 ];
 
 export default function ProfileScreen() {
@@ -145,15 +145,14 @@ export default function ProfileScreen() {
                 style={[styles.settingRow, index > 0 && styles.settingRowDivider]}
                 onPress={() => handleSettingPress(item)}
               >
-                <Ionicons
-                  name={item.icon}
+                <item.icon
                   size={20}
                   color={item.danger ? "#F87171" : "#A0A0A0"}
                 />
                 <Text style={[styles.settingLabel, item.danger && styles.settingLabelDanger]}>
                   {item.label}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color="#6B6B6B" />
+                <ChevronRight size={16} color="#6B6B6B" />
               </Pressable>
             ))}
           </View>

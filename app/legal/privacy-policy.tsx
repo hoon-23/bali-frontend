@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { Children, cloneElement, ReactElement, ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -17,7 +17,7 @@ export default function PrivacyPolicyScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>개인정보처리방침</Text>
           <View style={styles.headerSpacer} />

@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft, Plus } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,7 +29,7 @@ export default function RoutinesScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>내 루틴</Text>
           <Pressable
@@ -37,7 +37,7 @@ export default function RoutinesScreen() {
             onPress={() => router.push("/routines/new")}
             hitSlop={8}
           >
-            <Ionicons name="add" size={22} color="#0B0B0F" />
+            <Plus size={22} color="#0B0B0F" />
           </Pressable>
         </View>
 

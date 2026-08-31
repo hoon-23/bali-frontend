@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft, CircleMinus, CirclePlus } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -89,7 +89,7 @@ export default function AccountScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>계정 정보</Text>
           <View style={styles.headerSpacer} />
@@ -127,8 +127,7 @@ export default function AccountScreen() {
                 disabled={weeklyGoal <= WEEKLY_GOAL_MIN}
                 hitSlop={8}
               >
-                <Ionicons
-                  name="remove-circle-outline"
+                <CircleMinus
                   size={28}
                   color={weeklyGoal <= WEEKLY_GOAL_MIN ? "#3A3A42" : "#2DD4BF"}
                 />
@@ -140,8 +139,7 @@ export default function AccountScreen() {
                 disabled={weeklyGoal >= WEEKLY_GOAL_MAX}
                 hitSlop={8}
               >
-                <Ionicons
-                  name="add-circle-outline"
+                <CirclePlus
                   size={28}
                   color={weeklyGoal >= WEEKLY_GOAL_MAX ? "#3A3A42" : "#2DD4BF"}
                 />

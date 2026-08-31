@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -58,7 +58,7 @@ export default function ScheduleRoutineScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="close" size={20} color="#FFFFFF" />
+            <X size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>날짜 예약</Text>
           <View style={styles.headerSpacer} />
@@ -79,8 +79,7 @@ export default function ScheduleRoutineScreen() {
                   hitSlop={8}
                   disabled={monthOffset <= 0}
                 >
-                  <Ionicons
-                    name="chevron-back"
+                  <ChevronLeft
                     size={18}
                     color={monthOffset <= 0 ? "#3A3A42" : "#A0A0A0"}
                   />
@@ -90,8 +89,7 @@ export default function ScheduleRoutineScreen() {
                   hitSlop={8}
                   disabled={!canGoToNextMonth}
                 >
-                  <Ionicons
-                    name="chevron-forward"
+                  <ChevronRight
                     size={18}
                     color={canGoToNextMonth ? "#A0A0A0" : "#3A3A42"}
                   />

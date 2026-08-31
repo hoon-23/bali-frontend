@@ -1,5 +1,5 @@
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import { ChartNoAxesColumn, ChevronRight, Dumbbell, House, LucideIcon, User } from "lucide-react-native";
 import { Tabs, useRouter, useSegments } from "expo-router";
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,11 +12,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // 축소됐을 때의 배율 — 완전히 사라지지 않고 살짝 작아지는 정도로만.
 const COLLAPSED_SCALE = 0.86;
 
-const TAB_ICONS: Record<string, { filled: keyof typeof Ionicons.glyphMap; outline: keyof typeof Ionicons.glyphMap }> = {
-  home: { filled: "home", outline: "home-outline" },
-  templates: { filled: "barbell", outline: "barbell-outline" },
-  stats: { filled: "stats-chart", outline: "stats-chart-outline" },
-  profile: { filled: "person", outline: "person-outline" },
+const TAB_ICONS: Record<string, LucideIcon> = {
+  home: House,
+  templates: Dumbbell,
+  stats: ChartNoAxesColumn,
+  profile: User,
 };
 
 export default function TabsLayout() {
@@ -72,9 +72,9 @@ export default function TabsLayout() {
           ]}
           onPress={() => router.push(`/workout/${inProgressSessionId}`)}
         >
-          <Ionicons name="barbell" size={20} color="#2DD4BF" />
+          <Dumbbell size={20} color="#2DD4BF" strokeWidth={2.25} />
           <Text style={styles.bannerText}>운동 진행 중</Text>
-          <Ionicons name="chevron-forward" size={18} color="#6B6B6B" />
+          <ChevronRight size={18} color="#6B6B6B" strokeWidth={2.25} />
         </AnimatedPressable>
       )}
     </View>
@@ -93,7 +93,7 @@ function CustomTabBar({ state, descriptors, navigation, bottom, sideMargin, hide
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
-        const icons = TAB_ICONS[route.name];
+        const Icon = TAB_ICONS[route.name];
         const color = isFocused ? "#2DD4BF" : "#6B6B6B";
 
         const handlePress = () => {
@@ -109,7 +109,7 @@ function CustomTabBar({ state, descriptors, navigation, bottom, sideMargin, hide
 
         return (
           <Pressable key={route.key} onPress={handlePress} style={styles.tabItem}>
-            <Ionicons name={isFocused ? icons.filled : icons.outline} size={24} color={color} />
+            <Icon size={24} color={color} strokeWidth={isFocused ? 2.5 : 1.75} />
             <Text style={[styles.tabBarLabel, { color }]}>{String(options.title)}</Text>
           </Pressable>
         );

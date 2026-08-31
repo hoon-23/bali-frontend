@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Bell, ChevronDown, ChevronRight, ChevronUp } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -169,7 +169,7 @@ export default function HomeScreen() {
               <Text style={styles.greeting}>{me?.nickname ?? "—"}님</Text>
             </View>
             <Pressable style={styles.bellButton} hitSlop={8}>
-              <Ionicons name="notifications" size={18} color="#FBBF24" />
+              <Bell size={18} color="#FBBF24" />
             </Pressable>
           </View>
 
@@ -365,7 +365,7 @@ function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onActi
         </View>
         <View style={styles.cardIndicator}>
           <Text style={[styles.cardIndicatorText, muted && styles.cardIndicatorTextMuted]}>{actionLabel}</Text>
-          <Ionicons name="chevron-forward" size={16} color={muted ? "#6B6B6B" : "#2DD4BF"} />
+          <ChevronRight size={16} color={muted ? "#6B6B6B" : "#2DD4BF"} />
         </View>
       </View>
     </Pressable>
@@ -406,7 +406,11 @@ function SecondarySessionRow({ session, exercises, metaLabel, actionLabel, onAct
           <Text style={styles.suggestedName}>{session.title}</Text>
           <Text style={styles.suggestedMeta}>{metaLabel}</Text>
         </View>
-        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color="#6B6B6B" />
+        {expanded ? (
+          <ChevronUp size={18} color="#6B6B6B" />
+        ) : (
+          <ChevronDown size={18} color="#6B6B6B" />
+        )}
       </View>
       {expanded && (
         <View style={styles.secondaryExpanded}>

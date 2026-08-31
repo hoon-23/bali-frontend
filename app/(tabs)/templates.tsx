@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronRight, Plus } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
 import {
@@ -154,7 +154,7 @@ export default function TemplatesScreen() {
                   onPress={() => router.push("/routines")}
                   hitSlop={8}
                 >
-                  <Ionicons name="add" size={22} color="#0B0B0F" />
+                  <Plus size={22} color="#0B0B0F" />
                 </Pressable>
               </View>
 
@@ -184,7 +184,7 @@ export default function TemplatesScreen() {
                               {estimateSessionDurationMinutes(session.logs)}분
                             </Text>
                           </View>
-                          <Ionicons name="chevron-forward" size={18} color="#6B6B6B" />
+                          <ChevronRight size={18} color="#6B6B6B" />
                         </Pressable>
                       );
                     })}

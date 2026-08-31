@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, ChevronLeft, ChevronUp, Pencil } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -73,7 +73,7 @@ export default function SessionRecordScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>세션 기록</Text>
           {isInProgress ? (
@@ -83,7 +83,7 @@ export default function SessionRecordScreen() {
               disabled={patchSession.isPending}
               hitSlop={8}
             >
-              <Ionicons name="create-outline" size={18} color="#FBBF24" />
+              <Pencil size={18} color="#FBBF24" />
             </Pressable>
           ) : (
             <View style={styles.headerSpacer} />
@@ -155,11 +155,11 @@ function ExerciseAccordion({ log, exerciseName, expanded, onToggle }: ExerciseAc
               {log.completed ? "완료" : "미완료"}
             </Text>
           </View>
-          <Ionicons
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={18}
-            color="#6B6B6B"
-          />
+          {expanded ? (
+            <ChevronUp size={18} color="#6B6B6B" />
+          ) : (
+            <ChevronDown size={18} color="#6B6B6B" />
+          )}
         </View>
       </Pressable>
 

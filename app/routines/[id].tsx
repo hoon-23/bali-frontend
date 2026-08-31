@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft, CircleCheck, Pencil, Plus, Trash2 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -109,11 +109,11 @@ export default function RoutineDetailScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>루틴 상세</Text>
           <Pressable style={styles.backButton} onPress={handleDelete} hitSlop={8}>
-            <Ionicons name="trash-outline" size={18} color="#F87171" />
+            <Trash2 size={18} color="#F87171" />
           </Pressable>
         </View>
 
@@ -147,7 +147,7 @@ export default function RoutineDetailScreen() {
           </View>
 
           <Pressable style={styles.addExerciseButton} onPress={handleAddExercise}>
-            <Ionicons name="add" size={18} color="#2DD4BF" />
+            <Plus size={18} color="#2DD4BF" />
             <Text style={styles.addExerciseButtonText}>운동 추가</Text>
           </Pressable>
         </ScrollView>
@@ -233,7 +233,7 @@ function RoutineDetailItemRow({ item, exercise, onSave, onDelete }: RoutineDetai
         <View style={styles.itemHeader}>
           <Text style={styles.itemName}>{exerciseName}</Text>
           <Pressable onPress={handleConfirm} hitSlop={8} disabled={saving}>
-            <Ionicons name="checkmark-circle" size={22} color="#2DD4BF" />
+            <CircleCheck size={22} color="#2DD4BF" />
           </Pressable>
         </View>
         <View style={styles.itemInputRow}>
@@ -252,11 +252,11 @@ function RoutineDetailItemRow({ item, exercise, onSave, onDelete }: RoutineDetai
       renderRightActions={() => (
         <View style={styles.swipeActions}>
           <Pressable style={[styles.swipeAction, styles.swipeActionEdit]} onPress={handleEditPress}>
-            <Ionicons name="create-outline" size={18} color="#0B0B0F" />
+            <Pencil size={18} color="#0B0B0F" />
             <Text style={styles.swipeActionText}>수정</Text>
           </Pressable>
           <Pressable style={[styles.swipeAction, styles.swipeActionDelete]} onPress={handleDeletePress}>
-            <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
+            <Trash2 size={18} color="#FFFFFF" />
             <Text style={[styles.swipeActionText, styles.swipeActionTextDelete]}>삭제</Text>
           </Pressable>
         </View>

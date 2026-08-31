@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -175,7 +175,7 @@ export default function StatsScreen() {
               onPress={() => setView((prev) => (prev === "weekly" ? "monthly" : "weekly"))}
             >
               <Text style={styles.viewToggleText}>{view === "weekly" ? "주간" : "월간"}</Text>
-              <Ionicons name="chevron-down" size={14} color="#2DD4BF" />
+              <ChevronDown size={14} color="#2DD4BF" />
             </Pressable>
           </View>
 
@@ -183,7 +183,7 @@ export default function StatsScreen() {
             <>
               <View style={styles.dateNavRow}>
                 <Pressable onPress={() => setWeekOffset((offset) => offset - 1)} hitSlop={8}>
-                  <Ionicons name="chevron-back" size={18} color="#2DD4BF" />
+                  <ChevronLeft size={18} color="#2DD4BF" />
                 </Pressable>
                 <Text style={styles.dateRangeText}>{weekRangeLabel}</Text>
                 <Pressable
@@ -191,8 +191,7 @@ export default function StatsScreen() {
                   hitSlop={8}
                   disabled={weekOffset >= 0}
                 >
-                  <Ionicons
-                    name="chevron-forward"
+                  <ChevronRight
                     size={18}
                     color={weekOffset >= 0 ? "#3A3A42" : "#2DD4BF"}
                   />
@@ -311,15 +310,14 @@ export default function StatsScreen() {
                   </Text>
                   <View style={styles.calendarNav}>
                     <Pressable onPress={() => setMonthOffset((offset) => offset - 1)} hitSlop={8}>
-                      <Ionicons name="chevron-back" size={18} color="#A0A0A0" />
+                      <ChevronLeft size={18} color="#A0A0A0" />
                     </Pressable>
                     <Pressable
                       onPress={() => setMonthOffset((offset) => Math.min(0, offset + 1))}
                       hitSlop={8}
                       disabled={monthOffset >= 0}
                     >
-                      <Ionicons
-                        name="chevron-forward"
+                      <ChevronRight
                         size={18}
                         color={monthOffset >= 0 ? "#3A3A42" : "#A0A0A0"}
                       />

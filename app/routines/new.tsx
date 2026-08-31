@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Check, CircleX, Plus, X } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -68,11 +68,11 @@ export default function NewRoutineScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="close" size={20} color="#FFFFFF" />
+            <X size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>루틴 만들기</Text>
           <Pressable style={styles.saveButton} onPress={handleSave} hitSlop={8}>
-            <Ionicons name="checkmark" size={20} color="#0B0B0F" />
+            <Check size={20} color="#0B0B0F" />
           </Pressable>
         </View>
 
@@ -123,7 +123,7 @@ export default function NewRoutineScreen() {
                 style={styles.addExerciseButton}
                 onPress={() => router.push("/routines/exercise-picker")}
               >
-                <Ionicons name="add" size={16} color="#2DD4BF" />
+                <Plus size={16} color="#2DD4BF" />
                 <Text style={styles.addExerciseText}>운동 추가하기</Text>
               </Pressable>
             </View>
@@ -162,7 +162,7 @@ function RoutineItemRow({ item, exercise, onRemove, onChangeField }: RoutineItem
       <View style={styles.itemHeader}>
         <Text style={styles.itemName}>{exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}</Text>
         <Pressable onPress={onRemove} hitSlop={8}>
-          <Ionicons name="close-circle" size={20} color="#6B6B6B" />
+          <CircleX size={20} color="#6B6B6B" />
         </Pressable>
       </View>
       <View style={styles.itemInputRow}>

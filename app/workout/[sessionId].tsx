@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { CircleCheck, CircleMinus, CirclePlus } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -328,7 +328,7 @@ function ActiveExercisePanel({
 
       {log.completed ? (
         <View style={styles.doneWrap}>
-          <Ionicons name="checkmark-circle" size={20} color="#2DD4BF" />
+          <CircleCheck size={20} color="#2DD4BF" />
           <Text style={styles.doneText}>완료된 운동이에요</Text>
         </View>
       ) : (
@@ -340,13 +340,13 @@ function ActiveExercisePanel({
               <Text style={styles.statLabel}>세트</Text>
               <View style={styles.statStepperRow}>
                 <Pressable onPress={() => onAdjustSets(-1)} hitSlop={6}>
-                  <Ionicons name="remove-circle-outline" size={18} color="#6B6B6B" />
+                  <CircleMinus size={18} color="#6B6B6B" />
                 </Pressable>
                 <Text style={styles.statValue}>
                   {log.actualSets || 0}/{log.targetSets}
                 </Text>
                 <Pressable onPress={() => onAdjustSets(1)} hitSlop={6}>
-                  <Ionicons name="add-circle-outline" size={18} color="#2DD4BF" />
+                  <CirclePlus size={18} color="#2DD4BF" />
                 </Pressable>
               </View>
             </View>

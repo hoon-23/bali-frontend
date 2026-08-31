@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { CirclePlus, Search, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -84,14 +84,14 @@ export default function ExercisePickerScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="close" size={20} color="#FFFFFF" />
+            <X size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>운동 추가하기</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.searchWrap}>
-          <Ionicons name="search" size={16} color="#6B6B6B" />
+          <Search size={16} color="#6B6B6B" />
           <TextInput
             style={styles.searchInput}
             value={query}
@@ -172,7 +172,7 @@ export default function ExercisePickerScreen() {
                     : MUSCLE_GROUP_KOREAN[exercise.muscleGroup]}
                 </Text>
               </View>
-              <Ionicons name="add-circle-outline" size={22} color="#2DD4BF" />
+              <CirclePlus size={22} color="#2DD4BF" />
             </Pressable>
           ))}
           {results.length === 0 && (

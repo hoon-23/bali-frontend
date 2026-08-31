@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { BellOff, ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
@@ -66,7 +66,7 @@ export default function NotificationSettingsScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+            <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>알림 설정</Text>
           <View style={styles.headerSpacer} />
@@ -75,7 +75,7 @@ export default function NotificationSettingsScreen() {
         <View style={styles.content}>
           {permissionDenied && (
             <Pressable style={styles.warningCard} onPress={() => Linking.openSettings()}>
-              <Ionicons name="notifications-off-outline" size={18} color="#FBBF24" />
+              <BellOff size={18} color="#FBBF24" />
               <Text style={styles.warningText}>
                 기기 알림 권한이 꺼져 있어요. 눌러서 설정에서 켜주세요.
               </Text>
