@@ -13,8 +13,10 @@ import {
 } from "../../constants/exercises";
 import { appAlert } from "../../lib/alert";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
-import { formatExerciseName, useExercises } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, useExercises } from "../../hooks/api/useExercises";
 import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
+
+const DEFAULT_CARDIO_DURATION_SECONDS = 20 * 60;
 
 const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "CHEST",
@@ -53,7 +55,9 @@ export default function ExercisePickerScreen() {
       : byMuscleGroup;
   }, [exercises, query, filter, equipmentFilter]);
 
-  const handleSelect = async (exerciseId: string) => {
+  const handleSelect = async (exercise: ApiExercise) => {
+    const isCardio = exercise.muscleGroup === "CARDIO";
+
     // templateId가 있으면 "루틴 상세"에서 기존 루틴에 운동을 추가하는 경로 —
     // 빌더 스토어를 안 거치고 템플릿을 바로 PUT으로 갱신한다.
     if (templateId && template) {
@@ -65,7 +69,19 @@ export default function ExercisePickerScreen() {
             category: template.category,
             items: [
               ...toItemsPayload(template.items),
-              { exerciseId, sortOrder: template.items.length, targetSets: 3, targetReps: 10, targetWeight: 20 },
+              isCardio
+                ? {
+                    exerciseId: exercise.id,
+                    sortOrder: template.items.length,
+                    targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS,
+                  }
+                : {
+                    exerciseId: exercise.id,
+                    sortOrder: template.items.length,
+                    targetSets: 3,
+                    targetReps: 10,
+                    targetWeight: 20,
+                  },
             ],
           },
         });
@@ -75,7 +91,7 @@ export default function ExercisePickerScreen() {
       }
       return;
     }
-    addItem(exerciseId);
+    addItem(exercise.id, isCardio);
     router.back();
   };
 
@@ -162,7 +178,7 @@ export default function ExercisePickerScreen() {
             <Pressable
               key={exercise.id}
               style={styles.exerciseRow}
-              onPress={() => handleSelect(exercise.id)}
+              onPress={() => handleSelect(exercise)}
             >
               <View>
                 <Text style={styles.exerciseName}>{formatExerciseName(exercise)}</Text>

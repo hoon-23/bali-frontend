@@ -1,12 +1,15 @@
 import { create } from "zustand";
 import { TemplateCategory } from "./templatesStore";
 
+const DEFAULT_CARDIO_DURATION_MINUTES = "20";
+
 export type DraftItem = {
   id: string;
   exerciseId: string;
   targetSets: string;
   targetReps: string;
   targetWeight: string;
+  targetDurationMinutes: string;
 };
 
 type RoutineBuilderState = {
@@ -15,9 +18,14 @@ type RoutineBuilderState = {
   items: DraftItem[];
   setName: (name: string) => void;
   setCategory: (category: TemplateCategory) => void;
-  addItem: (exerciseId: string) => void;
+  addItem: (exerciseId: string, isCardio: boolean) => void;
   removeItem: (id: string) => void;
-  updateItemField: (id: string, field: "targetSets" | "targetReps" | "targetWeight", value: string) => void;
+  updateItemField: (
+    id: string,
+    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes",
+    value: string
+  ) => void;
+  reorderItems: (items: DraftItem[]) => void;
   reset: () => void;
 };
 
@@ -33,7 +41,7 @@ export const useRoutineBuilderStore = create<RoutineBuilderState>((set) => ({
   setName: (name) => set({ name }),
   setCategory: (category) => set({ category }),
 
-  addItem: (exerciseId) =>
+  addItem: (exerciseId, isCardio) =>
     set((state) => ({
       items: [
         ...state.items,
@@ -43,6 +51,7 @@ export const useRoutineBuilderStore = create<RoutineBuilderState>((set) => ({
           targetSets: "3",
           targetReps: "10",
           targetWeight: "20",
+          targetDurationMinutes: isCardio ? DEFAULT_CARDIO_DURATION_MINUTES : "",
         },
       ],
     })),
@@ -54,6 +63,8 @@ export const useRoutineBuilderStore = create<RoutineBuilderState>((set) => ({
     set((state) => ({
       items: state.items.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
     })),
+
+  reorderItems: (items) => set({ items }),
 
   reset: () => set({ ...DEFAULT_STATE, items: [] }),
 }));

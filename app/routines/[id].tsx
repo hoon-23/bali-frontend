@@ -1,8 +1,8 @@
-import { ChevronLeft, CircleCheck, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { ChevronLeft, CircleX, GripVertical, Plus, Trash2 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Swipeable } from "react-native-gesture-handler";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -15,7 +15,9 @@ import { ApiTemplate, toItemsPayload, useDeleteTemplate, useTemplate, useUpdateT
 import { useCreateSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 
-type ItemDraft = { targetSets: number; targetReps: number; targetWeight: number };
+type ItemDraft =
+  | { targetSets: number; targetReps: number; targetWeight: number }
+  | { targetDurationSeconds: number };
 
 export default function RoutineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,6 +30,7 @@ export default function RoutineDetailScreen() {
   const deleteTemplate = useDeleteTemplate();
   const updateTemplate = useUpdateTemplate();
   const [starting, setStarting] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   if (!template) {
     return null;
@@ -104,6 +107,21 @@ export default function RoutineDetailScreen() {
       },
     });
 
+  const reorderItems = async (currentTemplate: ApiTemplate, reordered: TemplateItem[]) => {
+    try {
+      await updateTemplate.mutateAsync({
+        id: currentTemplate.id,
+        payload: {
+          name: currentTemplate.name,
+          category: currentTemplate.category,
+          items: toItemsPayload(reordered),
+        },
+      });
+    } catch {
+      appAlert("순서를 저장하지 못했어요. 다시 시도해주세요.");
+    }
+  };
+
   return (
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -112,45 +130,58 @@ export default function RoutineDetailScreen() {
             <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
           <Text style={styles.headerTitle}>루틴 상세</Text>
-          <Pressable style={styles.backButton} onPress={handleDelete} hitSlop={8}>
-            <Trash2 size={18} color="#F87171" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.backButton} onPress={handleDelete} hitSlop={8}>
+              <Trash2 size={18} color="#F87171" />
+            </Pressable>
+            <Pressable style={styles.editToggle} onPress={() => setEditMode((prev) => !prev)}>
+              <Text style={styles.editToggleText}>{editMode ? "완료" : "편집"}</Text>
+            </Pressable>
+          </View>
         </View>
 
-        <ScrollView
+        <DraggableFlatList
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
-            <View style={styles.titleRow}>
-              <Text style={styles.name}>{template.name}</Text>
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryBadgeText}>{CATEGORY_LABELS[template.category]}</Text>
+          data={template.items}
+          keyExtractor={(item) => item.id}
+          dragItemOverflow
+          onDragEnd={({ data }) => reorderItems(template, data)}
+          ListHeaderComponent={
+            <View style={styles.headerSections}>
+              <View style={styles.card}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.name}>{template.name}</Text>
+                  <View style={styles.categoryBadge}>
+                    <Text style={styles.categoryBadgeText}>{CATEGORY_LABELS[template.category]}</Text>
+                  </View>
+                </View>
               </View>
+              <Text style={styles.sectionTitle}>운동 목록</Text>
             </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>운동 목록</Text>
-          <View style={styles.list}>
-            {template.items.map((item) => (
+          }
+          ListEmptyComponent={<Text style={styles.emptyText}>아직 추가된 운동이 없어요.</Text>}
+          ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+          renderItem={({ item, drag, isActive }: RenderItemParams<TemplateItem>) => (
+            <ScaleDecorator>
               <RoutineDetailItemRow
-                key={item.id}
                 item={item}
                 exercise={exerciseMap.get(item.exerciseId)}
+                editMode={editMode}
+                dragging={isActive}
+                onDrag={drag}
                 onSave={(draft) => saveItem(template, item.id, draft)}
                 onDelete={() => deleteItem(template, item.id)}
               />
-            ))}
-            {template.items.length === 0 && (
-              <Text style={styles.emptyText}>아직 추가된 운동이 없어요.</Text>
-            )}
-          </View>
-
-          <Pressable style={styles.addExerciseButton} onPress={handleAddExercise}>
-            <Plus size={18} color="#2DD4BF" />
-            <Text style={styles.addExerciseButtonText}>운동 추가</Text>
-          </Pressable>
-        </ScrollView>
+            </ScaleDecorator>
+          )}
+          ListFooterComponent={
+            <Pressable style={styles.addExerciseButton} onPress={handleAddExercise}>
+              <Plus size={18} color="#2DD4BF" />
+              <Text style={styles.addExerciseButtonText}>운동 추가</Text>
+            </Pressable>
+          }
+        />
 
         <View style={styles.actionRow}>
           <Pressable
@@ -178,41 +209,46 @@ export default function RoutineDetailScreen() {
 type RoutineDetailItemRowProps = {
   item: TemplateItem;
   exercise: ApiExercise | undefined;
+  editMode: boolean;
+  dragging: boolean;
+  onDrag: () => void;
   onSave: (draft: ItemDraft) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
 };
 
-// 왼쪽으로 스와이프하면 수정/삭제 버튼이 드러나는 iOS 스타일 리스트 행.
-// 수정은 세트/횟수/무게만 인라인으로 바꾼다 — 운동 종목 자체를 바꾸려면 삭제 후 다시 추가.
-function RoutineDetailItemRow({ item, exercise, onSave, onDelete }: RoutineDetailItemRowProps) {
-  const swipeableRef = useRef<Swipeable>(null);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
+// 상단 "편집" 버튼을 누르면 그립(드래그 재정렬)+삭제가 드러나고 세트/횟수/무게가
+// 바로 입력 가능해진다("루틴 만들기" 화면의 RoutineItemRow와 동일한 인터랙션) —
+// 운동 종목 자체를 바꾸려면 삭제 후 다시 추가.
+function RoutineDetailItemRow({
+  item,
+  exercise,
+  editMode,
+  dragging,
+  onDrag,
+  onSave,
+  onDelete,
+}: RoutineDetailItemRowProps) {
+  const isCardio = exercise?.muscleGroup === "CARDIO";
   const [targetSets, setTargetSets] = useState(String(item.targetSets ?? 0));
   const [targetReps, setTargetReps] = useState(String(item.targetReps ?? 0));
   const [targetWeight, setTargetWeight] = useState(String(item.targetWeight ?? 0));
+  const [targetDurationMinutes, setTargetDurationMinutes] = useState(
+    String(Math.round((item.targetDurationSeconds ?? 0) / 60))
+  );
 
-  const handleEditPress = () => {
-    swipeableRef.current?.close();
-    setTargetSets(String(item.targetSets ?? 0));
-    setTargetReps(String(item.targetReps ?? 0));
-    setTargetWeight(String(item.targetWeight ?? 0));
-    setEditing(true);
-  };
-
-  const handleConfirm = async () => {
-    setSaving(true);
+  const handleBlurSave = async () => {
     try {
-      await onSave({
-        targetSets: Number(targetSets) || 0,
-        targetReps: Number(targetReps) || 0,
-        targetWeight: Number(targetWeight) || 0,
-      });
-      setEditing(false);
+      await onSave(
+        isCardio
+          ? { targetDurationSeconds: (Number(targetDurationMinutes) || 0) * 60 }
+          : {
+              targetSets: Number(targetSets) || 0,
+              targetReps: Number(targetReps) || 0,
+              targetWeight: Number(targetWeight) || 0,
+            }
+      );
     } catch {
       appAlert("저장하지 못했어요. 다시 시도해주세요.");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -220,57 +256,57 @@ function RoutineDetailItemRow({ item, exercise, onSave, onDelete }: RoutineDetai
     try {
       await onDelete();
     } catch {
-      swipeableRef.current?.close();
       appAlert("삭제하지 못했어요. 다시 시도해주세요.");
     }
   };
 
   const exerciseName = exercise ? formatExerciseName(exercise) : "알 수 없는 운동";
 
-  if (editing) {
-    return (
-      <View style={styles.itemCard}>
-        <View style={styles.itemHeader}>
-          <Text style={styles.itemName}>{exerciseName}</Text>
-          <Pressable onPress={handleConfirm} hitSlop={8} disabled={saving}>
-            <CircleCheck size={22} color="#2DD4BF" />
-          </Pressable>
-        </View>
-        <View style={styles.itemInputRow}>
-          <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} />
-          <ItemInput label="횟수" value={targetReps} onChangeText={setTargetReps} />
-          <ItemInput label="무게(kg)" value={targetWeight} onChangeText={setTargetWeight} />
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <Swipeable
-      ref={swipeableRef}
-      overshootRight={false}
-      renderRightActions={() => (
-        <View style={styles.swipeActions}>
-          <Pressable style={[styles.swipeAction, styles.swipeActionEdit]} onPress={handleEditPress}>
-            <Pencil size={18} color="#0B0B0F" />
-            <Text style={styles.swipeActionText}>수정</Text>
+    <View style={[styles.itemCard, dragging && styles.itemCardDragging]}>
+      <View style={styles.itemHeader}>
+        {editMode && (
+          <Pressable onLongPress={onDrag} disabled={dragging} hitSlop={8} style={styles.dragHandle}>
+            <GripVertical size={18} color="#6B6B6B" />
           </Pressable>
-          <Pressable style={[styles.swipeAction, styles.swipeActionDelete]} onPress={handleDeletePress}>
-            <Trash2 size={18} color="#FFFFFF" />
-            <Text style={[styles.swipeActionText, styles.swipeActionTextDelete]}>삭제</Text>
-          </Pressable>
-        </View>
-      )}
-    >
-      <View style={styles.itemCard}>
+        )}
         <Text style={styles.itemName}>{exerciseName}</Text>
+        {editMode && (
+          <Pressable onPress={handleDeletePress} hitSlop={8}>
+            <CircleX size={20} color="#6B6B6B" />
+          </Pressable>
+        )}
+      </View>
+      {editMode ? (
+        <View style={styles.itemInputRow}>
+          {isCardio ? (
+            <ItemInput
+              label="목표 시간(분)"
+              value={targetDurationMinutes}
+              onChangeText={setTargetDurationMinutes}
+              onBlur={handleBlurSave}
+            />
+          ) : (
+            <>
+              <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} onBlur={handleBlurSave} />
+              <ItemInput label="횟수" value={targetReps} onChangeText={setTargetReps} onBlur={handleBlurSave} />
+              <ItemInput
+                label="무게(kg)"
+                value={targetWeight}
+                onChangeText={setTargetWeight}
+                onBlur={handleBlurSave}
+              />
+            </>
+          )}
+        </View>
+      ) : (
         <Text style={styles.itemTarget}>
           {item.targetDurationSeconds
             ? `${Math.round(item.targetDurationSeconds / 60)}분`
             : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
         </Text>
-      </View>
-    </Swipeable>
+      )}
+    </View>
   );
 }
 
@@ -278,9 +314,10 @@ type ItemInputProps = {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
+  onBlur: () => void;
 };
 
-function ItemInput({ label, value, onChangeText }: ItemInputProps) {
+function ItemInput({ label, value, onChangeText, onBlur }: ItemInputProps) {
   return (
     <View style={styles.itemInputGroup}>
       <Text style={styles.itemInputLabel}>{label}</Text>
@@ -288,6 +325,7 @@ function ItemInput({ label, value, onChangeText }: ItemInputProps) {
         style={styles.itemInput}
         value={value}
         onChangeText={onChangeText}
+        onBlur={onBlur}
         keyboardType="numeric"
         placeholderTextColor="#6B6B6B"
       />
@@ -322,10 +360,33 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editToggle: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: "#1C1C25",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255, 255, 255, 0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editToggleText: {
+    color: "#2DD4BF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingBottom: 20,
+  },
+  headerSections: {
     gap: 16,
+    marginBottom: 16,
   },
   card: {
     backgroundColor: "#1C1C25",
@@ -361,8 +422,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  list: {
-    gap: 10,
+  itemSeparator: {
+    height: 10,
   },
   itemCard: {
     backgroundColor: "#1C1C25",
@@ -373,12 +434,19 @@ const styles = StyleSheet.create({
     gap: 4,
     ...CARD_SHADOW,
   },
+  itemCardDragging: {
+    borderColor: "#2DD4BF",
+  },
   itemHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
+  },
+  dragHandle: {
+    padding: 2,
   },
   itemName: {
+    flex: 1,
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "600",
@@ -408,32 +476,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
   },
-  swipeActions: {
-    flexDirection: "row",
-    gap: 8,
-    marginLeft: 8,
-  },
-  swipeAction: {
-    width: 64,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-  },
-  swipeActionEdit: {
-    backgroundColor: "#2DD4BF",
-  },
-  swipeActionDelete: {
-    backgroundColor: "#F87171",
-  },
-  swipeActionText: {
-    color: "#0B0B0F",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  swipeActionTextDelete: {
-    color: "#FFFFFF",
-  },
   emptyText: {
     color: "#6B6B6B",
     fontSize: 13,
@@ -445,6 +487,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     alignItems: "center",
     gap: 6,
+    marginTop: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(45, 212, 191, 0.4)",
     paddingVertical: 10,

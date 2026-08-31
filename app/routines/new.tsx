@@ -1,7 +1,8 @@
-import { Check, CircleX, Plus, X } from "lucide-react-native";
+import { Check, CircleX, GripVertical, Plus, X } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -23,6 +24,7 @@ export default function NewRoutineScreen() {
   const setCategory = useRoutineBuilderStore((state) => state.setCategory);
   const removeItem = useRoutineBuilderStore((state) => state.removeItem);
   const updateItemField = useRoutineBuilderStore((state) => state.updateItemField);
+  const reorderItems = useRoutineBuilderStore((state) => state.reorderItems);
   const reset = useRoutineBuilderStore((state) => state.reset);
   const exerciseMap = useExerciseMap();
   const createTemplate = useCreateTemplate();
@@ -48,13 +50,22 @@ export default function NewRoutineScreen() {
       {
         name: name.trim(),
         category,
-        items: items.map((item, index) => ({
-          exerciseId: item.exerciseId,
-          sortOrder: index,
-          targetSets: Number(item.targetSets) || 0,
-          targetReps: Number(item.targetReps) || 0,
-          targetWeight: Number(item.targetWeight) || 0,
-        })),
+        items: items.map((item, index) => {
+          const isCardio = exerciseMap.get(item.exerciseId)?.muscleGroup === "CARDIO";
+          return isCardio
+            ? {
+                exerciseId: item.exerciseId,
+                sortOrder: index,
+                targetDurationSeconds: (Number(item.targetDurationMinutes) || 0) * 60,
+              }
+            : {
+                exerciseId: item.exerciseId,
+                sortOrder: index,
+                targetSets: Number(item.targetSets) || 0,
+                targetReps: Number(item.targetReps) || 0,
+                targetWeight: Number(item.targetWeight) || 0,
+              };
+        }),
       },
       {
         onSuccess: () => router.back(),
@@ -76,74 +87,77 @@ export default function NewRoutineScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
+        <DraggableFlatList
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-        >
-          <View>
-            <Text style={styles.label}>루틴 이름</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="예: 등, 하체"
-              placeholderTextColor="#6B6B6B"
-            />
-          </View>
-
-          <View>
-            <Text style={styles.label}>분류</Text>
-            <View style={styles.categoryRow}>
-              {CATEGORIES.map((item) => {
-                const selected = category === item;
-                return (
-                  <Pressable
-                    key={item}
-                    style={[styles.categoryChip, selected && styles.categoryChipSelected]}
-                    onPress={() => setCategory(item)}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        selected && styles.categoryChipTextSelected,
-                      ]}
-                    >
-                      {CATEGORY_LABELS[item]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          <View>
-            <View style={styles.itemsHeader}>
-              <Text style={styles.label}>운동 목록</Text>
-              <Pressable
-                style={styles.addExerciseButton}
-                onPress={() => router.push("/routines/exercise-picker")}
-              >
-                <Plus size={16} color="#2DD4BF" />
-                <Text style={styles.addExerciseText}>운동 추가하기</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.itemList}>
-              {items.map((item) => (
-                <RoutineItemRow
-                  key={item.id}
-                  item={item}
-                  exercise={exerciseMap.get(item.exerciseId)}
-                  onRemove={() => removeItem(item.id)}
-                  onChangeField={(field, value) => updateItemField(item.id, field, value)}
+          data={items}
+          keyExtractor={(item) => item.id}
+          onDragEnd={({ data }) => reorderItems(data)}
+          ListHeaderComponent={
+            <View style={styles.headerSections}>
+              <View>
+                <Text style={styles.label}>루틴 이름</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="예: 등, 하체"
+                  placeholderTextColor="#6B6B6B"
                 />
-              ))}
-              {items.length === 0 && (
-                <Text style={styles.emptyText}>운동을 추가해보세요.</Text>
-              )}
+              </View>
+
+              <View>
+                <Text style={styles.label}>분류</Text>
+                <View style={styles.categoryRow}>
+                  {CATEGORIES.map((item) => {
+                    const selected = category === item;
+                    return (
+                      <Pressable
+                        key={item}
+                        style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                        onPress={() => setCategory(item)}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            selected && styles.categoryChipTextSelected,
+                          ]}
+                        >
+                          {CATEGORY_LABELS[item]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.itemsHeader}>
+                <Text style={styles.label}>운동 목록</Text>
+                <Pressable
+                  style={styles.addExerciseButton}
+                  onPress={() => router.push("/routines/exercise-picker")}
+                >
+                  <Plus size={16} color="#2DD4BF" />
+                  <Text style={styles.addExerciseText}>운동 추가하기</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
-        </ScrollView>
+          }
+          ListEmptyComponent={<Text style={styles.emptyText}>운동을 추가해보세요.</Text>}
+          ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+          renderItem={({ item, drag, isActive }: RenderItemParams<DraftItem>) => (
+            <ScaleDecorator>
+              <RoutineItemRow
+                item={item}
+                exercise={exerciseMap.get(item.exerciseId)}
+                dragging={isActive}
+                onDrag={drag}
+                onRemove={() => removeItem(item.id)}
+                onChangeField={(field, value) => updateItemField(item.id, field, value)}
+              />
+            </ScaleDecorator>
+          )}
+        />
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -152,36 +166,56 @@ export default function NewRoutineScreen() {
 type RoutineItemRowProps = {
   item: DraftItem;
   exercise: ApiExercise | undefined;
+  dragging: boolean;
+  onDrag: () => void;
   onRemove: () => void;
-  onChangeField: (field: "targetSets" | "targetReps" | "targetWeight", value: string) => void;
+  onChangeField: (
+    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes",
+    value: string
+  ) => void;
 };
 
-function RoutineItemRow({ item, exercise, onRemove, onChangeField }: RoutineItemRowProps) {
+function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeField }: RoutineItemRowProps) {
+  const isCardio = exercise?.muscleGroup === "CARDIO";
+
   return (
-    <View style={styles.itemCard}>
+    <View style={[styles.itemCard, dragging && styles.itemCardDragging]}>
       <View style={styles.itemHeader}>
+        <Pressable onLongPress={onDrag} disabled={dragging} hitSlop={8} style={styles.dragHandle}>
+          <GripVertical size={18} color="#6B6B6B" />
+        </Pressable>
         <Text style={styles.itemName}>{exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}</Text>
         <Pressable onPress={onRemove} hitSlop={8}>
           <CircleX size={20} color="#6B6B6B" />
         </Pressable>
       </View>
-      <View style={styles.itemInputRow}>
-        <ItemInput
-          label="세트"
-          value={item.targetSets}
-          onChangeText={(value) => onChangeField("targetSets", value)}
-        />
-        <ItemInput
-          label="횟수"
-          value={item.targetReps}
-          onChangeText={(value) => onChangeField("targetReps", value)}
-        />
-        <ItemInput
-          label="무게(kg)"
-          value={item.targetWeight}
-          onChangeText={(value) => onChangeField("targetWeight", value)}
-        />
-      </View>
+      {isCardio ? (
+        <View style={styles.itemInputRow}>
+          <ItemInput
+            label="목표 시간(분)"
+            value={item.targetDurationMinutes}
+            onChangeText={(value) => onChangeField("targetDurationMinutes", value)}
+          />
+        </View>
+      ) : (
+        <View style={styles.itemInputRow}>
+          <ItemInput
+            label="세트"
+            value={item.targetSets}
+            onChangeText={(value) => onChangeField("targetSets", value)}
+          />
+          <ItemInput
+            label="횟수"
+            value={item.targetReps}
+            onChangeText={(value) => onChangeField("targetReps", value)}
+          />
+          <ItemInput
+            label="무게(kg)"
+            value={item.targetWeight}
+            onChangeText={(value) => onChangeField("targetWeight", value)}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -245,7 +279,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingBottom: 40,
+  },
+  headerSections: {
     gap: 20,
+    marginBottom: 20,
   },
   label: {
     color: "#FFFFFF",
@@ -304,8 +341,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  itemList: {
-    gap: 10,
+  itemSeparator: {
+    height: 10,
   },
   itemCard: {
     backgroundColor: "#1C1C25",
@@ -316,12 +353,19 @@ const styles = StyleSheet.create({
     gap: 12,
     ...CARD_SHADOW,
   },
+  itemCardDragging: {
+    borderColor: "#2DD4BF",
+  },
   itemHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
+  },
+  dragHandle: {
+    padding: 2,
   },
   itemName: {
+    flex: 1,
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "600",
