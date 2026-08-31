@@ -166,7 +166,7 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.greetingSub}>안녕하세요</Text>
-              <Text style={styles.greeting}>{me?.nickname ?? "—"}님</Text>
+              <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
             </View>
             <Pressable style={styles.bellButton} hitSlop={8}>
               <Bell size={18} color="#FBBF24" />

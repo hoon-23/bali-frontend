@@ -276,7 +276,7 @@ export default function StatsScreen() {
                         <View style={styles.muscleRow}>
                           <Text style={styles.muscleLabel}>{item.label}</Text>
                           <Text style={styles.muscleValue}>
-                            {item.percent}% · {item.volume}kg
+                            {item.percent}% · 총 {item.volume}kg
                           </Text>
                         </View>
                         <View style={styles.progressTrack}>
@@ -381,7 +381,7 @@ export default function StatsScreen() {
                         <View style={styles.muscleRow}>
                           <Text style={styles.muscleLabel}>{item.label}</Text>
                           <Text style={styles.muscleValue}>
-                            {item.percent}% · {item.volume}kg
+                            {item.percent}% · 총 {item.volume}kg
                           </Text>
                         </View>
                         <View style={styles.progressTrack}>

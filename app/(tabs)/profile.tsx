@@ -109,7 +109,7 @@ export default function ProfileScreen() {
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{me?.nickname?.[0] ?? "?"}</Text>
             </View>
-            <Text style={styles.name}>{me?.nickname ?? "—"}님</Text>
+            <Text style={styles.name}>{me?.nickname ?? "—"} 님</Text>
             {me?.email && !isPlaceholderEmail(me.email) && (
               <Text style={styles.email}>{me.email}</Text>
             )}

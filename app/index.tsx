@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
-import * as AppleAuthentication from "expo-apple-authentication";
 import { login as kakaoLogin } from "@react-native-seoul/kakao-login";
 import NaverLogin from "@react-native-seoul/naver-login";
 import { apiClient } from "../lib/api/client";
@@ -72,6 +71,9 @@ export default function LoginScreen() {
   const handleAppleLogin = async () => {
     setLoggingIn(true);
     try {
+      // 최상단에서 import하면 네이티브 모듈을 즉시 바인딩하려 시도해서, 이 capability가
+      // 빠진 빌드(무료 Apple Personal Team 서명)에서는 로그인 화면 자체가 못 뜬다.
+      const AppleAuthentication: typeof import("expo-apple-authentication") = require("expo-apple-authentication");
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
