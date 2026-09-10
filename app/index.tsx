@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { login as kakaoLogin } from "@react-native-seoul/kakao-login";
 import NaverLogin from "@react-native-seoul/naver-login";
 import { apiClient } from "../lib/api/client";
@@ -52,7 +51,15 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     setLoggingIn(true);
+    let statusCodes: typeof import("@react-native-google-signin/google-signin")["statusCodes"] | undefined;
     try {
+      // 최상단에서 import/configure하면 네이티브 모듈을 즉시 바인딩하려 시도해서, 이 모듈이
+      // 없는 런타임(Expo Go 등)에서는 로그인 화면 자체가 못 뜬다 — Apple 로그인과 동일하게
+      // 버튼을 누른 시점에만 로드한다.
+      const googleSignInModule: typeof import("@react-native-google-signin/google-signin") = require("@react-native-google-signin/google-signin");
+      const { GoogleSignin } = googleSignInModule;
+      statusCodes = googleSignInModule.statusCodes;
+      GoogleSignin.configure({ iosClientId: "803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn.apps.googleusercontent.com" });
       const response = await GoogleSignin.signIn();
       // 시스템 OAuth 시트에서 취소하면 에러를 던지지 않고 이 형태로 resolve된다.
       if (response.type === "cancelled") return;
@@ -60,7 +67,7 @@ export default function LoginScreen() {
       if (!idToken) throw new Error("Google 로그인에서 idToken을 받지 못했습니다.");
       await finishLogin("google", idToken);
     } catch (error: any) {
-      if (error?.code !== statusCodes.SIGN_IN_CANCELLED) {
+      if (error?.code !== statusCodes?.SIGN_IN_CANCELLED) {
         appAlert("로그인 실패", "Google 로그인 중 문제가 발생했습니다. 다시 시도해주세요.");
       }
     } finally {

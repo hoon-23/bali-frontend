@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NaverLogin from "@react-native-seoul/naver-login";
 import { useAuthStore } from "../store/authStore";
 import { getRefreshToken } from "../lib/auth/tokenStorage";
@@ -29,7 +28,9 @@ const queryClient = new QueryClient({
   },
 });
 
-GoogleSignin.configure({ iosClientId: "803810989144-q9q2upa4sjjeda3biu455gi3jl99a5pn.apps.googleusercontent.com" });
+// Google 로그인은 최상단에서 import/configure하면 네이티브 모듈을 즉시 바인딩하려 시도해서,
+// 이 모듈이 없는 런타임(Expo Go 등)에서는 앱 자체가 부팅 중 크래시한다 — Apple 로그인과
+// 동일하게 app/index.tsx의 버튼 핸들러 안에서만 지연 로딩 + configure한다.
 // consumerKey/Secret은 실제 시크릿이라 소스에 직접 두지 않고 .env(git 미추적)로 주입한다.
 // .env.example 참고, 로컬은 .env, 클라우드 빌드는 EAS 환경변수에서 가져온다.
 if (!process.env.EXPO_PUBLIC_NAVER_CONSUMER_KEY || !process.env.EXPO_PUBLIC_NAVER_CONSUMER_SECRET) {
