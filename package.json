@@ -41,10 +41,11 @@
     "typescript": "~5.9.2"
   },
   "scripts": {
-    "start": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start'",
-    "android": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --android'",
-    "ios": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --ios'",
-    "web": "bash -c 'source ~/.nvm/nvm.sh && nvm use && expo start --web'",
+    "start": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && expo start'",
+    "start:dev-server": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && EXPO_PUBLIC_API_BASE_URL=https://d2x91gr9oekfgj.cloudfront.net expo start'",
+    "android": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && expo start --android'",
+    "ios": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && expo start --ios'",
+    "web": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && expo start --web'",
     "typecheck": "tsc --noEmit"
   },
   "private": true
