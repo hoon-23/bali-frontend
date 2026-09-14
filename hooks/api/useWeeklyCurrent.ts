@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
+import { AnalysisSummaryResponse } from "./useAnalysis";
 
 export type WeeklyCurrentResponse = {
   weekOf: string;
@@ -7,6 +8,8 @@ export type WeeklyCurrentResponse = {
   strengthMinutes: number;
   cardioMinutes: number;
   completedSessionsCount: number;
+  // 과거 주(weekly/{weekOf})와 같은 shape의 상세 요약 — volumeByMuscleGroup 등에 사용.
+  summary: AnalysisSummaryResponse;
 };
 
 export function useWeeklyCurrent() {

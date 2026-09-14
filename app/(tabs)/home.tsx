@@ -134,16 +134,16 @@ export default function HomeScreen() {
           ref={scrollViewRef}
           contentContainerStyle={[
             styles.scrollContent,
-            inProgressSessionId && {
-              // 배너 위치(_layout.tsx)는 insets.bottom을 더해서 계산되는데
+            {
+              // 탭바 위치(_layout.tsx)는 insets.bottom을 더해서 계산되는데
               // 이 화면은 SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 있었음 —
-              // 그만큼 배너와 겹쳐 보였던 원인. 여기서도 같은 insets.bottom을 더해 맞춘다.
+              // 그만큼 하단 여백이 부족해서 마지막 카드가 탭바와 겹쳐 보였던 원인.
+              // 여기서도 같은 insets.bottom을 더해 맞춘다.
               paddingBottom:
                 insets.bottom +
                 TAB_BAR_BOTTOM_MARGIN +
                 TAB_BAR_HEIGHT +
-                IN_PROGRESS_BANNER_RESERVED_HEIGHT +
-                TODAY_CARD_GAP,
+                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + TODAY_CARD_GAP : 24),
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -168,7 +168,7 @@ export default function HomeScreen() {
               <Text style={styles.greetingSub}>안녕하세요</Text>
               <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
             </View>
-            <Pressable style={styles.bellButton} hitSlop={8}>
+            <Pressable style={styles.bellButton} hitSlop={8} onPress={() => router.push("/notifications")}>
               <Bell size={18} color="#FBBF24" />
             </Pressable>
           </View>
@@ -458,7 +458,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingTop: 12,
-    paddingBottom: TAB_BAR_BOTTOM_MARGIN + TAB_BAR_HEIGHT + 24,
     gap: 20,
   },
   header: {

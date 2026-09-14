@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
@@ -146,6 +147,9 @@ export default function ScheduleRoutineScreen() {
           <Text style={styles.confirmButtonText}>{saving ? "예약하는 중..." : "예약하기"}</Text>
         </Pressable>
       </SafeAreaView>
+      {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
+          AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
+      <AppAlertModal />
     </ScreenBackground>
   );
 }

@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { appAlert } from "../../lib/alert";
+import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -75,7 +76,8 @@ export default function UpcomingWorkoutScreen() {
   };
 
   const handleDraftChange = (logId: string, field: "sets" | "reps" | "weight", value: string) => {
-    setDraft((prev) => ({ ...prev, [logId]: { ...prev[logId], [field]: value } }));
+    const nextValue = field === "weight" ? sanitizeWeightInput(value) : value;
+    setDraft((prev) => ({ ...prev, [logId]: { ...prev[logId], [field]: nextValue } }));
   };
 
   const handleSavePress = async () => {
@@ -179,6 +181,7 @@ export default function UpcomingWorkoutScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
         >
           <View style={styles.summaryCard}>
             {muscleGroup && (

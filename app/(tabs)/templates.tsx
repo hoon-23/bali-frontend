@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -81,6 +81,7 @@ export default function TemplatesScreen() {
     isFetchingNextPage,
   } = useSessionHistory();
   const inProgressSessionId = useInProgressSessionId();
+  const insets = useSafeAreaInsets();
 
   // 오늘 시작한 세션은 status로 구분: 아직 SCHEDULED면 "예정된 운동"에,
   // IN_PROGRESS/COMPLETED면 "지난 기록"에 나온다.
@@ -242,8 +243,14 @@ export default function TemplatesScreen() {
           }}
           contentContainerStyle={[
             styles.scrollContent,
-            inProgressSessionId && {
-              paddingBottom: styles.scrollContent.paddingBottom + IN_PROGRESS_BANNER_RESERVED_HEIGHT,
+            {
+              // SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 마지막 카드가
+              // 탭바와 겹쳐 보이던 문제 — 여기서 insets.bottom을 더해 맞춘다.
+              paddingBottom:
+                insets.bottom +
+                TAB_BAR_BOTTOM_MARGIN +
+                TAB_BAR_HEIGHT +
+                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + 24 : 24),
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -260,7 +267,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingTop: 12,
-    paddingBottom: TAB_BAR_BOTTOM_MARGIN + TAB_BAR_HEIGHT + 24,
   },
   listHeader: {
     gap: 24,

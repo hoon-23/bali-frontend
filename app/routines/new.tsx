@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
+import { sanitizeWeightInput } from "../../lib/format/numberInput";
+import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
@@ -13,7 +16,7 @@ import { DraftItem, useRoutineBuilderStore } from "../../store/routineBuilderSto
 import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { useCreateTemplate } from "../../hooks/api/useTemplates";
 
-const CATEGORIES: TemplateCategory[] = ["PUSH", "PULL", "LEGS", "STRENGTH"];
+const CATEGORIES: TemplateCategory[] = ["PUSH", "PULL", "LEGS", "STRENGTH", "CARDIO"];
 
 export default function NewRoutineScreen() {
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function NewRoutineScreen() {
   const reset = useRoutineBuilderStore((state) => state.reset);
   const exerciseMap = useExerciseMap();
   const createTemplate = useCreateTemplate();
+  const handleAddExercisePress = useSingleTapNavigate(() => router.push("/routines/exercise-picker"));
 
   useEffect(() => {
     reset();
@@ -90,6 +94,7 @@ export default function NewRoutineScreen() {
         <DraggableFlatList
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
           data={items}
           keyExtractor={(item) => item.id}
           onDragEnd={({ data }) => reorderItems(data)}
@@ -133,10 +138,7 @@ export default function NewRoutineScreen() {
 
               <View style={styles.itemsHeader}>
                 <Text style={styles.label}>운동 목록</Text>
-                <Pressable
-                  style={styles.addExerciseButton}
-                  onPress={() => router.push("/routines/exercise-picker")}
-                >
+                <Pressable style={styles.addExerciseButton} onPress={handleAddExercisePress}>
                   <Plus size={16} color="#2DD4BF" />
                   <Text style={styles.addExerciseText}>운동 추가하기</Text>
                 </Pressable>
@@ -159,6 +161,9 @@ export default function NewRoutineScreen() {
           )}
         />
       </SafeAreaView>
+      {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
+          AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
+      <AppAlertModal />
     </ScreenBackground>
   );
 }
@@ -212,7 +217,7 @@ function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeFi
           <ItemInput
             label="무게(kg)"
             value={item.targetWeight}
-            onChangeText={(value) => onChangeField("targetWeight", value)}
+            onChangeText={(value) => onChangeField("targetWeight", sanitizeWeightInput(value))}
           />
         </View>
       )}

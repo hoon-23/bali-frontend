@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import {
@@ -15,6 +16,7 @@ import { appAlert } from "../../lib/alert";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { ApiExercise, formatExerciseName, useExercises } from "../../hooks/api/useExercises";
 import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
+import { useSession, usePatchSession } from "../../hooks/api/useSessions";
 
 const DEFAULT_CARDIO_DURATION_SECONDS = 20 * 60;
 
@@ -32,11 +34,13 @@ const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
 const EQUIPMENTS: ExerciseEquipment[] = ["FREE_WEIGHT", "MACHINE", "CABLE", "SMITH", "BODYWEIGHT"];
 
 export default function ExercisePickerScreen() {
-  const { templateId } = useLocalSearchParams<{ templateId?: string }>();
+  const { templateId, sessionId } = useLocalSearchParams<{ templateId?: string; sessionId?: string }>();
   const router = useRouter();
   const addItem = useRoutineBuilderStore((state) => state.addItem);
   const { data: template } = useTemplate(templateId);
   const updateTemplate = useUpdateTemplate();
+  const { data: session } = useSession(sessionId);
+  const patchSession = usePatchSession();
   const { data: exercises = [] } = useExercises();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
@@ -57,6 +61,35 @@ export default function ExercisePickerScreen() {
 
   const handleSelect = async (exercise: ApiExercise) => {
     const isCardio = exercise.muscleGroup === "CARDIO";
+
+    // sessionId가 있으면 진행 중인 운동 세션에 종목을 즉흥 추가하는 경로 —
+    // PATCH /api/v1/sessions/{id}의 addItems로 바로 반영한다.
+    if (sessionId && session) {
+      try {
+        await patchSession.mutateAsync({
+          sessionId,
+          addItems: [
+            isCardio
+              ? {
+                  exerciseId: exercise.id,
+                  sortOrder: session.logs.length,
+                  targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS,
+                }
+              : {
+                  exerciseId: exercise.id,
+                  sortOrder: session.logs.length,
+                  targetSets: 3,
+                  targetReps: 10,
+                  targetWeight: 20,
+                },
+          ],
+        });
+        router.back();
+      } catch {
+        appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
+      }
+      return;
+    }
 
     // templateId가 있으면 "루틴 상세"에서 기존 루틴에 운동을 추가하는 경로 —
     // 빌더 스토어를 안 거치고 템플릿을 바로 PUT으로 갱신한다.
@@ -196,6 +229,9 @@ export default function ExercisePickerScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+      {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
+          AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
+      <AppAlertModal />
     </ScreenBackground>
   );
 }

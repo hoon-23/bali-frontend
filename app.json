@@ -10,7 +10,10 @@
     "backgroundColor": "#0B0B0F",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.younghoon.swayt"
+      "bundleIdentifier": "com.younghoon.swayt",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

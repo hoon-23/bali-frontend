@@ -1,7 +1,7 @@
 import { Bell, ChevronRight, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -49,6 +49,7 @@ export default function ProfileScreen() {
   const { data: me } = useMe();
   const { data: lifetime } = useLifetimeStats();
   const inProgressSessionId = useInProgressSessionId();
+  const insets = useSafeAreaInsets();
 
   const handleConfirmLogout = async () => {
     const refreshToken = await getRefreshToken();
@@ -101,7 +102,15 @@ export default function ProfileScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            inProgressSessionId && { paddingBottom: styles.scrollContent.paddingBottom + IN_PROGRESS_BANNER_RESERVED_HEIGHT },
+            {
+              // SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 마지막 카드가
+              // 탭바와 겹쳐 보이던 문제 — 여기서 insets.bottom을 더해 맞춘다.
+              paddingBottom:
+                insets.bottom +
+                TAB_BAR_BOTTOM_MARGIN +
+                TAB_BAR_HEIGHT +
+                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + 24 : 24),
+            },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -183,7 +192,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingTop: 12,
-    paddingBottom: TAB_BAR_BOTTOM_MARGIN + TAB_BAR_HEIGHT + 24,
     gap: 20,
   },
   profileHeader: {

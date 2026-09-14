@@ -8,6 +8,8 @@ import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
+import { sanitizeWeightInput } from "../../lib/format/numberInput";
+import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { CATEGORY_LABELS, TemplateItem } from "../../store/templatesStore";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
@@ -31,6 +33,13 @@ export default function RoutineDetailScreen() {
   const updateTemplate = useUpdateTemplate();
   const [starting, setStarting] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const handleAddExercise = useSingleTapNavigate(() => {
+    if (!template) return;
+    router.push({
+      pathname: "/routines/exercise-picker",
+      params: { templateId: template.id },
+    });
+  });
 
   if (!template) {
     return null;
@@ -76,13 +85,6 @@ export default function RoutineDetailScreen() {
     } finally {
       setStarting(false);
     }
-  };
-
-  const handleAddExercise = () => {
-    router.push({
-      pathname: "/routines/exercise-picker",
-      params: { templateId: template.id },
-    });
   };
 
   const saveItem = (currentTemplate: ApiTemplate, itemId: string, draft: ItemDraft) =>
@@ -143,6 +145,7 @@ export default function RoutineDetailScreen() {
         <DraggableFlatList
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
           data={template.items}
           keyExtractor={(item) => item.id}
           dragItemOverflow
@@ -293,7 +296,7 @@ function RoutineDetailItemRow({
               <ItemInput
                 label="무게(kg)"
                 value={targetWeight}
-                onChangeText={setTargetWeight}
+                onChangeText={(value) => setTargetWeight(sanitizeWeightInput(value))}
                 onBlur={handleBlurSave}
               />
             </>

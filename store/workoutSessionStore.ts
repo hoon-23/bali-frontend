@@ -10,20 +10,20 @@ export type ExerciseLog = {
   id: string;
   exerciseId: string;
   name: string;
+  sortOrder: number;
   targetSets: number;
   targetReps: number;
   targetWeight: number;
+  targetDurationSeconds: number;
   actualSets: string;
   actualReps: string;
   actualWeight: string;
-  // 세트 수를 타이머 완료 횟수로 자동 집계할지 여부 — 사용자가 스테퍼로 한 번이라도
-  // 직접 조정하면 true가 되고, 그 뒤로는 자동 갱신을 멈추고 수동값을 유지한다.
-  actualSetsTouched: boolean;
+  actualDurationSeconds: string;
   completed: boolean;
   setTimings: SetTiming[];
 };
 
-export type ActualField = "actualSets" | "actualReps" | "actualWeight";
+export type ActualField = "actualSets" | "actualReps" | "actualWeight" | "actualDurationSeconds";
 
 type WorkoutSessionState = {
   sessionId: string | null;
@@ -31,9 +31,11 @@ type WorkoutSessionState = {
   logs: ExerciseLog[];
   expandedId: string | null;
   startSession: (sessionId: string, logs: ExerciseLog[], isRealSession: boolean) => void;
+  appendLogs: (newLogs: ExerciseLog[]) => void;
   setExpandedId: (id: string | null) => void;
   updateField: (id: string, field: ActualField, value: string) => void;
   adjustActualSets: (id: string, delta: number) => void;
+  setTargetSets: (id: string, targetSets: number) => void;
   recordSetTiming: (logId: string, timing: SetTiming) => void;
   completeLog: (id: string) => void;
   endSession: () => void;
@@ -53,6 +55,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => 
       expandedId: logs.find((log) => !log.completed)?.id ?? null,
     }),
 
+  appendLogs: (newLogs) =>
+    set((state) => ({ logs: [...state.logs, ...newLogs] })),
+
   setExpandedId: (id) =>
     set((state) => ({ expandedId: state.expandedId === id ? null : id })),
 
@@ -67,11 +72,15 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => 
         log.id === id
           ? {
               ...log,
-              actualSetsTouched: true,
               actualSets: String(Math.max(0, (Number(log.actualSets) || 0) + delta)),
             }
           : log
       ),
+    })),
+
+  setTargetSets: (id, targetSets) =>
+    set((state) => ({
+      logs: state.logs.map((log) => (log.id === id ? { ...log, targetSets } : log)),
     })),
 
   recordSetTiming: (logId, timing) =>
@@ -81,7 +90,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => 
           ? {
               ...log,
               setTimings: [...log.setTimings, timing],
-              actualSets: log.actualSetsTouched ? log.actualSets : String(log.setTimings.length + 1),
+              // 타이머로 세트를 완료한 개수는 항상 실제 완료 수만큼 반영한다 — 스테퍼로
+              // 수동 조정한 값이 이보다 크면 그 값을 유지하고, 작으면 완료 수까지 끌어올린다.
+              actualSets: String(Math.max(Number(log.actualSets) || 0, log.setTimings.length + 1)),
             }
           : log
       ),

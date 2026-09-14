@@ -23,6 +23,8 @@ export type ApiSessionLogDetail = {
   actualDurationSeconds: number | null;
   actualPace: string | null;
   setTimings: SetTiming[] | null;
+  // 같은 종목을 가장 최근에 기록한 세션의 actualWeight — 기록이 없으면 null(유산소는 항상 null).
+  lastWeight: number | null;
 };
 
 export type ApiSessionDetail = {
@@ -81,6 +83,16 @@ export type SessionLogUpdateItem = {
   targetPace?: string;
 };
 
+export type SessionAddItem = {
+  exerciseId: string;
+  sortOrder: number;
+  targetSets?: number;
+  targetReps?: number;
+  targetWeight?: number;
+  targetDurationSeconds?: number;
+  targetPace?: string;
+};
+
 export function usePatchSession() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -91,7 +103,9 @@ export function usePatchSession() {
       sessionId: string;
       status?: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
       perceivedDifficulty?: number;
+      addItems?: SessionAddItem[];
       updateItems?: SessionLogUpdateItem[];
+      removeLogIds?: string[];
     }) => (await apiClient.patch<ApiSessionDetail>(`/api/v1/sessions/${sessionId}`, payload)).data,
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["sessions", variables.sessionId] });
@@ -139,6 +153,7 @@ export function usePatchSessionLog() {
       actualSets?: number;
       actualReps?: number;
       actualWeight?: number;
+      actualDurationSeconds?: number;
       setTimings?: SetTiming[];
     }) =>
       (

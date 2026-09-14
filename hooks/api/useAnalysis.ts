@@ -87,14 +87,14 @@ export type MonthlyAnalysisResponse = {
   insights: string[];
 };
 
-// /monthly/current(진행 중인 이번 달)는 weekly/current와 동일하게 즉석 계산된 flat 응답이라
-// volumeByMuscleGroup 등 summary 세부값 없이 합계만 내려준다 (실측 확인, 문서와 다름).
 export type MonthlyCurrentResponse = {
   monthOf: string;
   totalWorkoutMinutes: number;
   strengthMinutes: number;
   cardioMinutes: number;
   completedSessionsCount: number;
+  // 과거 달(monthly/{monthOf})과 같은 shape의 상세 요약 — volumeByMuscleGroup 등에 사용.
+  summary: AnalysisSummaryResponse;
 };
 
 export function useMonthlyCurrent() {

@@ -2,7 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -97,6 +97,7 @@ export default function StatsScreen() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const inProgressSessionId = useInProgressSessionId();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (params.view === "monthly") {
@@ -130,20 +131,22 @@ export default function StatsScreen() {
 
   const monthlyCurrent = useMonthlyCurrent();
   const monthlyPast = useMonthlyByDate(monthOffset < 0 ? monthStart : null);
-  // 이번 달(offset 0)은 /monthly/current(집계 진행 중, 근육군별 볼륨 없음), 과거 달은 /monthly/{monthOf}
+  // 이번 달(offset 0)은 /monthly/current, 과거 달은 /monthly/{monthOf} — 둘 다 summary.volumeByMuscleGroup 포함.
   const monthTotalMinutes =
     monthOffset === 0 ? monthlyCurrent.data?.totalWorkoutMinutes : monthlyPast.data?.summary?.totalWorkoutMinutes;
-  const monthVolumeByMuscleGroup = monthOffset < 0 ? monthlyPast.data?.summary?.volumeByMuscleGroup : undefined;
+  const monthVolumeByMuscleGroup =
+    monthOffset === 0 ? monthlyCurrent.data?.summary?.volumeByMuscleGroup : monthlyPast.data?.summary?.volumeByMuscleGroup;
   const monthPastUnavailable = monthOffset < 0 && monthlyPast.data !== undefined && monthlyPast.data?.summary == null;
   const topMuscleGroupsMonth = useMemo(
     () => computeTopMuscleGroups(monthVolumeByMuscleGroup),
     [monthVolumeByMuscleGroup],
   );
 
-  // 이번 주(offset 0)는 /weekly/current(집계 진행 중, 근육군별 볼륨 없음), 과거 주는 /weekly/{weekOf}
+  // 이번 주(offset 0)는 /weekly/current, 과거 주는 /weekly/{weekOf} — 둘 다 summary.volumeByMuscleGroup 포함.
   const totalWorkoutMinutes =
     weekOffset === 0 ? weeklyCurrent.data?.totalWorkoutMinutes : weeklyPast.data?.summary?.totalWorkoutMinutes;
-  const volumeByMuscleGroup = weekOffset < 0 ? weeklyPast.data?.summary?.volumeByMuscleGroup : undefined;
+  const volumeByMuscleGroup =
+    weekOffset === 0 ? weeklyCurrent.data?.summary?.volumeByMuscleGroup : weeklyPast.data?.summary?.volumeByMuscleGroup;
   const pastWeekUnavailable = weekOffset < 0 && weeklyPast.data !== undefined && weeklyPast.data?.summary == null;
 
   const topMuscleGroups = useMemo(() => computeTopMuscleGroups(volumeByMuscleGroup), [volumeByMuscleGroup]);
@@ -164,7 +167,15 @@ export default function StatsScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            inProgressSessionId && { paddingBottom: styles.scrollContent.paddingBottom + IN_PROGRESS_BANNER_RESERVED_HEIGHT },
+            {
+              // SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 마지막 카드가
+              // 탭바와 겹쳐 보이던 문제 — 여기서 insets.bottom을 더해 맞춘다.
+              paddingBottom:
+                insets.bottom +
+                TAB_BAR_BOTTOM_MARGIN +
+                TAB_BAR_HEIGHT +
+                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + 24 : 24),
+            },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -264,12 +275,14 @@ export default function StatsScreen() {
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
                 <View style={styles.card}>
-                  {weekOffset === 0 ? (
-                    <Text style={styles.emptyStateText}>이번 주 데이터는 아직 집계 중이에요.</Text>
+                  {weekOffset === 0 && weeklyCurrent.isLoading ? (
+                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
                   ) : pastWeekUnavailable ? (
                     <Text style={styles.emptyStateText}>이 주는 운동 기록이 없어요.</Text>
                   ) : topMuscleGroups.length === 0 ? (
-                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
+                    <Text style={styles.emptyStateText}>
+                      {weekOffset === 0 ? "이번 주 운동 기록이 아직 없어요." : "불러오는 중..."}
+                    </Text>
                   ) : (
                     topMuscleGroups.map((item, index) => (
                       <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
@@ -369,12 +382,14 @@ export default function StatsScreen() {
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
                 <View style={styles.card}>
-                  {monthOffset === 0 ? (
-                    <Text style={styles.emptyStateText}>이번 달 데이터는 아직 집계 중이에요.</Text>
+                  {monthOffset === 0 && monthlyCurrent.isLoading ? (
+                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
                   ) : monthPastUnavailable ? (
                     <Text style={styles.emptyStateText}>이 달은 운동 기록이 없어요.</Text>
                   ) : topMuscleGroupsMonth.length === 0 ? (
-                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
+                    <Text style={styles.emptyStateText}>
+                      {monthOffset === 0 ? "이번 달 운동 기록이 아직 없어요." : "불러오는 중..."}
+                    </Text>
                   ) : (
                     topMuscleGroupsMonth.map((item, index) => (
                       <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
@@ -407,7 +422,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingTop: 12,
-    paddingBottom: TAB_BAR_BOTTOM_MARGIN + TAB_BAR_HEIGHT + 24,
     gap: 20,
   },
   header: {
