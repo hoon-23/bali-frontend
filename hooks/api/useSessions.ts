@@ -102,6 +102,7 @@ export function usePatchSession() {
     }: {
       sessionId: string;
       status?: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
+      date?: string;
       perceivedDifficulty?: number;
       addItems?: SessionAddItem[];
       updateItems?: SessionLogUpdateItem[];

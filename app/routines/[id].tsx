@@ -33,6 +33,7 @@ export default function RoutineDetailScreen() {
   const updateTemplate = useUpdateTemplate();
   const [starting, setStarting] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const handleAddExercise = useSingleTapNavigate(() => {
     if (!template) return;
     router.push({
@@ -48,7 +49,7 @@ export default function RoutineDetailScreen() {
   const handleDelete = () => {
     appAlert(
       "이 루틴을 삭제할까요?",
-      "삭제하면 되돌릴 수 없어요. 이 루틴으로 기록된 과거 운동 기록은 그대로 남아요.",
+      "삭제하면 되돌릴 수 없어요.\n이 루틴으로 기록된 과거 운동 기록은\n그대로 남아요.",
       [
         { text: "취소", style: "cancel" },
         {
@@ -109,6 +110,37 @@ export default function RoutineDetailScreen() {
       },
     });
 
+  const handleNameBlur = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === template.name) return;
+    try {
+      await updateTemplate.mutateAsync({
+        id: template.id,
+        payload: {
+          name: trimmed,
+          category: template.category,
+          items: toItemsPayload(template.items),
+        },
+      });
+    } catch {
+      appAlert("루틴 이름을 저장하지 못했어요. 다시 시도해주세요.");
+      setNameDraft(template.name);
+    }
+  };
+
+  // "완료"를 누르면 TextInput이 그 자리에서 바로 언마운트돼서, 네이티브 blur 이벤트가
+  // JS로 넘어오기 전에 화면이 이미 바뀌어 onBlur가 씹히는 경우가 있었다 — 편집모드를
+  // 끌 때는 blur를 기다리지 않고 직접 저장한다.
+  const handleToggleEdit = () => {
+    if (!editMode) {
+      setNameDraft(template.name);
+      setEditMode(true);
+      return;
+    }
+    handleNameBlur();
+    setEditMode(false);
+  };
+
   const reorderItems = async (currentTemplate: ApiTemplate, reordered: TemplateItem[]) => {
     try {
       await updateTemplate.mutateAsync({
@@ -136,7 +168,7 @@ export default function RoutineDetailScreen() {
             <Pressable style={styles.backButton} onPress={handleDelete} hitSlop={8}>
               <Trash2 size={18} color="#F87171" />
             </Pressable>
-            <Pressable style={styles.editToggle} onPress={() => setEditMode((prev) => !prev)}>
+            <Pressable style={styles.editToggle} onPress={handleToggleEdit}>
               <Text style={styles.editToggleText}>{editMode ? "완료" : "편집"}</Text>
             </Pressable>
           </View>
@@ -154,7 +186,17 @@ export default function RoutineDetailScreen() {
             <View style={styles.headerSections}>
               <View style={styles.card}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.name}>{template.name}</Text>
+                  {editMode ? (
+                    <TextInput
+                      style={styles.nameInput}
+                      value={nameDraft}
+                      onChangeText={setNameDraft}
+                      onBlur={handleNameBlur}
+                      placeholderTextColor="#6B6B6B"
+                    />
+                  ) : (
+                    <Text style={styles.name}>{template.name}</Text>
+                  )}
                   <View style={styles.categoryBadge}>
                     <Text style={styles.categoryBadgeText}>{CATEGORY_LABELS[template.category]}</Text>
                   </View>
@@ -408,6 +450,15 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
+  },
+  nameInput: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+    borderBottomWidth: 1,
+    borderBottomColor: "#2DD4BF",
+    paddingVertical: 2,
   },
   categoryBadge: {
     backgroundColor: "rgba(45, 212, 191, 0.15)",

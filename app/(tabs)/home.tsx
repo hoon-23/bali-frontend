@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { appAlert } from "../../lib/alert";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle } from "react-native-svg";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -28,9 +27,11 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
-import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
+import { useLifetimeStats, useMonthlyCurrent } from "../../hooks/api/useAnalysis";
+import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
 import { useExercises, ApiExercise } from "../../hooks/api/useExercises";
 import { useUpcomingSessions, getTodayISODate } from "../../hooks/api/useUpcomingSessions";
+import { usePatchSession } from "../../hooks/api/useSessions";
 import {
   deriveUpcomingCardState,
   estimateSessionDurationMinutes,
@@ -38,21 +39,21 @@ import {
   UpcomingCardState,
 } from "../../lib/session/sessionDisplay";
 import { minutesToDurationText } from "../../lib/format/duration";
+import { formatThousands } from "../../lib/format/number";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const TODAY_CARD_GAP = 12; // todayCardList의 카드 사이 간격과 동일한 값 — 배너와의 간격도 이걸로 통일한다.
-const RING_SIZE = 88;
-const RING_STROKE = 10;
-const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
-function ringOffset(progress: number): number {
-  const clamped = Math.max(0, Math.min(1, progress));
-  return RING_CIRCUMFERENCE * (1 - clamped);
-}
+// 이번 달 근육군별 집중도에 아직 데이터가 없을 때 보여줄 디폴트 바 3줄 — 실제 집계는
+// 아니지만 흔히 많이 하는 부위 3개를 자리에 채워 넣고, 길이도 서로 다르게 줘서
+// "데이터 없음" 대신 "곧 이런 모양으로 채워질 것"처럼 보이게 한다.
+const MUSCLE_BAR_PLACEHOLDERS = [
+  { label: "가슴", percent: 45 },
+  { label: "등", percent: 30 },
+  { label: "하체", percent: 20 },
+];
 
 function toDDayLabel(dateStr: string): string {
   const diffDays = Math.round(
@@ -81,8 +82,11 @@ export default function HomeScreen() {
   // 마지막 카드가 배너에 가려 탭이 안 먹히는 문제를 막는다.
   const inProgressSessionId = useInProgressSessionId();
 
+  const patchSession = usePatchSession();
   const { data: me, isError: meError, refetch: refetchMe } = useMe();
-  const { data: weeklyCurrent, isError: weeklyCurrentError, refetch: refetchWeeklyCurrent } = useWeeklyCurrent();
+  const { data: lifetime } = useLifetimeStats();
+  const { data: monthlyCurrent } = useMonthlyCurrent();
+  const topMuscleGroupsMonth = computeTopMuscleGroups(monthlyCurrent?.summary?.volumeByMuscleGroup);
   const { data: exercises } = useExercises();
   const {
     data: sessions,
@@ -99,20 +103,34 @@ export default function HomeScreen() {
     ? deriveUpcomingCardState(sessions, getTodayISODate())
     : null;
 
-  const handleStartWorkout = (sessionId: string) => {
+  // 홈 카드의 "시작"이 SCHEDULED 세션을 IN_PROGRESS로 바꾸지 않고 그냥 화면만 이동하던 버그 —
+  // 예정된 운동 상세/루틴 상세의 "시작하기"와 달리 상태 전환이 빠져 있어서, 시작 후 닫으면
+  // 서버엔 계속 SCHEDULED로 남아 "운동 진행 중" 배너/이어하기가 뜨지 않았다.
+  const handleStartWorkout = (sessionId: string, needsStatusPatch: boolean) => {
     const target = { pathname: `/workout/${sessionId}` } as const;
+    const navigate = async () => {
+      if (needsStatusPatch) {
+        try {
+          await patchSession.mutateAsync({ sessionId, status: "IN_PROGRESS" });
+        } catch {
+          appAlert("운동을 시작하지 못했어요. 다시 시도해주세요.");
+          return;
+        }
+      }
+      router.push(target);
+    };
     if (activeSessionId && activeSessionId !== sessionId) {
       appAlert(
         "진행 중인 운동이 있습니다",
         "새로 시작하면 기존 기록이 사라집니다.",
         [
           { text: "취소", style: "cancel" },
-          { text: "새로 시작", style: "destructive", onPress: () => router.push(target) },
+          { text: "새로 시작", style: "destructive", onPress: navigate },
         ],
       );
       return;
     }
-    router.push(target);
+    navigate();
   };
 
   const handleSessionAction = (session: ApiSession) => {
@@ -120,12 +138,8 @@ export default function HomeScreen() {
       router.push(`/records/${session.id}`);
       return;
     }
-    handleStartWorkout(session.id);
+    handleStartWorkout(session.id, session.status === "SCHEDULED");
   };
-
-  const sessionsDone = weeklyCurrent?.completedSessionsCount ?? 0;
-  const sessionsTarget = me?.weeklyGoalSessions ?? 0;
-  const sessionsProgress = sessionsTarget > 0 ? sessionsDone / sessionsTarget : 0;
 
   return (
     <ScreenBackground>
@@ -148,16 +162,10 @@ export default function HomeScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {(meError || weeklyCurrentError) && (
+          {meError && (
             <View style={styles.card}>
               <Text style={styles.legendText}>불러오지 못했어요</Text>
-              <Pressable
-                style={styles.startButton}
-                onPress={() => {
-                  refetchMe();
-                  refetchWeeklyCurrent();
-                }}
-              >
+              <Pressable style={styles.startButton} onPress={() => refetchMe()}>
                 <Text style={styles.startButtonText}>다시 시도</Text>
               </Pressable>
             </View>
@@ -173,64 +181,53 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={styles.card} onPress={goToMonthlyReport}>
-            <Text style={styles.cardTitle}>이번 주 진행률</Text>
-            <View style={styles.progressRow}>
-              <View style={styles.ringWrap}>
-                <Svg width={RING_SIZE} height={RING_SIZE}>
-                  <Circle
-                    cx={RING_SIZE / 2}
-                    cy={RING_SIZE / 2}
-                    r={RING_RADIUS}
-                    stroke="rgba(255, 255, 255, 0.08)"
-                    strokeWidth={RING_STROKE}
-                    fill="none"
-                  />
-                  <Circle
-                    cx={RING_SIZE / 2}
-                    cy={RING_SIZE / 2}
-                    r={RING_RADIUS}
-                    stroke="#A78BFA"
-                    strokeWidth={RING_STROKE}
-                    strokeLinecap="round"
-                    fill="none"
-                    strokeDasharray={RING_CIRCUMFERENCE}
-                    strokeDashoffset={ringOffset(sessionsProgress)}
-                    rotation={-90}
-                    origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-                  />
-                </Svg>
-              </View>
-              <View style={styles.progressLegend}>
-                <View style={styles.legendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: "#A78BFA" }]} />
-                  <Text style={styles.legendText}>
-                    세션 {sessionsDone} / {sessionsTarget}
-                  </Text>
-                </View>
-                <View style={styles.legendRow}>
-                  <Text style={styles.legendText}>
-                    운동시간 {weeklyCurrent ? minutesToDurationText(weeklyCurrent.totalWorkoutMinutes) : "—"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Pressable>
-
           <View style={styles.statsRow}>
             <StatTile
-              label="근력운동"
-              value={weeklyCurrent ? minutesToDurationText(weeklyCurrent.strengthMinutes) : "—"}
+              label="총 운동일"
+              value={lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
             />
             <StatTile
-              label="유산소"
-              value={weeklyCurrent ? minutesToDurationText(weeklyCurrent.cardioMinutes) : "—"}
+              label="총 운동시간"
+              value={lifetime ? minutesToDurationText(lifetime.totalWorkoutMinutes) : "—"}
             />
             <StatTile
-              label="연속일"
-              value={me ? `${me.consecutiveDays}일` : "—"}
+              label="이번 주 운동일"
+              value={me ? `${me.weeklyWorkoutDays}일` : "—"}
               onPress={goToMonthlyReport}
             />
+          </View>
+
+          <View>
+            <Text style={[styles.sectionTitle, topMuscleGroupsMonth.length === 0 && styles.sectionTitleTight]}>
+              이번 달 근육군별 집중도
+            </Text>
+            {topMuscleGroupsMonth.length === 0 && (
+              <Text style={styles.sectionSubcopy}>운동을 기록하면 여기 채워져요</Text>
+            )}
+            <View style={styles.card}>
+              {topMuscleGroupsMonth.length > 0
+                ? topMuscleGroupsMonth.map((item) => (
+                    <View key={item.label} style={styles.muscleBarRow}>
+                      <View style={styles.muscleBarHeader}>
+                        <Text style={styles.muscleBarLabel}>{item.label}</Text>
+                        <Text style={styles.muscleBarPercent}>{item.percent}%</Text>
+                      </View>
+                      <View style={styles.muscleBarTrack}>
+                        <View style={[styles.muscleBarFill, { width: `${item.percent}%` }]} />
+                      </View>
+                    </View>
+                  ))
+                : MUSCLE_BAR_PLACEHOLDERS.map((item) => (
+                    <View key={item.label} style={styles.muscleBarRow}>
+                      <View style={styles.muscleBarHeader}>
+                        <Text style={styles.muscleBarLabelMuted}>{item.label}</Text>
+                      </View>
+                      <View style={styles.muscleBarTrack}>
+                        <View style={[styles.muscleBarFillEmpty, { width: `${item.percent}%` }]} />
+                      </View>
+                    </View>
+                  ))}
+            </View>
           </View>
 
           <View>
@@ -257,7 +254,7 @@ export default function HomeScreen() {
                   onAction={handleSessionAction}
                   onExpand={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                 />
-                {cardState.sessions.every((s) => s.status === "COMPLETED") && cardState.next && (
+                {cardState.next && (
                   <SessionSummaryCard
                     session={cardState.next}
                     exercises={exercises}
@@ -494,34 +491,6 @@ const styles = StyleSheet.create({
     gap: 16,
     ...CARD_SHADOW,
   },
-  cardTitle: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-  },
-  ringWrap: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-  },
-  progressLegend: {
-    flex: 1,
-    gap: 10,
-  },
-  legendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   legendText: {
     color: "#D0D0D0",
     fontSize: 13,
@@ -556,6 +525,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  sectionTitleTight: {
+    marginBottom: 4,
+  },
+  sectionSubcopy: {
+    color: "#6B6B6B",
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  muscleBarRow: {
+    gap: 8,
+  },
+  muscleBarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  muscleBarLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  muscleBarLabelMuted: {
+    color: "#6B6B6B",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  muscleBarPercent: {
+    color: "#A0A0A0",
+    fontSize: 13,
+  },
+  muscleBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(45, 212, 191, 0.12)",
+    overflow: "hidden",
+  },
+  muscleBarFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "#2DD4BF",
+  },
+  muscleBarFillEmpty: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: "rgba(45, 212, 191, 0.35)",
   },
   todayCardList: {
     gap: TODAY_CARD_GAP,

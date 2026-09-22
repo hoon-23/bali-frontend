@@ -30,8 +30,12 @@ const TODAY_STATUS_PRIORITY: Record<ApiSession["status"], number> = {
 
 export function deriveUpcomingCardState(sessions: ApiSession[], todayISODate: string): UpcomingCardState {
   // 진행 중 > 예정 > 완료 순으로 정렬 — 아직 할 일이 남은 세션을 먼저 보여준다.
+  // IN_PROGRESS는 날짜(date)와 무관하게 항상 "오늘의 운동"에 포함시킨다 — 미래로 예약해둔
+  // 세션을 예약일보다 일찍 시작한 경우, date가 아직 today보다 미래라 그 아래 future 버킷
+  // 조건(status === SCHEDULED)에서 빠지고 today 버킷(date === todayISODate)에도 안 걸려서
+  // 화면에서 통째로 사라지는 버그가 있었다.
   const todaySessions = sessions
-    .filter((s) => s.date === todayISODate)
+    .filter((s) => s.date === todayISODate || s.status === "IN_PROGRESS")
     .sort((a, b) => TODAY_STATUS_PRIORITY[a.status] - TODAY_STATUS_PRIORITY[b.status]);
   const future = sessions
     .filter((s) => s.date > todayISODate && s.status === "SCHEDULED")

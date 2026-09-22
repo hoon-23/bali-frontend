@@ -7,6 +7,9 @@ import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import {
+  BODY_REGION_KOREAN,
+  BODY_REGION_MUSCLE_GROUPS,
+  BodyRegion,
   EQUIPMENT_KOREAN,
   ExerciseEquipment,
   ExerciseMuscleGroup,
@@ -43,6 +46,7 @@ export default function ExercisePickerScreen() {
   const patchSession = usePatchSession();
   const { data: exercises = [] } = useExercises();
   const [query, setQuery] = useState("");
+  const [bodyRegionFilter, setBodyRegionFilter] = useState<BodyRegion | null>(null);
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<ExerciseEquipment | null>(null);
 
@@ -53,11 +57,14 @@ export default function ExercisePickerScreen() {
           formatExerciseName(exercise).toLowerCase().includes(trimmedQuery)
         )
       : exercises;
-    const byMuscleGroup = filter ? matched.filter((exercise) => exercise.muscleGroup === filter) : matched;
+    const byBodyRegion = bodyRegionFilter
+      ? matched.filter((exercise) => BODY_REGION_MUSCLE_GROUPS[bodyRegionFilter].includes(exercise.muscleGroup))
+      : matched;
+    const byMuscleGroup = filter ? byBodyRegion.filter((exercise) => exercise.muscleGroup === filter) : byBodyRegion;
     return equipmentFilter
       ? byMuscleGroup.filter((exercise) => exercise.equipment === equipmentFilter)
       : byMuscleGroup;
-  }, [exercises, query, filter, equipmentFilter]);
+  }, [exercises, query, bodyRegionFilter, filter, equipmentFilter]);
 
   const handleSelect = async (exercise: ApiExercise) => {
     const isCardio = exercise.muscleGroup === "CARDIO";
@@ -152,6 +159,41 @@ export default function ExercisePickerScreen() {
 
         <View style={styles.filterRow}>
           <Pressable
+            style={[styles.filterChip, bodyRegionFilter === null && styles.filterChipActive]}
+            onPress={() => {
+              setBodyRegionFilter(null);
+              setFilter(null);
+            }}
+          >
+            <Text
+              style={[styles.filterChipText, bodyRegionFilter === null && styles.filterChipTextActive]}
+            >
+              전체
+            </Text>
+          </Pressable>
+          {(["UPPER", "LOWER"] as BodyRegion[]).map((region) => (
+            <Pressable
+              key={region}
+              style={[styles.filterChip, bodyRegionFilter === region && styles.filterChipActive]}
+              onPress={() => {
+                setBodyRegionFilter(bodyRegionFilter === region ? null : region);
+                setFilter(null);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  bodyRegionFilter === region && styles.filterChipTextActive,
+                ]}
+              >
+                {BODY_REGION_KOREAN[region]}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.filterRow}>
+          <Pressable
             style={[styles.filterChip, filter === null && styles.filterChipActive]}
             onPress={() => setFilter(null)}
           >
@@ -159,7 +201,9 @@ export default function ExercisePickerScreen() {
               전체
             </Text>
           </Pressable>
-          {MUSCLE_GROUPS.map((group) => (
+          {MUSCLE_GROUPS.filter(
+            (group) => !bodyRegionFilter || BODY_REGION_MUSCLE_GROUPS[bodyRegionFilter].includes(group)
+          ).map((group) => (
             <Pressable
               key={group}
               style={[styles.filterChip, filter === group && styles.filterChipActive]}

@@ -5,7 +5,9 @@ export type MeResponse = {
   nickname: string;
   email: string;
   weeklyGoalSessions: number;
-  consecutiveDays: number;
+  // 기존 consecutiveDays(연속운동일수)는 예약일/실제 수행일 불일치로 값이 부정확해서
+  // "이번 주(월~일, KST) 중 운동한 날짜 수(0~7)"로 의미가 바뀌었다(백엔드 develop, 2026-09-22).
+  weeklyWorkoutDays: number;
 };
 
 // 소셜 로그인 provider가 이메일을 안 준 경우 백엔드가 채워 넣는 내부 placeholder

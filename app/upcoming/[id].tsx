@@ -119,25 +119,51 @@ export default function UpcomingWorkoutScreen() {
     }
   };
 
-  const handleStart = async () => {
-    if (activeSessionId && activeSessionId !== id) {
+  const handleStart = () => {
+    const todayISODate = getTodayISODate();
+    // 예약일과 실제 시작일이 다르면(미래로 예약해둔 걸 당겨서 시작, 또는 예약일을 놓치고
+    // 뒤늦게 시작) 기록/주간·월간 집계가 실제 수행일이 아니라 예약일 기준으로 잡혀버린다 —
+    // 확인 후 date를 오늘로 보정해서 시작한다.
+    const needsDateCorrection = session.date !== todayISODate;
+
+    const proceedPastConflictCheck = () => {
+      if (activeSessionId && activeSessionId !== id) {
+        appAlert(
+          "진행 중인 운동이 있습니다",
+          "새로 시작하면 기존 기록이 사라집니다.",
+          [
+            { text: "취소", style: "cancel" },
+            { text: "새로 시작", style: "destructive", onPress: () => startWorkout(needsDateCorrection) },
+          ],
+        );
+        return;
+      }
+      startWorkout(needsDateCorrection);
+    };
+
+    if (needsDateCorrection) {
+      const scheduledDate = new Date(session.date);
       appAlert(
-        "진행 중인 운동이 있습니다",
-        "새로 시작하면 기존 기록이 사라집니다.",
+        `${scheduledDate.getMonth() + 1}월 ${scheduledDate.getDate()}일 운동입니다`,
+        "오늘 날짜로 진행하시겠습니까?",
         [
           { text: "취소", style: "cancel" },
-          { text: "새로 시작", style: "destructive", onPress: () => startWorkout() },
+          { text: "진행", onPress: proceedPastConflictCheck },
         ],
       );
       return;
     }
-    startWorkout();
+    proceedPastConflictCheck();
   };
 
-  const startWorkout = async () => {
+  const startWorkout = async (correctDateToToday: boolean) => {
     setStarting(true);
     try {
-      await patchSession.mutateAsync({ sessionId: id, status: "IN_PROGRESS" });
+      await patchSession.mutateAsync({
+        sessionId: id,
+        status: "IN_PROGRESS",
+        ...(correctDateToToday ? { date: getTodayISODate() } : {}),
+      });
       router.push(`/workout/${id}`);
     } catch {
       appAlert("운동을 시작하지 못했어요. 다시 시도해주세요.");

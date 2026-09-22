@@ -22,6 +22,20 @@ export const MUSCLE_GROUP_KOREAN: Record<ExerciseMuscleGroup, string> = {
   CARDIO: "유산소",
 };
 
+// 8개 근육군을 상체/하체 대분류로 묶은 것 — 백엔드 개념이 아니라 프론트에서만 쓰는
+// 필터용 분류라 CARDIO(유산소)는 어느 쪽에도 넣지 않는다.
+export type BodyRegion = "UPPER" | "LOWER";
+
+export const BODY_REGION_KOREAN: Record<BodyRegion, string> = {
+  UPPER: "상체",
+  LOWER: "하체",
+};
+
+export const BODY_REGION_MUSCLE_GROUPS: Record<BodyRegion, ExerciseMuscleGroup[]> = {
+  UPPER: ["CHEST", "BACK", "SHOULDER", "BICEPS", "TRICEPS", "ABS"],
+  LOWER: ["LEGS"],
+};
+
 // bali-api의 Equipment enum을 그대로 따름(2026-08-27 백엔드 세션에서 확인).
 // 유산소 종목은 장비 분류 대상이 아니라 equipment가 null로 내려옴.
 export type ExerciseEquipment = "FREE_WEIGHT" | "MACHINE" | "CABLE" | "SMITH" | "BODYWEIGHT";

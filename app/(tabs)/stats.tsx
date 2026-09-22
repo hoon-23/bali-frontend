@@ -11,13 +11,13 @@ import {
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
 import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
+import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
+import { formatThousands } from "../../lib/format/number";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
 import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
 import {
-  AnalysisSummaryResponse,
   DailyAnalysisEntry,
   useDailyAnalysis,
   useMonthlyByDate,
@@ -60,35 +60,13 @@ function getHeatColor(count: number): string {
 }
 
 function formatHours(totalMinutes: number): string {
-  return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+  return `${formatThousands(Math.floor(totalMinutes / 60))}h ${totalMinutes % 60}m`;
 }
 
 function dailyMapByDate(daily: DailyAnalysisEntry[] | undefined): Map<string, DailyAnalysisEntry> {
   const map = new Map<string, DailyAnalysisEntry>();
   daily?.forEach((entry) => map.set(entry.date, entry));
   return map;
-}
-
-type TopMuscleGroup = { label: string; percent: number; volume: number };
-
-function computeTopMuscleGroups(
-  volumeByMuscleGroup: AnalysisSummaryResponse["volumeByMuscleGroup"] | undefined
-): TopMuscleGroup[] {
-  if (!volumeByMuscleGroup) return [];
-  const entries = Object.entries(volumeByMuscleGroup).filter(([, volume]) => (volume ?? 0) > 0) as [
-    string,
-    number,
-  ][];
-  const total = entries.reduce((sum, [, volume]) => sum + volume, 0);
-  if (total <= 0) return [];
-  return entries
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([group, volume]) => ({
-      label: MUSCLE_GROUP_KOREAN[group as keyof typeof MUSCLE_GROUP_KOREAN] ?? group,
-      percent: Math.round((volume / total) * 100),
-      volume: Math.round(volume),
-    }));
 }
 
 export default function StatsScreen() {
@@ -288,9 +266,7 @@ export default function StatsScreen() {
                       <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
                         <View style={styles.muscleRow}>
                           <Text style={styles.muscleLabel}>{item.label}</Text>
-                          <Text style={styles.muscleValue}>
-                            {item.percent}% · 총 {item.volume}kg
-                          </Text>
+                          <Text style={styles.muscleValue}>{item.percent}%</Text>
                         </View>
                         <View style={styles.progressTrack}>
                           <View style={[styles.progressFill, { width: `${item.percent}%` }]} />
@@ -305,8 +281,8 @@ export default function StatsScreen() {
             <>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryTile}>
-                  <Text style={styles.summaryLabel}>연속일</Text>
-                  <Text style={styles.summaryValue}>{me ? `${me.consecutiveDays}일` : "—"}</Text>
+                  <Text style={styles.summaryLabel}>이번 주 운동일</Text>
+                  <Text style={styles.summaryValue}>{me ? `${me.weeklyWorkoutDays}일` : "—"}</Text>
                 </View>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>총 운동시간</Text>
@@ -395,9 +371,7 @@ export default function StatsScreen() {
                       <View key={item.label} style={[index > 0 && styles.muscleRowSpacing]}>
                         <View style={styles.muscleRow}>
                           <Text style={styles.muscleLabel}>{item.label}</Text>
-                          <Text style={styles.muscleValue}>
-                            {item.percent}% · 총 {item.volume}kg
-                          </Text>
+                          <Text style={styles.muscleValue}>{item.percent}%</Text>
                         </View>
                         <View style={styles.progressTrack}>
                           <View style={[styles.progressFill, { width: `${item.percent}%` }]} />

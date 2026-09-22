@@ -13,22 +13,16 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { getRefreshToken } from "../../lib/auth/tokenStorage";
+import { formatThousands } from "../../lib/format/number";
 import { useAuthStore } from "../../store/authStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { isPlaceholderEmail, useMe } from "../../hooks/api/useMe";
-import { useLifetimeStats } from "../../hooks/api/useAnalysis";
 import { clearCachedPushToken, getCachedPushToken } from "../../lib/notifications";
 
 // 레벨/경험치는 백엔드에 아직 개념 자체가 없는 프로토타입 데이터 — 실 설계 전까지 하드코딩 유지.
 const LEVEL = 5;
 const EXP_CURRENT = 650;
 const EXP_TARGET = 1000;
-
-function formatWorkoutTime(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes}m`;
-}
 
 type SettingItem = {
   id: string;
@@ -47,7 +41,6 @@ const SETTING_ITEMS: SettingItem[] = [
 export default function ProfileScreen() {
   const router = useRouter();
   const { data: me } = useMe();
-  const { data: lifetime } = useLifetimeStats();
   const inProgressSessionId = useInProgressSessionId();
   const insets = useSafeAreaInsets();
 
@@ -130,21 +123,12 @@ export default function ProfileScreen() {
                 <Text style={styles.levelBadgeText}>Lv.{LEVEL}</Text>
               </View>
               <Text style={styles.expText}>
-                {EXP_CURRENT} / {EXP_TARGET} XP
+                {formatThousands(EXP_CURRENT)} / {formatThousands(EXP_TARGET)} XP
               </Text>
             </View>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${expProgress}%` }]} />
             </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <StatTile label="총 운동일" value={lifetime ? `${lifetime.totalWorkoutDays}일` : "—"} />
-            <StatTile
-              label="총 운동시간"
-              value={lifetime ? formatWorkoutTime(lifetime.totalWorkoutMinutes) : "—"}
-            />
-            <StatTile label="연속일" value={me ? `${me.consecutiveDays}일` : "—"} />
           </View>
 
           <View style={styles.card}>
@@ -168,20 +152,6 @@ export default function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
-  );
-}
-
-type StatTileProps = {
-  value: string;
-  label: string;
-};
-
-function StatTile({ value, label }: StatTileProps) {
-  return (
-    <View style={styles.statTile}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
   );
 }
 
@@ -263,30 +233,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
     backgroundColor: "#2DD4BF",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  statTile: {
-    flex: 1,
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    paddingVertical: 14,
-    alignItems: "center",
-    gap: 4,
-    ...CARD_SHADOW,
-  },
-  statLabel: {
-    color: "#A0A0A0",
-    fontSize: 12,
-  },
-  statValue: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
   },
   settingRow: {
     flexDirection: "row",

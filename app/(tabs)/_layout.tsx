@@ -51,7 +51,7 @@ export default function TabsLayout() {
             hideTransform={hideTransform}
           />
         )}
-        screenOptions={{ headerShown: false }}
+        screenOptions={{ headerShown: false, animation: "shift" }}
       >
         <Tabs.Screen name="home" options={{ title: "홈" }} />
         <Tabs.Screen name="templates" options={{ title: "기록" }} />

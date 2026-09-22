@@ -55,7 +55,7 @@ export default function AccountScreen() {
   const handleWithdraw = () => {
     appAlert(
       "정말 탈퇴하시겠어요?",
-      "탈퇴 즉시 계정 정보와 운동 기록에 대한 접근이 사라지며 되돌릴 수 없어요.",
+      "탈퇴 즉시 계정 정보와 운동 기록에 대한 접근이 사라지며\n되돌릴 수 없어요.",
       [
         { text: "취소", style: "cancel" },
         {
