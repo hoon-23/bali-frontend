@@ -17,12 +17,29 @@ import {
 } from "../../constants/exercises";
 import { appAlert } from "../../lib/alert";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
+import { TemplateCategory } from "../../store/templatesStore";
 import { ApiExercise, formatExerciseName, useExercises } from "../../hooks/api/useExercises";
 import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
 import { useSession, usePatchSession } from "../../hooks/api/useSessions";
 
 const DEFAULT_CARDIO_DURATION_SECONDS = 20 * 60;
+const DEFAULT_FUNCTIONAL_DURATION_SECONDS = 30;
+const DEFAULT_FUNCTIONAL_SETS = 3;
 
+// 운동 종류(유산소/기능성/근력)에 따라 세션·템플릿에 addItems로 보낼 목표값 필드가
+// 다르다 — 세 곳(세션 즉흥 추가, 템플릿 추가, 빌더 스토어)에서 반복하지 않게 공용화.
+function buildTargetFields(exercise: ApiExercise) {
+  if (exercise.muscleGroup === "CARDIO") {
+    return { targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS };
+  }
+  if (exercise.muscleGroup === "FUNCTIONAL") {
+    return { targetSets: DEFAULT_FUNCTIONAL_SETS, targetDurationSeconds: DEFAULT_FUNCTIONAL_DURATION_SECONDS };
+  }
+  return { targetSets: 3, targetReps: 10, targetWeight: 20 };
+}
+
+// CARDIO는 별도 분류(전체 필터 숨김 + 직행 목록)로 처리하므로 근력 운동용 근육군
+// 필터 칩 목록에서는 뺀다.
 const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "CHEST",
   "BACK",
@@ -31,7 +48,7 @@ const MUSCLE_GROUPS: ExerciseMuscleGroup[] = [
   "TRICEPS",
   "LEGS",
   "ABS",
-  "CARDIO",
+  "FUNCTIONAL",
 ];
 
 const EQUIPMENTS: ExerciseEquipment[] = ["FREE_WEIGHT", "MACHINE", "CABLE", "SMITH", "BODYWEIGHT"];
@@ -45,10 +62,25 @@ export default function ExercisePickerScreen() {
   const { data: session } = useSession(sessionId);
   const patchSession = usePatchSession();
   const { data: exercises = [] } = useExercises();
+  const routineCategory = useRoutineBuilderStore((state) => state.category);
+  // 이미 루틴 "분류"에서 선택된 값을 운동 추가 화면이 그대로 활용한다 —
+  // 세션 중 즉흥 추가(sessionId)는 분류 개념이 없어서 대상에서 뺀다.
+  const effectiveCategory: TemplateCategory | undefined = sessionId
+    ? undefined
+    : templateId
+      ? template?.category
+      : routineCategory;
+  const isCardioCategory = effectiveCategory === "CARDIO";
   const [query, setQuery] = useState("");
-  const [bodyRegionFilter, setBodyRegionFilter] = useState<BodyRegion | null>(null);
+  const [bodyRegionFilter, setBodyRegionFilter] = useState<BodyRegion | null>(
+    effectiveCategory === "LEGS" ? "LOWER" : null
+  );
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<ExerciseEquipment | null>(null);
+  const cardioExercises = useMemo(
+    () => exercises.filter((exercise) => exercise.muscleGroup === "CARDIO"),
+    [exercises]
+  );
 
   const trimmedQuery = query.trim().toLowerCase();
   const matched = useMemo(
@@ -101,8 +133,6 @@ export default function ExercisePickerScreen() {
   }, [equipmentFilter, availableEquipments]);
 
   const handleSelect = async (exercise: ApiExercise) => {
-    const isCardio = exercise.muscleGroup === "CARDIO";
-
     // sessionId가 있으면 진행 중인 운동 세션에 종목을 즉흥 추가하는 경로 —
     // PATCH /api/v1/sessions/{id}의 addItems로 바로 반영한다.
     if (sessionId && session) {
@@ -110,19 +140,11 @@ export default function ExercisePickerScreen() {
         await patchSession.mutateAsync({
           sessionId,
           addItems: [
-            isCardio
-              ? {
-                  exerciseId: exercise.id,
-                  sortOrder: session.logs.length,
-                  targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS,
-                }
-              : {
-                  exerciseId: exercise.id,
-                  sortOrder: session.logs.length,
-                  targetSets: 3,
-                  targetReps: 10,
-                  targetWeight: 20,
-                },
+            {
+              exerciseId: exercise.id,
+              sortOrder: session.logs.length,
+              ...buildTargetFields(exercise),
+            },
           ],
         });
         router.back();
@@ -143,19 +165,11 @@ export default function ExercisePickerScreen() {
             category: template.category,
             items: [
               ...toItemsPayload(template.items),
-              isCardio
-                ? {
-                    exerciseId: exercise.id,
-                    sortOrder: template.items.length,
-                    targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS,
-                  }
-                : {
-                    exerciseId: exercise.id,
-                    sortOrder: template.items.length,
-                    targetSets: 3,
-                    targetReps: 10,
-                    targetWeight: 20,
-                  },
+              {
+                exerciseId: exercise.id,
+                sortOrder: template.items.length,
+                ...buildTargetFields(exercise),
+              },
             ],
           },
         });
@@ -165,7 +179,10 @@ export default function ExercisePickerScreen() {
       }
       return;
     }
-    addItem(exercise.id, isCardio);
+    addItem(
+      exercise.id,
+      exercise.muscleGroup === "CARDIO" ? "CARDIO" : exercise.muscleGroup === "FUNCTIONAL" ? "FUNCTIONAL" : "STRENGTH"
+    );
     router.back();
   };
 
@@ -180,112 +197,118 @@ export default function ExercisePickerScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.searchWrap}>
-          <Search size={16} color="#6B6B6B" />
-          <TextInput
-            style={styles.searchInput}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="운동 이름 검색"
-            placeholderTextColor="#6B6B6B"
-          />
-        </View>
+        {/* 분류가 "유산소"면 이미 뭘 고를지 정해진 것과 같다 — 달리기/걷기 2개뿐이라
+            검색/필터 UI를 띄우는 게 오히려 불필요한 단계라 통째로 생략하고 바로 목록만 보여준다. */}
+        {!isCardioCategory && (
+          <>
+            <View style={styles.searchWrap}>
+              <Search size={16} color="#6B6B6B" />
+              <TextInput
+                style={styles.searchInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="운동 이름 검색"
+                placeholderTextColor="#6B6B6B"
+              />
+            </View>
 
-        <View style={styles.filterRow}>
-          <Pressable
-            style={[styles.filterChip, bodyRegionFilter === null && styles.filterChipActive]}
-            onPress={() => {
-              setBodyRegionFilter(null);
-              setFilter(null);
-            }}
-          >
-            <Text
-              style={[styles.filterChipText, bodyRegionFilter === null && styles.filterChipTextActive]}
-            >
-              전체
-            </Text>
-          </Pressable>
-          {(["UPPER", "LOWER"] as BodyRegion[]).map((region) => (
-            <Pressable
-              key={region}
-              style={[styles.filterChip, bodyRegionFilter === region && styles.filterChipActive]}
-              onPress={() => {
-                setBodyRegionFilter(bodyRegionFilter === region ? null : region);
-                setFilter(null);
-              }}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  bodyRegionFilter === region && styles.filterChipTextActive,
-                ]}
-              >
-                {BODY_REGION_KOREAN[region]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {availableMuscleGroups.length > 1 && (
-          <View style={styles.filterRow}>
-            <Pressable
-              style={[styles.filterChip, filter === null && styles.filterChipActive]}
-              onPress={() => setFilter(null)}
-            >
-              <Text style={[styles.filterChipText, filter === null && styles.filterChipTextActive]}>
-                전체
-              </Text>
-            </Pressable>
-            {availableMuscleGroups.map((group) => (
+            <View style={styles.filterRow}>
               <Pressable
-                key={group}
-                style={[styles.filterChip, filter === group && styles.filterChipActive]}
-                onPress={() => setFilter(filter === group ? null : group)}
+                style={[styles.filterChip, bodyRegionFilter === null && styles.filterChipActive]}
+                onPress={() => {
+                  setBodyRegionFilter(null);
+                  setFilter(null);
+                }}
               >
                 <Text
-                  style={[styles.filterChipText, filter === group && styles.filterChipTextActive]}
+                  style={[styles.filterChipText, bodyRegionFilter === null && styles.filterChipTextActive]}
                 >
-                  {MUSCLE_GROUP_KOREAN[group]}
+                  전체
                 </Text>
               </Pressable>
-            ))}
-          </View>
-        )}
+              {(["UPPER", "LOWER"] as BodyRegion[]).map((region) => (
+                <Pressable
+                  key={region}
+                  style={[styles.filterChip, bodyRegionFilter === region && styles.filterChipActive]}
+                  onPress={() => {
+                    setBodyRegionFilter(bodyRegionFilter === region ? null : region);
+                    setFilter(null);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      bodyRegionFilter === region && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {BODY_REGION_KOREAN[region]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-        <View style={styles.filterRow}>
-          <Pressable
-            style={[styles.filterChip, equipmentFilter === null && styles.filterChipActive]}
-            onPress={() => setEquipmentFilter(null)}
-          >
-            <Text
-              style={[styles.filterChipText, equipmentFilter === null && styles.filterChipTextActive]}
-            >
-              전체 장비
-            </Text>
-          </Pressable>
-          {availableEquipments.map((equipment) => (
-            <Pressable
-              key={equipment}
-              style={[styles.filterChip, equipmentFilter === equipment && styles.filterChipActive]}
-              onPress={() => setEquipmentFilter(equipmentFilter === equipment ? null : equipment)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  equipmentFilter === equipment && styles.filterChipTextActive,
-                ]}
+            {availableMuscleGroups.length > 1 && (
+              <View style={styles.filterRow}>
+                <Pressable
+                  style={[styles.filterChip, filter === null && styles.filterChipActive]}
+                  onPress={() => setFilter(null)}
+                >
+                  <Text style={[styles.filterChipText, filter === null && styles.filterChipTextActive]}>
+                    전체
+                  </Text>
+                </Pressable>
+                {availableMuscleGroups.map((group) => (
+                  <Pressable
+                    key={group}
+                    style={[styles.filterChip, filter === group && styles.filterChipActive]}
+                    onPress={() => setFilter(filter === group ? null : group)}
+                  >
+                    <Text
+                      style={[styles.filterChipText, filter === group && styles.filterChipTextActive]}
+                    >
+                      {MUSCLE_GROUP_KOREAN[group]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.filterRow}>
+              <Pressable
+                style={[styles.filterChip, equipmentFilter === null && styles.filterChipActive]}
+                onPress={() => setEquipmentFilter(null)}
               >
-                {EQUIPMENT_KOREAN[equipment]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+                <Text
+                  style={[styles.filterChipText, equipmentFilter === null && styles.filterChipTextActive]}
+                >
+                  전체 장비
+                </Text>
+              </Pressable>
+              {availableEquipments.map((equipment) => (
+                <Pressable
+                  key={equipment}
+                  style={[styles.filterChip, equipmentFilter === equipment && styles.filterChipActive]}
+                  onPress={() => setEquipmentFilter(equipmentFilter === equipment ? null : equipment)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      equipmentFilter === equipment && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {EQUIPMENT_KOREAN[equipment]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
 
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         >
-          {results.map((exercise) => (
+          {(isCardioCategory ? cardioExercises : results).map((exercise) => (
             <Pressable
               key={exercise.id}
               style={styles.exerciseRow}
@@ -302,7 +325,7 @@ export default function ExercisePickerScreen() {
               <CirclePlus size={22} color="#2DD4BF" />
             </Pressable>
           ))}
-          {results.length === 0 && (
+          {(isCardioCategory ? cardioExercises : results).length === 0 && (
             <Text style={styles.emptyText}>검색 결과가 없어요.</Text>
           )}
         </ScrollView>

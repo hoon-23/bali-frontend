@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { appAlert } from "../../lib/alert";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
+import { cancelAllSetTimerReminders, cancelSetTimerReminder, scheduleSetTimerReminder } from "../../lib/notifications";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiSessionDetail, useSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
@@ -199,6 +200,10 @@ export default function WorkoutSessionScreen() {
         return;
       }
     }
+    // 세트 완료 없이 다른 운동으로 넘어간 것들 때문에 남아있을 수 있는 리마인드 알림을
+    // 정리한다 — 운동을 종료했다는 건 더 이상 어떤 세트도 진행 중이 아니라는 뜻이라,
+    // 실패해도 종료 자체를 막을 이유는 없어서 별도로 감싸 무시한다.
+    cancelAllSetTimerReminders().catch(() => {});
     router.push("/workout/summary");
   };
 
@@ -537,6 +542,10 @@ function SetTimer({ setTimings, targetSets, onRecordSetTiming }: SetTimerProps) 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const startedAtRef = useRef<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // "세트 완료"를 깜빡하고 폰을 놓아버린 경우를 잡기 위한 리마인드 알림 id.
+  // 다른 운동으로 전환/화면 이탈해도(컴포넌트 unmount) 일부러 취소하지 않는다 —
+  // 오히려 그게 "깜빡했을" 상황이라 알림이 그대로 울려야 의미가 있다.
+  const reminderIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -560,6 +569,11 @@ function SetTimer({ setTimings, targetSets, onRecordSetTiming }: SetTimerProps) 
       if (!startedAt) return;
       setElapsedSeconds(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
     }, 1000);
+    scheduleSetTimerReminder()
+      .then((id) => {
+        reminderIdRef.current = id;
+      })
+      .catch(() => {});
   };
 
   const handleStop = () => {
@@ -574,6 +588,10 @@ function SetTimer({ setTimings, targetSets, onRecordSetTiming }: SetTimerProps) 
     }
     startedAtRef.current = null;
     setElapsedSeconds(0);
+    if (reminderIdRef.current) {
+      cancelSetTimerReminder(reminderIdRef.current).catch(() => {});
+      reminderIdRef.current = null;
+    }
   };
 
   return (

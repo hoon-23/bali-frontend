@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { TemplateCategory } from "./templatesStore";
 
 const DEFAULT_CARDIO_DURATION_MINUTES = "20";
+// 기능성(맨몸 코어) 운동은 유산소처럼 "분" 단위를 쓰기엔 목표 시간이 너무 짧아서
+// (예: 플랭크 30초 = "0.5분") 별도로 "초" 단위 필드를 둔다.
+const DEFAULT_FUNCTIONAL_DURATION_SECONDS = "30";
+const DEFAULT_FUNCTIONAL_SETS = "3";
+
+export type ExerciseKind = "CARDIO" | "FUNCTIONAL" | "STRENGTH";
 
 export type DraftItem = {
   id: string;
@@ -10,6 +16,7 @@ export type DraftItem = {
   targetReps: string;
   targetWeight: string;
   targetDurationMinutes: string;
+  targetDurationSeconds: string;
 };
 
 type RoutineBuilderState = {
@@ -18,11 +25,11 @@ type RoutineBuilderState = {
   items: DraftItem[];
   setName: (name: string) => void;
   setCategory: (category: TemplateCategory) => void;
-  addItem: (exerciseId: string, isCardio: boolean) => void;
+  addItem: (exerciseId: string, kind: ExerciseKind) => void;
   removeItem: (id: string) => void;
   updateItemField: (
     id: string,
-    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes",
+    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes" | "targetDurationSeconds",
     value: string
   ) => void;
   reorderItems: (items: DraftItem[]) => void;
@@ -41,17 +48,18 @@ export const useRoutineBuilderStore = create<RoutineBuilderState>((set) => ({
   setName: (name) => set({ name }),
   setCategory: (category) => set({ category }),
 
-  addItem: (exerciseId, isCardio) =>
+  addItem: (exerciseId, kind) =>
     set((state) => ({
       items: [
         ...state.items,
         {
           id: `draft-${Date.now()}`,
           exerciseId,
-          targetSets: "3",
+          targetSets: kind === "FUNCTIONAL" ? DEFAULT_FUNCTIONAL_SETS : "3",
           targetReps: "10",
           targetWeight: "20",
-          targetDurationMinutes: isCardio ? DEFAULT_CARDIO_DURATION_MINUTES : "",
+          targetDurationMinutes: kind === "CARDIO" ? DEFAULT_CARDIO_DURATION_MINUTES : "",
+          targetDurationSeconds: kind === "FUNCTIONAL" ? DEFAULT_FUNCTIONAL_DURATION_SECONDS : "",
         },
       ],
     })),

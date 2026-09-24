@@ -12,6 +12,7 @@ import { getRefreshToken } from "../lib/auth/tokenStorage";
 import { refreshAccessToken } from "../lib/api/client";
 import { AppAlertModal } from "../components/AppAlertModal";
 import { AnimatedSplashIntro } from "../components/AnimatedSplashIntro";
+import { configureNotificationHandler } from "../lib/notifications";
 
 // JS 번들이 로드되기 전(네이티브 부팅 구간)만 네이티브 스플래시로 가리고,
 // RootLayout이 mount되는 즉시 JS가 그리는 AnimatedSplashIntro로 바통을 넘긴다.
@@ -60,6 +61,12 @@ export default function RootLayout() {
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
+
+  // 세트 타이머 리마인드 등 로컬 알림이 포그라운드에서도 배너로 뜨게 핸들러만 등록한다.
+  // 권한 요청/부트스트랩 상태와는 무관한 독립 effect라 스플래시 타이밍에 영향 없음.
+  useEffect(() => {
+    configureNotificationHandler();
+  }, []);
 
   // AnimatedSplashIntro의 배경 이미지가 실제로 디코딩 완료된 뒤에만 네이티브 스플래시를
   // 내린다 — 순서를 안 지키면 "네이티브 이미지 사라짐 → JS 이미지 아직 안 그려진 빈 배경 →

@@ -9,7 +9,8 @@ export type ExerciseMuscleGroup =
   | "TRICEPS"
   | "LEGS"
   | "ABS"
-  | "CARDIO";
+  | "CARDIO"
+  | "FUNCTIONAL";
 
 export const MUSCLE_GROUP_KOREAN: Record<ExerciseMuscleGroup, string> = {
   BACK: "등",
@@ -20,6 +21,7 @@ export const MUSCLE_GROUP_KOREAN: Record<ExerciseMuscleGroup, string> = {
   LEGS: "하체",
   ABS: "복근",
   CARDIO: "유산소",
+  FUNCTIONAL: "기능성 근력운동",
 };
 
 // 8개 근육군을 상체/하체 대분류로 묶은 것 — 백엔드 개념이 아니라 프론트에서만 쓰는

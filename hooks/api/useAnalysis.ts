@@ -34,7 +34,7 @@ export function useLifetimeStats() {
   });
 }
 
-// bali-api의 MuscleGroup enum(8종)을 그대로 따름.
+// bali-api의 MuscleGroup enum을 그대로 따름.
 export type AnalysisMuscleGroup =
   | "BACK"
   | "CHEST"
@@ -43,7 +43,8 @@ export type AnalysisMuscleGroup =
   | "TRICEPS"
   | "LEGS"
   | "ABS"
-  | "CARDIO";
+  | "CARDIO"
+  | "FUNCTIONAL";
 
 export type AnalysisSummaryResponse = {
   totalWorkoutMinutes: number;

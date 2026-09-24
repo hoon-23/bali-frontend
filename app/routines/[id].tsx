@@ -1,7 +1,7 @@
 import { ChevronLeft, CircleX, GripVertical, Plus, Trash2 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -19,7 +19,8 @@ import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 
 type ItemDraft =
   | { targetSets: number; targetReps: number; targetWeight: number }
-  | { targetDurationSeconds: number };
+  | { targetDurationSeconds: number }
+  | { targetSets: number; targetDurationSeconds: number };
 
 export default function RoutineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -158,6 +159,9 @@ export default function RoutineDetailScreen() {
 
   return (
     <ScreenBackground>
+      {/* 입력 필드 바깥(빈 영역)을 탭하면 키보드를 내린다 — 안쪽 버튼/입력란은
+          자기 터치를 먼저 가져가므로 이 Pressable까지 안 내려온다. */}
+      <Pressable style={styles.dismissKeyboardArea} onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
@@ -247,6 +251,7 @@ export default function RoutineDetailScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+      </Pressable>
     </ScreenBackground>
   );
 }
@@ -274,24 +279,33 @@ function RoutineDetailItemRow({
   onDelete,
 }: RoutineDetailItemRowProps) {
   const isCardio = exercise?.muscleGroup === "CARDIO";
+  const isFunctional = exercise?.muscleGroup === "FUNCTIONAL";
   const [targetSets, setTargetSets] = useState(String(item.targetSets ?? 0));
   const [targetReps, setTargetReps] = useState(String(item.targetReps ?? 0));
   const [targetWeight, setTargetWeight] = useState(String(item.targetWeight ?? 0));
   const [targetDurationMinutes, setTargetDurationMinutes] = useState(
     String(Math.round((item.targetDurationSeconds ?? 0) / 60))
   );
+  const [targetDurationSeconds, setTargetDurationSeconds] = useState(
+    String(item.targetDurationSeconds ?? 0)
+  );
 
   const handleBlurSave = async () => {
     try {
-      await onSave(
-        isCardio
-          ? { targetDurationSeconds: (Number(targetDurationMinutes) || 0) * 60 }
-          : {
-              targetSets: Number(targetSets) || 0,
-              targetReps: Number(targetReps) || 0,
-              targetWeight: Number(targetWeight) || 0,
-            }
-      );
+      if (isCardio) {
+        await onSave({ targetDurationSeconds: (Number(targetDurationMinutes) || 0) * 60 });
+      } else if (isFunctional) {
+        await onSave({
+          targetSets: Number(targetSets) || 0,
+          targetDurationSeconds: Number(targetDurationSeconds) || 0,
+        });
+      } else {
+        await onSave({
+          targetSets: Number(targetSets) || 0,
+          targetReps: Number(targetReps) || 0,
+          targetWeight: Number(targetWeight) || 0,
+        });
+      }
     } catch {
       appAlert("저장하지 못했어요. 다시 시도해주세요.");
     }
@@ -331,6 +345,16 @@ function RoutineDetailItemRow({
               onChangeText={setTargetDurationMinutes}
               onBlur={handleBlurSave}
             />
+          ) : isFunctional ? (
+            <>
+              <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} onBlur={handleBlurSave} />
+              <ItemInput
+                label="목표 시간(초)"
+                value={targetDurationSeconds}
+                onChangeText={setTargetDurationSeconds}
+                onBlur={handleBlurSave}
+              />
+            </>
           ) : (
             <>
               <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} onBlur={handleBlurSave} />
@@ -346,9 +370,11 @@ function RoutineDetailItemRow({
         </View>
       ) : (
         <Text style={styles.itemTarget}>
-          {item.targetDurationSeconds
-            ? `${Math.round(item.targetDurationSeconds / 60)}분`
-            : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
+          {isCardio
+            ? `${Math.round((item.targetDurationSeconds ?? 0) / 60)}분`
+            : isFunctional
+              ? `${item.targetSets}세트 × ${item.targetDurationSeconds}초`
+              : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
         </Text>
       )}
     </View>
@@ -379,6 +405,9 @@ function ItemInput({ label, value, onChangeText, onBlur }: ItemInputProps) {
 }
 
 const styles = StyleSheet.create({
+  dismissKeyboardArea: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },

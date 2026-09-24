@@ -1,7 +1,7 @@
 import { Check, CircleX, GripVertical, Plus, X } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
@@ -55,20 +55,29 @@ export default function NewRoutineScreen() {
         name: name.trim(),
         category,
         items: items.map((item, index) => {
-          const isCardio = exerciseMap.get(item.exerciseId)?.muscleGroup === "CARDIO";
-          return isCardio
-            ? {
-                exerciseId: item.exerciseId,
-                sortOrder: index,
-                targetDurationSeconds: (Number(item.targetDurationMinutes) || 0) * 60,
-              }
-            : {
-                exerciseId: item.exerciseId,
-                sortOrder: index,
-                targetSets: Number(item.targetSets) || 0,
-                targetReps: Number(item.targetReps) || 0,
-                targetWeight: Number(item.targetWeight) || 0,
-              };
+          const muscleGroup = exerciseMap.get(item.exerciseId)?.muscleGroup;
+          if (muscleGroup === "CARDIO") {
+            return {
+              exerciseId: item.exerciseId,
+              sortOrder: index,
+              targetDurationSeconds: (Number(item.targetDurationMinutes) || 0) * 60,
+            };
+          }
+          if (muscleGroup === "FUNCTIONAL") {
+            return {
+              exerciseId: item.exerciseId,
+              sortOrder: index,
+              targetSets: Number(item.targetSets) || 0,
+              targetDurationSeconds: Number(item.targetDurationSeconds) || 0,
+            };
+          }
+          return {
+            exerciseId: item.exerciseId,
+            sortOrder: index,
+            targetSets: Number(item.targetSets) || 0,
+            targetReps: Number(item.targetReps) || 0,
+            targetWeight: Number(item.targetWeight) || 0,
+          };
         }),
       },
       {
@@ -80,6 +89,9 @@ export default function NewRoutineScreen() {
 
   return (
     <ScreenBackground>
+      {/* 입력 필드 바깥(빈 영역)을 탭하면 키보드를 내린다 — 안쪽 버튼/입력란은
+          자기 터치를 먼저 가져가므로 이 Pressable까지 안 내려온다. */}
+      <Pressable style={styles.dismissKeyboardArea} onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
@@ -161,6 +173,7 @@ export default function NewRoutineScreen() {
           )}
         />
       </SafeAreaView>
+      </Pressable>
       {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
           AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
       <AppAlertModal />
@@ -175,13 +188,14 @@ type RoutineItemRowProps = {
   onDrag: () => void;
   onRemove: () => void;
   onChangeField: (
-    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes",
+    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes" | "targetDurationSeconds",
     value: string
   ) => void;
 };
 
 function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeField }: RoutineItemRowProps) {
   const isCardio = exercise?.muscleGroup === "CARDIO";
+  const isFunctional = exercise?.muscleGroup === "FUNCTIONAL";
 
   return (
     <View style={[styles.itemCard, dragging && styles.itemCardDragging]}>
@@ -200,6 +214,19 @@ function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeFi
             label="목표 시간(분)"
             value={item.targetDurationMinutes}
             onChangeText={(value) => onChangeField("targetDurationMinutes", value)}
+          />
+        </View>
+      ) : isFunctional ? (
+        <View style={styles.itemInputRow}>
+          <ItemInput
+            label="세트"
+            value={item.targetSets}
+            onChangeText={(value) => onChangeField("targetSets", value)}
+          />
+          <ItemInput
+            label="목표 시간(초)"
+            value={item.targetDurationSeconds}
+            onChangeText={(value) => onChangeField("targetDurationSeconds", value)}
           />
         </View>
       ) : (
@@ -247,6 +274,9 @@ function ItemInput({ label, value, onChangeText }: ItemInputProps) {
 }
 
 const styles = StyleSheet.create({
+  dismissKeyboardArea: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },
