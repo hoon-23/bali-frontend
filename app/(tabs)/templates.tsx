@@ -85,8 +85,10 @@ export default function TemplatesScreen() {
 
   // 오늘 시작한 세션은 status로 구분: 아직 SCHEDULED면 "예정된 운동"에,
   // IN_PROGRESS/COMPLETED면 "지난 기록"에 나온다.
+  // useUpcomingSessions가 자정 롤오버 대응으로 어제 날짜부터 조회해오므로, 여기서는
+  // 오늘 이전 날짜의 SCHEDULED(예: 시작 안 하고 지나간 예약)가 섞여 들어오지 않게 걸러낸다.
   const upcoming = upcomingSessions
-    .filter((session) => session.status === "SCHEDULED")
+    .filter((session) => session.status === "SCHEDULED" && session.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
   const pastSessions = (historyPages?.pages.flatMap((page) => page.content) ?? []).filter(
     (session) => session.status !== "SCHEDULED"

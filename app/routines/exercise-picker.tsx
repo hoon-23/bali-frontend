@@ -1,6 +1,6 @@
 import { CirclePlus, Search, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
@@ -50,21 +50,55 @@ export default function ExercisePickerScreen() {
   const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
   const [equipmentFilter, setEquipmentFilter] = useState<ExerciseEquipment | null>(null);
 
-  const results = useMemo(() => {
-    const trimmedQuery = query.trim().toLowerCase();
-    const matched = trimmedQuery
-      ? exercises.filter((exercise) =>
-          formatExerciseName(exercise).toLowerCase().includes(trimmedQuery)
-        )
-      : exercises;
-    const byBodyRegion = bodyRegionFilter
-      ? matched.filter((exercise) => BODY_REGION_MUSCLE_GROUPS[bodyRegionFilter].includes(exercise.muscleGroup))
-      : matched;
-    const byMuscleGroup = filter ? byBodyRegion.filter((exercise) => exercise.muscleGroup === filter) : byBodyRegion;
-    return equipmentFilter
-      ? byMuscleGroup.filter((exercise) => exercise.equipment === equipmentFilter)
-      : byMuscleGroup;
-  }, [exercises, query, bodyRegionFilter, filter, equipmentFilter]);
+  const trimmedQuery = query.trim().toLowerCase();
+  const matched = useMemo(
+    () =>
+      trimmedQuery
+        ? exercises.filter((exercise) =>
+            formatExerciseName(exercise).toLowerCase().includes(trimmedQuery)
+          )
+        : exercises,
+    [exercises, trimmedQuery]
+  );
+  const byBodyRegion = useMemo(
+    () =>
+      bodyRegionFilter
+        ? matched.filter((exercise) => BODY_REGION_MUSCLE_GROUPS[bodyRegionFilter].includes(exercise.muscleGroup))
+        : matched,
+    [matched, bodyRegionFilter]
+  );
+  // 실제 결과가 있는 근육군만 칩으로 보여준다 — 상체/하체 선택 시 후보가 1개뿐이면
+  // (예: 하체 → LEGS 하나) "전체"/그 1개 뿐인 토글이 상위 부위 토글과 똑같은 선택지라
+  // 의미가 없으므로 행 자체를 숨긴다.
+  const availableMuscleGroups = useMemo(() => {
+    const candidates = MUSCLE_GROUPS.filter(
+      (group) => !bodyRegionFilter || BODY_REGION_MUSCLE_GROUPS[bodyRegionFilter].includes(group)
+    );
+    const present = new Set(byBodyRegion.map((exercise) => exercise.muscleGroup));
+    return candidates.filter((group) => present.has(group));
+  }, [byBodyRegion, bodyRegionFilter]);
+  const byMuscleGroup = useMemo(
+    () => (filter ? byBodyRegion.filter((exercise) => exercise.muscleGroup === filter) : byBodyRegion),
+    [byBodyRegion, filter]
+  );
+  // 장비도 마찬가지 — 상위 필터 기준으로 결과가 0개인 장비 칩(예: 하체 · 케이블/스미스)은 가린다.
+  const availableEquipments = useMemo(() => {
+    const present = new Set(byMuscleGroup.map((exercise) => exercise.equipment));
+    return EQUIPMENTS.filter((equipment) => present.has(equipment));
+  }, [byMuscleGroup]);
+  const results = useMemo(
+    () => (equipmentFilter ? byMuscleGroup.filter((exercise) => exercise.equipment === equipmentFilter) : byMuscleGroup),
+    [byMuscleGroup, equipmentFilter]
+  );
+
+  // 상위 필터가 바뀌어 현재 선택된 하위 필터가 더 이상 유효하지 않게 되면(칩이 사라지면)
+  // 보이지 않는 필터가 계속 적용된 채로 남지 않도록 초기화한다.
+  useEffect(() => {
+    if (filter && !availableMuscleGroups.includes(filter)) setFilter(null);
+  }, [filter, availableMuscleGroups]);
+  useEffect(() => {
+    if (equipmentFilter && !availableEquipments.includes(equipmentFilter)) setEquipmentFilter(null);
+  }, [equipmentFilter, availableEquipments]);
 
   const handleSelect = async (exercise: ApiExercise) => {
     const isCardio = exercise.muscleGroup === "CARDIO";
@@ -192,31 +226,31 @@ export default function ExercisePickerScreen() {
           ))}
         </View>
 
-        <View style={styles.filterRow}>
-          <Pressable
-            style={[styles.filterChip, filter === null && styles.filterChipActive]}
-            onPress={() => setFilter(null)}
-          >
-            <Text style={[styles.filterChipText, filter === null && styles.filterChipTextActive]}>
-              전체
-            </Text>
-          </Pressable>
-          {MUSCLE_GROUPS.filter(
-            (group) => !bodyRegionFilter || BODY_REGION_MUSCLE_GROUPS[bodyRegionFilter].includes(group)
-          ).map((group) => (
+        {availableMuscleGroups.length > 1 && (
+          <View style={styles.filterRow}>
             <Pressable
-              key={group}
-              style={[styles.filterChip, filter === group && styles.filterChipActive]}
-              onPress={() => setFilter(filter === group ? null : group)}
+              style={[styles.filterChip, filter === null && styles.filterChipActive]}
+              onPress={() => setFilter(null)}
             >
-              <Text
-                style={[styles.filterChipText, filter === group && styles.filterChipTextActive]}
-              >
-                {MUSCLE_GROUP_KOREAN[group]}
+              <Text style={[styles.filterChipText, filter === null && styles.filterChipTextActive]}>
+                전체
               </Text>
             </Pressable>
-          ))}
-        </View>
+            {availableMuscleGroups.map((group) => (
+              <Pressable
+                key={group}
+                style={[styles.filterChip, filter === group && styles.filterChipActive]}
+                onPress={() => setFilter(filter === group ? null : group)}
+              >
+                <Text
+                  style={[styles.filterChipText, filter === group && styles.filterChipTextActive]}
+                >
+                  {MUSCLE_GROUP_KOREAN[group]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <View style={styles.filterRow}>
           <Pressable
@@ -229,7 +263,7 @@ export default function ExercisePickerScreen() {
               전체 장비
             </Text>
           </Pressable>
-          {EQUIPMENTS.map((equipment) => (
+          {availableEquipments.map((equipment) => (
             <Pressable
               key={equipment}
               style={[styles.filterChip, equipmentFilter === equipment && styles.filterChipActive]}

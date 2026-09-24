@@ -68,6 +68,10 @@ export function useDeleteSession() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["upcomingSessions"] });
       queryClient.invalidateQueries({ queryKey: ["sessionHistory"] });
+      // 완료된 기록 삭제 시에도 홈 화면 통계가 갱신되어야 한다 (usePatchSession과 동일한 이유).
+      queryClient.invalidateQueries({ queryKey: ["lifetimeStats"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyCurrent"] });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
 }
@@ -112,6 +116,11 @@ export function usePatchSession() {
       queryClient.invalidateQueries({ queryKey: ["sessions", variables.sessionId] });
       queryClient.invalidateQueries({ queryKey: ["upcomingSessions"] });
       queryClient.invalidateQueries({ queryKey: ["sessionHistory"] });
+      // 운동 완료(COMPLETED) 시 홈 화면 통계(총 운동일/총 운동시간/이번 주 운동일/이번 달 근육군 집중도)가
+      // 탭이 언마운트되지 않아 갱신되지 않던 문제 — 관련 캐시도 함께 무효화한다.
+      queryClient.invalidateQueries({ queryKey: ["lifetimeStats"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyCurrent"] });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
 }

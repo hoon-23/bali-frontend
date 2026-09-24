@@ -11,6 +11,7 @@ import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises
 import {
   ApiSessionDetail,
   ApiSessionLogDetail,
+  useDeleteSession,
   usePatchSession,
   useSession,
 } from "../../hooks/api/useSessions";
@@ -42,12 +43,14 @@ export default function SessionRecordScreen() {
   const { data: session } = useSession(id);
   const exerciseMap = useExerciseMap();
   const patchSession = usePatchSession();
+  const deleteSession = useDeleteSession();
 
   const logs = session
     ? session.logs.slice().sort((a, b) => a.sortOrder - b.sortOrder)
     : [];
   const defaultExpandedId = logs.find((log) => !log.completed)?.id ?? null;
   const [expandedId, setExpandedId] = useState<string | null>(defaultExpandedId);
+  const [deleting, setDeleting] = useState(false);
 
   if (!session) {
     return null;
@@ -65,6 +68,27 @@ export default function SessionRecordScreen() {
       { text: "취소", style: "cancel" },
       { text: "완료로 변경", onPress: () => handleChangeStatus("COMPLETED") },
       { text: "예정으로 변경", onPress: () => handleChangeStatus("SCHEDULED") },
+    ]);
+  };
+
+  const handleDeletePress = () => {
+    appAlert("기록을 삭제할까요?", "삭제한 기록은 되돌릴 수 없습니다.", [
+      { text: "돌아가기", style: "cancel" },
+      {
+        text: "기록 삭제",
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteSession.mutateAsync(session.id);
+            router.back();
+          } catch {
+            appAlert("기록 삭제에 실패했어요. 다시 시도해주세요.");
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
     ]);
   };
 
@@ -125,6 +149,12 @@ export default function SessionRecordScreen() {
             })}
           </View>
         </ScrollView>
+
+        <Pressable style={styles.deleteButton} onPress={handleDeletePress} disabled={deleting}>
+          <Text style={styles.deleteButtonText}>
+            {deleting ? "삭제하는 중..." : "기록 삭제"}
+          </Text>
+        </Pressable>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -329,5 +359,15 @@ const styles = StyleSheet.create({
   timingChip: {
     color: "#6B6B6B",
     fontSize: 12,
+  },
+  deleteButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  deleteButtonText: {
+    color: "#F87171",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });
