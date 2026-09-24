@@ -21,8 +21,8 @@ import {
   TAB_BAR_BOTTOM_MARGIN,
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
-import { MUSCLE_GROUP_IMAGES, MUSCLE_GROUP_LABELS } from "../../constants/muscleGroups";
-import { toDisplayMuscleGroup } from "../../constants/exercises";
+import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
+import { MUSCLE_GROUP_KOREAN, toDisplayMuscleGroup } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
@@ -341,17 +341,20 @@ type SessionSummaryCardProps = {
 function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onAction, muted }: SessionSummaryCardProps) {
   const firstExerciseId = session.logs[0]?.exerciseId;
   const exercise = exercises?.find((e) => e.id === firstExerciseId);
-  const muscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
+  // 사진은 4종 에셋으로 근사(대체)하지만, 배지 텍스트는 실제 8개 근육군 라벨을 그대로 써야 한다 —
+  // 안 그러면 SHOULDER/BICEPS/TRICEPS/ABS/FUNCTIONAL 종목이 전부 "가슴"으로 잘못 표기된다.
+  const photoMuscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
+  const muscleGroupLabel = exercise ? MUSCLE_GROUP_KOREAN[exercise.muscleGroup] : null;
 
   return (
     <Pressable style={styles.card} onPress={onAction}>
       <View style={styles.photoWrap}>
-        {muscleGroup && (
-          <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.photo} resizeMode="cover" />
+        {photoMuscleGroup && (
+          <Image source={MUSCLE_GROUP_IMAGES[photoMuscleGroup]} style={styles.photo} resizeMode="cover" />
         )}
-        {muscleGroup && (
+        {muscleGroupLabel && (
           <View style={styles.photoBadge}>
-            <Text style={styles.photoBadgeText}>{MUSCLE_GROUP_LABELS[muscleGroup]}</Text>
+            <Text style={styles.photoBadgeText}>{muscleGroupLabel}</Text>
           </View>
         )}
       </View>
@@ -381,7 +384,8 @@ function SecondarySessionRow({ session, exercises, metaLabel, actionLabel, onAct
   const [expanded, setExpanded] = useState(false);
   const firstExerciseId = session.logs[0]?.exerciseId;
   const exercise = exercises?.find((e) => e.id === firstExerciseId);
-  const muscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
+  const photoMuscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
+  const muscleGroupLabel = exercise ? MUSCLE_GROUP_KOREAN[exercise.muscleGroup] : null;
 
   useEffect(() => {
     if (!expanded) return;
@@ -412,12 +416,12 @@ function SecondarySessionRow({ session, exercises, metaLabel, actionLabel, onAct
       {expanded && (
         <View style={styles.secondaryExpanded}>
           <View style={styles.photoWrap}>
-            {muscleGroup && (
-              <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.photo} resizeMode="cover" />
+            {photoMuscleGroup && (
+              <Image source={MUSCLE_GROUP_IMAGES[photoMuscleGroup]} style={styles.photo} resizeMode="cover" />
             )}
-            {muscleGroup && (
+            {muscleGroupLabel && (
               <View style={styles.photoBadge}>
-                <Text style={styles.photoBadgeText}>{MUSCLE_GROUP_LABELS[muscleGroup]}</Text>
+                <Text style={styles.photoBadgeText}>{muscleGroupLabel}</Text>
               </View>
             )}
           </View>
