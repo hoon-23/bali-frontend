@@ -1,6 +1,6 @@
 import { ChevronRight, Plus } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -9,6 +9,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -73,15 +74,26 @@ export default function TemplatesScreen() {
   const exerciseMap = useExerciseMap();
   const today = getTodayISODate();
 
-  const { data: upcomingSessions = [] } = useUpcomingSessions();
+  const { data: upcomingSessions = [], refetch: refetchUpcoming } = useUpcomingSessions();
   const {
     data: historyPages,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    refetch: refetchHistory,
   } = useSessionHistory();
   const inProgressSessionId = useInProgressSessionId();
   const insets = useSafeAreaInsets();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchUpcoming(), refetchHistory()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchUpcoming, refetchHistory]);
 
   // 오늘 시작한 세션은 status로 구분: 아직 SCHEDULED면 "예정된 운동"에,
   // IN_PROGRESS/COMPLETED면 "지난 기록"에 나온다.
@@ -147,6 +159,13 @@ export default function TemplatesScreen() {
           onEndReachedThreshold={0.4}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#2DD4BF"
+            />
+          }
           ItemSeparatorComponent={() => <View style={styles.recordSeparator} />}
           ListHeaderComponent={
             <View style={styles.listHeader}>
