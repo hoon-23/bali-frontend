@@ -15,6 +15,7 @@ import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/dat
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
 import { formatThousands } from "../../lib/format/number";
 import { useExerciseMap, formatExerciseName } from "../../hooks/api/useExercises";
+import { useLatestInsight } from "../../hooks/api/useLatestInsight";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
 import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
@@ -28,6 +29,18 @@ import {
 } from "../../hooks/api/useAnalysis";
 
 type ReportView = "weekly" | "monthly";
+
+// 배치가 만든 인사이트 중 가장 최근 것 하나만 보여준다 — 없으면(기록 없음/배치 전) 카드를 숨긴다.
+function LatestInsightCard() {
+  const { data } = useLatestInsight();
+  if (!data) return null;
+  return (
+    <View style={styles.insightCard}>
+      <Text style={styles.insightLabel}>{data.periodLabel} 인사이트</Text>
+      <Text style={styles.insightText}>{data.text}</Text>
+    </View>
+  );
+}
 
 // 맨몸 종목은 무게 볼륨이 0이라 볼륨 집계에 안 잡힌다 — 종목별 총 반복수(세트×반복수)를 따로 보여준다.
 function BodyweightRepsSection({
@@ -205,6 +218,8 @@ export default function StatsScreen() {
               <ChevronDown size={14} color="#2DD4BF" />
             </Pressable>
           </View>
+
+          <LatestInsightCard />
 
           {view === "weekly" ? (
             <>
@@ -592,6 +607,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 8,
+  },
+  insightCard: {
+    backgroundColor: "#1C1C25",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(45, 212, 191, 0.35)",
+    padding: 16,
+    gap: 6,
+  },
+  insightLabel: {
+    color: "#2DD4BF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  insightText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 20,
   },
   muscleRowSpacing: {
     marginTop: 16,
