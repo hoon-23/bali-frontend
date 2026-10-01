@@ -9,6 +9,7 @@ import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import {
   BODY_REGION_KOREAN,
   BODY_REGION_MUSCLE_GROUPS,
+  isBodyweightExercise,
   BodyRegion,
   EQUIPMENT_KOREAN,
   ExerciseEquipment,
@@ -35,7 +36,8 @@ function buildTargetFields(exercise: ApiExercise) {
   if (exercise.muscleGroup === "FUNCTIONAL") {
     return { targetSets: DEFAULT_FUNCTIONAL_SETS, targetDurationSeconds: DEFAULT_FUNCTIONAL_DURATION_SECONDS };
   }
-  return { targetSets: 3, targetReps: 10, targetWeight: 20 };
+  // 맨몸 종목은 무게 개념이 없어 weight=0
+  return { targetSets: 3, targetReps: 10, targetWeight: isBodyweightExercise(exercise) ? 0 : 20 };
 }
 
 // CARDIO는 별도 분류(전체 필터 숨김 + 직행 목록)로 처리하므로 근력 운동용 근육군

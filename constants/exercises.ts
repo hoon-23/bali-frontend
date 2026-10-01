@@ -50,6 +50,12 @@ export const EQUIPMENT_KOREAN: Record<ExerciseEquipment, string> = {
   BODYWEIGHT: "맨몸",
 };
 
+// 맨몸 종목은 무게 개념이 없어 입력란을 숨기고 weight=0으로 보낸다
+// (STRENGTH 세트는 서버에서 weight가 필수라 생략하지 않고 0을 채운다).
+export function isBodyweightExercise(exercise: { equipment: ExerciseEquipment | null } | null | undefined): boolean {
+  return exercise?.equipment === "BODYWEIGHT";
+}
+
 // 선별된 스톡 사진은 4개뿐(constants/muscleGroups.ts 참고). 운동의 muscleGroup은
 // 더 세분화(8개 값)되어 있어서, 각각을 가장 가까운 이미지로 매핑함 — 1:1 매핑이 아니라 근사치.
 export function toDisplayMuscleGroup(group: ExerciseMuscleGroup): PhotoMuscleGroup {

@@ -8,6 +8,7 @@ import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
+import { isBodyweightExercise } from "../../constants/exercises";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { CATEGORY_LABELS, TemplateItem } from "../../store/templatesStore";
@@ -280,6 +281,7 @@ function RoutineDetailItemRow({
 }: RoutineDetailItemRowProps) {
   const isCardio = exercise?.muscleGroup === "CARDIO";
   const isFunctional = exercise?.muscleGroup === "FUNCTIONAL";
+  const isBodyweight = isBodyweightExercise(exercise);
   const [targetSets, setTargetSets] = useState(String(item.targetSets ?? 0));
   const [targetReps, setTargetReps] = useState(String(item.targetReps ?? 0));
   const [targetWeight, setTargetWeight] = useState(String(item.targetWeight ?? 0));
@@ -303,7 +305,8 @@ function RoutineDetailItemRow({
         await onSave({
           targetSets: Number(targetSets) || 0,
           targetReps: Number(targetReps) || 0,
-          targetWeight: Number(targetWeight) || 0,
+          // 맨몸 종목은 입력란이 없어도 weight=0을 항상 보낸다
+          targetWeight: isBodyweight ? 0 : Number(targetWeight) || 0,
         });
       }
     } catch {
@@ -359,12 +362,14 @@ function RoutineDetailItemRow({
             <>
               <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} onBlur={handleBlurSave} />
               <ItemInput label="횟수" value={targetReps} onChangeText={setTargetReps} onBlur={handleBlurSave} />
-              <ItemInput
-                label="무게(kg)"
-                value={targetWeight}
-                onChangeText={(value) => setTargetWeight(sanitizeWeightInput(value))}
-                onBlur={handleBlurSave}
-              />
+              {!isBodyweight && (
+                <ItemInput
+                  label="무게(kg)"
+                  value={targetWeight}
+                  onChangeText={(value) => setTargetWeight(sanitizeWeightInput(value))}
+                  onBlur={handleBlurSave}
+                />
+              )}
             </>
           )}
         </View>
@@ -374,7 +379,9 @@ function RoutineDetailItemRow({
             ? `${Math.round((item.targetDurationSeconds ?? 0) / 60)}분`
             : isFunctional
               ? `${item.targetSets}세트 × ${item.targetDurationSeconds}초`
-              : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
+              : isBodyweight
+                ? `${item.targetSets}세트 × ${item.targetReps}회`
+                : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
         </Text>
       )}
     </View>

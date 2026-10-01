@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
+import { isBodyweightExercise } from "../../constants/exercises";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -55,7 +56,8 @@ export default function NewRoutineScreen() {
         name: name.trim(),
         category,
         items: items.map((item, index) => {
-          const muscleGroup = exerciseMap.get(item.exerciseId)?.muscleGroup;
+          const exercise = exerciseMap.get(item.exerciseId);
+          const muscleGroup = exercise?.muscleGroup;
           if (muscleGroup === "CARDIO") {
             return {
               exerciseId: item.exerciseId,
@@ -76,7 +78,8 @@ export default function NewRoutineScreen() {
             sortOrder: index,
             targetSets: Number(item.targetSets) || 0,
             targetReps: Number(item.targetReps) || 0,
-            targetWeight: Number(item.targetWeight) || 0,
+            // 맨몸 종목은 입력란이 없어도 weight=0을 항상 보낸다
+            targetWeight: isBodyweightExercise(exercise) ? 0 : Number(item.targetWeight) || 0,
           };
         }),
       },
@@ -196,6 +199,7 @@ type RoutineItemRowProps = {
 function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeField }: RoutineItemRowProps) {
   const isCardio = exercise?.muscleGroup === "CARDIO";
   const isFunctional = exercise?.muscleGroup === "FUNCTIONAL";
+  const isBodyweight = isBodyweightExercise(exercise);
 
   return (
     <View style={[styles.itemCard, dragging && styles.itemCardDragging]}>
@@ -241,11 +245,13 @@ function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeFi
             value={item.targetReps}
             onChangeText={(value) => onChangeField("targetReps", value)}
           />
-          <ItemInput
-            label="무게(kg)"
-            value={item.targetWeight}
-            onChangeText={(value) => onChangeField("targetWeight", sanitizeWeightInput(value))}
-          />
+          {!isBodyweight && (
+            <ItemInput
+              label="무게(kg)"
+              value={item.targetWeight}
+              onChangeText={(value) => onChangeField("targetWeight", sanitizeWeightInput(value))}
+            />
+          )}
         </View>
       )}
     </View>

@@ -1,11 +1,15 @@
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { isBodyweightExercise } from "../../constants/exercises";
+import { useExerciseMap } from "../../hooks/api/useExercises";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
   const logs = useWorkoutSessionStore((state) => state.logs);
   const endSession = useWorkoutSessionStore((state) => state.endSession);
+
+  const exerciseMap = useExerciseMap();
 
   const completedCount = logs.filter((log) => log.completed).length;
 
@@ -23,7 +27,10 @@ export default function WorkoutSummaryScreen() {
         </Text>
 
         <View style={styles.list}>
-          {logs.map((log) => (
+          {logs.map((log) => {
+            const weightSuffix = (weight: number | string) =>
+              isBodyweightExercise(exerciseMap.get(log.exerciseId)) ? "" : ` × ${weight}kg`;
+            return (
             <View key={log.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.exerciseName}>{log.name}</Text>
@@ -32,15 +39,16 @@ export default function WorkoutSummaryScreen() {
                 </Text>
               </View>
               <Text style={styles.detailLine}>
-                목표 {log.targetSets}세트 × {log.targetReps}회 × {log.targetWeight}kg
+                목표 {log.targetSets}세트 × {log.targetReps}회{weightSuffix(log.targetWeight)}
               </Text>
               {log.completed && (
                 <Text style={styles.detailLine}>
-                  기록 {log.actualSets || 0}세트 × {log.actualReps || 0}회 × {log.actualWeight || 0}kg
+                  기록 {log.actualSets || 0}세트 × {log.actualReps || 0}회{weightSuffix(log.actualWeight || 0)}
                 </Text>
               )}
             </View>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
 

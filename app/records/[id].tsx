@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { isBodyweightExercise } from "../../constants/exercises";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
@@ -142,6 +143,7 @@ export default function SessionRecordScreen() {
                   key={log.id}
                   log={log}
                   exerciseName={exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}
+                  isBodyweight={isBodyweightExercise(exercise)}
                   expanded={expandedId === log.id}
                   onToggle={() => setExpandedId((prev) => (prev === log.id ? null : log.id))}
                 />
@@ -163,11 +165,12 @@ export default function SessionRecordScreen() {
 type ExerciseAccordionProps = {
   log: ApiSessionLogDetail;
   exerciseName: string;
+  isBodyweight: boolean;
   expanded: boolean;
   onToggle: () => void;
 };
 
-function ExerciseAccordion({ log, exerciseName, expanded, onToggle }: ExerciseAccordionProps) {
+function ExerciseAccordion({ log, exerciseName, isBodyweight, expanded, onToggle }: ExerciseAccordionProps) {
   const hasActual = log.actualSets != null || log.actualReps != null || log.actualWeight != null;
 
   return (
@@ -176,7 +179,8 @@ function ExerciseAccordion({ log, exerciseName, expanded, onToggle }: ExerciseAc
         <View>
           <Text style={styles.exerciseName}>{exerciseName}</Text>
           <Text style={styles.exerciseTarget}>
-            목표 {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회 × {log.targetWeight ?? 0}kg
+            목표 {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회
+            {isBodyweight ? "" : ` × ${log.targetWeight ?? 0}kg`}
           </Text>
         </View>
         <View style={styles.exerciseHeaderRight}>
@@ -198,7 +202,7 @@ function ExerciseAccordion({ log, exerciseName, expanded, onToggle }: ExerciseAc
           <Text style={styles.detailLine}>
             기록{" "}
             {hasActual
-              ? `${log.actualSets ?? 0}세트 × ${log.actualReps ?? 0}회 × ${log.actualWeight ?? 0}kg`
+              ? `${log.actualSets ?? 0}세트 × ${log.actualReps ?? 0}회${isBodyweight ? "" : ` × ${log.actualWeight ?? 0}kg`}`
               : "없음"}
           </Text>
           {log.setTimings && log.setTimings.length > 0 && (

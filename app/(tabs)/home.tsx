@@ -86,7 +86,7 @@ export default function HomeScreen() {
   const { data: me, isError: meError, refetch: refetchMe } = useMe();
   const { data: lifetime } = useLifetimeStats();
   const { data: monthlyCurrent } = useMonthlyCurrent();
-  const topMuscleGroupsMonth = computeTopMuscleGroups(monthlyCurrent?.summary?.volumeByMuscleGroup);
+  const topMuscleGroupsMonth = computeTopMuscleGroups(monthlyCurrent?.summary);
   const { data: exercises } = useExercises();
   const {
     data: sessions,

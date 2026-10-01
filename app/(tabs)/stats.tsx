@@ -14,10 +14,12 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
 import { formatThousands } from "../../lib/format/number";
+import { useExerciseMap, formatExerciseName } from "../../hooks/api/useExercises";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
 import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
 import {
+  AnalysisSummaryResponse,
   DailyAnalysisEntry,
   useDailyAnalysis,
   useMonthlyByDate,
@@ -26,6 +28,44 @@ import {
 } from "../../hooks/api/useAnalysis";
 
 type ReportView = "weekly" | "monthly";
+
+// 맨몸 종목은 무게 볼륨이 0이라 볼륨 집계에 안 잡힌다 — 종목별 총 반복수(세트×반복수)를 따로 보여준다.
+function BodyweightRepsSection({
+  summary,
+  periodLabel,
+}: {
+  summary: AnalysisSummaryResponse | null | undefined;
+  periodLabel: string;
+}) {
+  const exerciseMap = useExerciseMap();
+  const entries = Object.entries(summary?.bodyweightRepsByExercise ?? {})
+    .filter(([, reps]) => reps > 0)
+    .sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return null;
+
+  const change = summary?.bodyweightRepsChangeFromLastWeekPercent;
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>맨몸 운동 반복수</Text>
+      <View style={styles.card}>
+        {entries.map(([exerciseId, reps], index) => {
+          const exercise = exerciseMap.get(exerciseId);
+          return (
+            <View key={exerciseId} style={[styles.muscleRow, index > 0 && styles.muscleRowSpacing]}>
+              <Text style={styles.muscleLabel}>{exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}</Text>
+              <Text style={styles.muscleValue}>{formatThousands(reps)}회</Text>
+            </View>
+          );
+        })}
+        {change != null && (
+          <Text style={[styles.emptyStateText, styles.muscleRowSpacing]}>
+            {periodLabel}보다 {Math.abs(Math.round(change))}% {change >= 0 ? "증가" : "감소"}했어요
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
 
 const DAILY_TARGET_MINUTES = 60;
 const WEEKLY_TARGET_MINUTES = 480; // 8h — 백엔드에 사용자 목표 개념이 없어 고정 표시값
@@ -112,22 +152,20 @@ export default function StatsScreen() {
   // 이번 달(offset 0)은 /monthly/current, 과거 달은 /monthly/{monthOf} — 둘 다 summary.volumeByMuscleGroup 포함.
   const monthTotalMinutes =
     monthOffset === 0 ? monthlyCurrent.data?.totalWorkoutMinutes : monthlyPast.data?.summary?.totalWorkoutMinutes;
-  const monthVolumeByMuscleGroup =
-    monthOffset === 0 ? monthlyCurrent.data?.summary?.volumeByMuscleGroup : monthlyPast.data?.summary?.volumeByMuscleGroup;
+  const monthSummary = monthOffset === 0 ? monthlyCurrent.data?.summary : monthlyPast.data?.summary;
   const monthPastUnavailable = monthOffset < 0 && monthlyPast.data !== undefined && monthlyPast.data?.summary == null;
   const topMuscleGroupsMonth = useMemo(
-    () => computeTopMuscleGroups(monthVolumeByMuscleGroup),
-    [monthVolumeByMuscleGroup],
+    () => computeTopMuscleGroups(monthSummary),
+    [monthSummary],
   );
 
   // 이번 주(offset 0)는 /weekly/current, 과거 주는 /weekly/{weekOf} — 둘 다 summary.volumeByMuscleGroup 포함.
   const totalWorkoutMinutes =
     weekOffset === 0 ? weeklyCurrent.data?.totalWorkoutMinutes : weeklyPast.data?.summary?.totalWorkoutMinutes;
-  const volumeByMuscleGroup =
-    weekOffset === 0 ? weeklyCurrent.data?.summary?.volumeByMuscleGroup : weeklyPast.data?.summary?.volumeByMuscleGroup;
+  const weekSummary = weekOffset === 0 ? weeklyCurrent.data?.summary : weeklyPast.data?.summary;
   const pastWeekUnavailable = weekOffset < 0 && weeklyPast.data !== undefined && weeklyPast.data?.summary == null;
 
-  const topMuscleGroups = useMemo(() => computeTopMuscleGroups(volumeByMuscleGroup), [volumeByMuscleGroup]);
+  const topMuscleGroups = useMemo(() => computeTopMuscleGroups(weekSummary), [weekSummary]);
 
   const weekDailyByDate = useMemo(() => dailyMapByDate(dailyThisWeek.data), [dailyThisWeek.data]);
   const weekBarMinutes = useMemo(
@@ -276,6 +314,11 @@ export default function StatsScreen() {
                   )}
                 </View>
               </View>
+              <BodyweightRepsSection
+                summary={weekSummary}
+                periodLabel="지난주"
+              />
+
             </>
           ) : (
             <>
@@ -381,6 +424,11 @@ export default function StatsScreen() {
                   )}
                 </View>
               </View>
+              <BodyweightRepsSection
+                summary={monthSummary}
+                periodLabel="지난달"
+              />
+
             </>
           )}
         </ScrollView>

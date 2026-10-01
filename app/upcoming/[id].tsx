@@ -7,7 +7,7 @@ import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { toDisplayMuscleGroup } from "../../constants/exercises";
+import { isBodyweightExercise, toDisplayMuscleGroup } from "../../constants/exercises";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
@@ -86,10 +86,12 @@ export default function UpcomingWorkoutScreen() {
       const entry = draft[log.id];
       const sets = Number(entry?.sets);
       const reps = Number(entry?.reps);
-      const weight = Number(entry?.weight);
+      // 맨몸 종목은 무게 입력란이 없으므로 검증을 건너뛰고 weight=0으로 보낸다
+      const isBodyweight = isBodyweightExercise(exerciseMap.get(log.exerciseId));
+      const weight = isBodyweight ? 0 : Number(entry?.weight);
       const valid =
         Number.isFinite(sets) && sets > 0 && Number.isFinite(reps) && reps > 0 &&
-        Number.isFinite(weight) && weight > 0;
+        Number.isFinite(weight) && (isBodyweight || weight > 0);
 
       if (!valid) nextErrors.add(log.id);
 
@@ -234,7 +236,8 @@ export default function UpcomingWorkoutScreen() {
                   <View key={log.id} style={styles.itemCard}>
                     <Text style={styles.itemName}>{exerciseName}</Text>
                     <Text style={styles.itemTarget}>
-                      {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회 × {log.targetWeight ?? 0}kg
+                      {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회
+                      {isBodyweightExercise(exercise) ? "" : ` × ${log.targetWeight ?? 0}kg`}
                     </Text>
                   </View>
                 );
@@ -257,12 +260,14 @@ export default function UpcomingWorkoutScreen() {
                       hasError={hasError}
                       onChangeText={(value) => handleDraftChange(log.id, "reps", value)}
                     />
-                    <EditField
-                      label="무게(kg)"
-                      value={entry.weight}
-                      hasError={hasError}
-                      onChangeText={(value) => handleDraftChange(log.id, "weight", value)}
-                    />
+                    {!isBodyweightExercise(exercise) && (
+                      <EditField
+                        label="무게(kg)"
+                        value={entry.weight}
+                        hasError={hasError}
+                        onChangeText={(value) => handleDraftChange(log.id, "weight", value)}
+                      />
+                    )}
                   </View>
                   {hasError && (
                     <Text style={styles.itemErrorText}>0보다 큰 숫자를 입력해주세요</Text>

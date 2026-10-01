@@ -1,14 +1,14 @@
 import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
 import { AnalysisSummaryResponse } from "../../hooks/api/useAnalysis";
 
-export type TopMuscleGroup = { label: string; percent: number; volume: number };
+export type TopMuscleGroup = { label: string; percent: number };
 
-// 볼륨(세트×횟수×무게) 비중이 큰 상위 3개 근육군만 추려서 "집중도" 화면에 쓴다.
-export function computeTopMuscleGroups(
-  volumeByMuscleGroup: AnalysisSummaryResponse["volumeByMuscleGroup"] | undefined
-): TopMuscleGroup[] {
-  if (!volumeByMuscleGroup) return [];
-  const entries = Object.entries(volumeByMuscleGroup).filter(([, volume]) => (volume ?? 0) > 0) as [
+// 근육군별 비중이 큰 상위 3개만 추려서 "집중도" 화면에 쓴다. 맨몸 운동은 무게 볼륨이 0이라
+// 볼륨 기준이면 빠지므로 세트 수(setsByMuscleGroup)를 우선 쓰고, 구버전 응답이면 볼륨으로 대체한다.
+export function computeTopMuscleGroups(summary: AnalysisSummaryResponse | null | undefined): TopMuscleGroup[] {
+  const byMuscleGroup = summary?.setsByMuscleGroup ?? summary?.volumeByMuscleGroup;
+  if (!byMuscleGroup) return [];
+  const entries = Object.entries(byMuscleGroup).filter(([, volume]) => (volume ?? 0) > 0) as [
     string,
     number,
   ][];
@@ -20,6 +20,5 @@ export function computeTopMuscleGroups(
     .map(([group, volume]) => ({
       label: MUSCLE_GROUP_KOREAN[group as keyof typeof MUSCLE_GROUP_KOREAN] ?? group,
       percent: Math.round((volume / total) * 100),
-      volume: Math.round(volume),
     }));
 }

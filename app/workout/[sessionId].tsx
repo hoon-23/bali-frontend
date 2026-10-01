@@ -16,6 +16,7 @@ import { appAlert } from "../../lib/alert";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { cancelAllSetTimerReminders, cancelSetTimerReminder, scheduleSetTimerReminder } from "../../lib/notifications";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
+import { isBodyweightExercise } from "../../constants/exercises";
 import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiSessionDetail, useSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
 import { ApiTemplate, useTemplate } from "../../hooks/api/useTemplates";
@@ -65,7 +66,7 @@ function buildLogsFromApiTemplate(
       // 계획과 같으면 그대로 두고, 다르면 고쳐 쓰게 목표값으로 미리 채워둔다.
       actualSets: "0",
       actualReps: String(item.targetReps ?? 0),
-      actualWeight: String(item.targetWeight ?? 0),
+      actualWeight: isBodyweightExercise(exercise) ? "0" : String(item.targetWeight ?? 0),
       actualDurationSeconds: "0",
       completed: false,
       setTimings: [],
@@ -97,8 +98,11 @@ function buildLogsFromApiSession(
         actualReps: log.actualReps != null ? String(log.actualReps) : String(log.targetReps ?? 0),
         // 이 세션에서 아직 무게를 입력 안 했으면(actualWeight 없음) 직전에 기록한 무게를
         // 우선 채워준다 — 없으면 기존처럼 목표 무게로 채운다.
-        actualWeight:
-          log.actualWeight != null ? String(log.actualWeight) : String(log.lastWeight ?? log.targetWeight ?? 0),
+        actualWeight: isBodyweightExercise(exercise)
+          ? "0"
+          : log.actualWeight != null
+            ? String(log.actualWeight)
+            : String(log.lastWeight ?? log.targetWeight ?? 0),
         actualDurationSeconds: log.actualDurationSeconds != null ? String(log.actualDurationSeconds) : "0",
         completed: log.completed,
         setTimings: log.setTimings ?? [],
@@ -226,6 +230,7 @@ export default function WorkoutSessionScreen() {
   const handleCompleteLog = async (log: ExerciseLog) => {
     if (isRealSession) {
       const isCardio = exerciseMap.get(log.exerciseId)?.muscleGroup === "CARDIO";
+      const isBodyweight = isBodyweightExercise(exerciseMap.get(log.exerciseId));
       try {
         // CARDIO 로그는 sets/reps/weight/setTimings가 채워져 있으면 서버가 예외를 던지므로
         // (백엔드 검증 규칙) actualDurationSeconds만 보낸다.
@@ -243,7 +248,8 @@ export default function WorkoutSessionScreen() {
                 completed: true,
                 actualSets: log.actualSets ? Number(log.actualSets) : undefined,
                 actualReps: log.actualReps ? Number(log.actualReps) : undefined,
-                actualWeight: log.actualWeight ? Number(log.actualWeight) : undefined,
+                // 맨몸 종목은 입력란이 없어도 STRENGTH 세트 규칙상 weight=0을 항상 보낸다
+                actualWeight: isBodyweight ? 0 : log.actualWeight ? Number(log.actualWeight) : undefined,
                 setTimings: log.setTimings,
               }
         );
@@ -317,6 +323,7 @@ export default function WorkoutSessionScreen() {
           key={activeLog.id}
           log={activeLog}
           isCardio={exerciseMap.get(activeLog.exerciseId)?.muscleGroup === "CARDIO"}
+          isBodyweight={isBodyweightExercise(exerciseMap.get(activeLog.exerciseId))}
           onChangeField={(field, value) => updateField(activeLog.id, field, value)}
           onAdjustSets={(delta) => adjustActualSets(activeLog.id, delta)}
           onAdjustTargetSets={(delta) => handleAdjustTargetSets(activeLog, delta)}
@@ -416,6 +423,7 @@ export default function WorkoutSessionScreen() {
 type ActiveExercisePanelProps = {
   log: ExerciseLog;
   isCardio: boolean;
+  isBodyweight: boolean;
   onChangeField: (field: ActualField, value: string) => void;
   onAdjustSets: (delta: number) => void;
   onAdjustTargetSets: (delta: number) => void;
@@ -428,6 +436,7 @@ type ActiveExercisePanelProps = {
 function ActiveExercisePanel({
   log,
   isCardio,
+  isBodyweight,
   onChangeField,
   onAdjustSets,
   onAdjustTargetSets,
@@ -505,17 +514,19 @@ function ActiveExercisePanel({
                 placeholderTextColor="#6B6B6B"
               />
             </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statLabel}>무게(kg)</Text>
-              <TextInput
-                style={styles.statValueInput}
-                value={log.actualWeight}
-                onChangeText={(value) => onChangeField("actualWeight", sanitizeWeightInput(value))}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor="#6B6B6B"
-              />
-            </View>
+            {!isBodyweight && (
+              <View style={styles.statTile}>
+                <Text style={styles.statLabel}>무게(kg)</Text>
+                <TextInput
+                  style={styles.statValueInput}
+                  value={log.actualWeight}
+                  onChangeText={(value) => onChangeField("actualWeight", sanitizeWeightInput(value))}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor="#6B6B6B"
+                />
+              </View>
+            )}
           </View>
 
           <Pressable style={styles.completeButton} onPress={onComplete}>
