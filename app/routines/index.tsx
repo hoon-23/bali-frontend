@@ -1,5 +1,6 @@
 import { ChevronLeft, Plus } from "lucide-react-native";
 import { useRouter } from "expo-router";
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -19,9 +20,26 @@ function getMuscleGroupChips(template: ApiTemplate, exerciseMap: Map<string, Api
   return Array.from(groups);
 }
 
+// 최근에 실행한 루틴이 위로 — lastUsedAt 내림차순, 실행 이력이 없는(null) 루틴은 맨 아래.
+// 같은 날 실행한 루틴끼리(날짜만 있어 동률)와 이력 없는 루틴끼리는 이름순으로 고정해 순서가 흔들리지 않게 한다.
+function sortByRecentlyUsed(templates: ApiTemplate[]): ApiTemplate[] {
+  return [...templates].sort((a, b) => {
+    // 구버전 응답(필드 없음, undefined)과 null을 같은 "이력 없음"으로 취급한다.
+    const aUsed = a.lastUsedAt ?? null;
+    const bUsed = b.lastUsedAt ?? null;
+    if (aUsed !== bUsed) {
+      if (!aUsed) return 1;
+      if (!bUsed) return -1;
+      return aUsed < bUsed ? 1 : -1;
+    }
+    return a.name.localeCompare(b.name, "ko");
+  });
+}
+
 export default function RoutinesScreen() {
   const router = useRouter();
-  const { data: templates = [] } = useTemplates();
+  const { data: rawTemplates = [] } = useTemplates();
+  const templates = useMemo(() => sortByRecentlyUsed(rawTemplates), [rawTemplates]);
   const exerciseMap = useExerciseMap();
 
   return (

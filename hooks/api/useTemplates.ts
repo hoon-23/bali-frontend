@@ -7,6 +7,9 @@ export type ApiTemplate = {
   category: TemplateCategory;
   name: string;
   items: TemplateItem[];
+  // 이 루틴으로 마지막으로 "완료"한 세션의 날짜(YYYY-MM-DD). 완료 이력이 없으면 null.
+  // 구버전 서버 응답에는 없을 수 있어 optional.
+  lastUsedAt?: string | null;
 };
 
 export type CreateTemplatePayload = {
