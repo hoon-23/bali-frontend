@@ -31,7 +31,8 @@ export type ApiSessionDetail = {
   id: string;
   date: string;
   templateId: string | null;
-  status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
+  // ABANDONED: 서버가 자정을 넘긴 진행중 세션을 자동으로 바꾸는 "중단" 상태
+  status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "ABANDONED";
   logs: ApiSessionLogDetail[];
   perceivedDifficulty: number | null;
   title: string;

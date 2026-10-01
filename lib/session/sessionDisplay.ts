@@ -9,7 +9,7 @@ export type ApiSession = {
   id: string;
   date: string; // "YYYY-MM-DD"
   templateId: string | null;
-  status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
+  status: "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "ABANDONED";
   logs: SessionLog[];
   perceivedDifficulty: number | null;
   title: string;
@@ -26,6 +26,7 @@ const TODAY_STATUS_PRIORITY: Record<ApiSession["status"], number> = {
   IN_PROGRESS: 0,
   SCHEDULED: 1,
   COMPLETED: 2,
+  ABANDONED: 3,
 };
 
 export function deriveUpcomingCardState(sessions: ApiSession[], todayISODate: string): UpcomingCardState {
@@ -35,6 +36,8 @@ export function deriveUpcomingCardState(sessions: ApiSession[], todayISODate: st
   // 조건(status === SCHEDULED)에서 빠지고 today 버킷(date === todayISODate)에도 안 걸려서
   // 화면에서 통째로 사라지는 버그가 있었다.
   const todaySessions = sessions
+    // 중단(ABANDONED)된 세션은 "오늘의 운동"에서 제외 — 지난 기록(기록 탭)에서만 보인다.
+    .filter((s) => s.status !== "ABANDONED")
     .filter((s) => s.date === todayISODate || s.status === "IN_PROGRESS")
     .sort((a, b) => TODAY_STATUS_PRIORITY[a.status] - TODAY_STATUS_PRIORITY[b.status]);
   const future = sessions

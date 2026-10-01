@@ -57,6 +57,7 @@ function formatFullKoreanDate(dateISO: string): string {
 function statusLabel(status: ApiSessionDetail["status"]): string {
   if (status === "COMPLETED") return "완료";
   if (status === "IN_PROGRESS") return "진행중";
+  if (status === "ABANDONED") return "중단";
   return "예정";
 }
 
@@ -233,6 +234,7 @@ export default function TemplatesScreen() {
               })
               .join(", ");
             const isInProgress = session.status === "IN_PROGRESS";
+            const isAbandoned = session.status === "ABANDONED";
             return (
               <Pressable
                 style={styles.recordCard}
@@ -243,11 +245,18 @@ export default function TemplatesScreen() {
                     <Text style={styles.recordDate}>{formatFullKoreanDate(session.date)}</Text>
                     <Text style={styles.recordCategory}>{session.title}</Text>
                   </View>
-                  <View style={[styles.statusBadge, isInProgress && styles.statusBadgeActive]}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      isInProgress && styles.statusBadgeActive,
+                      isAbandoned && styles.statusBadgeAbandoned,
+                    ]}
+                  >
                     <Text
                       style={[
                         styles.statusBadgeText,
                         isInProgress && styles.statusBadgeTextActive,
+                        isAbandoned && styles.statusBadgeTextAbandoned,
                       ]}
                     >
                       {statusLabel(session.status)}
@@ -405,6 +414,12 @@ const styles = StyleSheet.create({
   },
   statusBadgeTextActive: {
     color: "#FBBF24",
+  },
+  statusBadgeAbandoned: {
+    backgroundColor: "rgba(160, 160, 160, 0.15)",
+  },
+  statusBadgeTextAbandoned: {
+    color: "#A0A0A0",
   },
   recordExercises: {
     color: "#A0A0A0",
