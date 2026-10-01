@@ -26,6 +26,7 @@ import { MUSCLE_GROUP_KOREAN, toDisplayMuscleGroup } from "../../constants/exerc
 import { CARD_SHADOW } from "../../constants/shadow";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
+import { useUnreadNotificationCount } from "../../hooks/api/useNotificationInbox";
 import { useMe } from "../../hooks/api/useMe";
 import { useLifetimeStats, useMonthlyCurrent } from "../../hooks/api/useAnalysis";
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
@@ -84,6 +85,7 @@ export default function HomeScreen() {
 
   const patchSession = usePatchSession();
   const { data: me, isError: meError, refetch: refetchMe } = useMe();
+  const unreadCount = useUnreadNotificationCount();
   const { data: lifetime } = useLifetimeStats();
   const { data: monthlyCurrent } = useMonthlyCurrent();
   const topMuscleGroupsMonth = computeTopMuscleGroups(monthlyCurrent?.summary);
@@ -178,6 +180,11 @@ export default function HomeScreen() {
             </View>
             <Pressable style={styles.bellButton} hitSlop={8} onPress={() => router.push("/notifications")}>
               <Bell size={18} color="#FBBF24" />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                </View>
+              )}
             </Pressable>
           </View>
 
@@ -475,6 +482,24 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     marginTop: 2,
+  },
+  // 벨 버튼 오른쪽 위에 겹쳐 놓는 안 읽은 알림 개수 — 버튼 크기는 그대로라 주변 레이아웃이 밀리지 않는다.
+  bellBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
   bellButton: {
     width: 40,

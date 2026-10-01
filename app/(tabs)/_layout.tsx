@@ -5,6 +5,8 @@ import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
+import { usePushTapNavigation } from "../../hooks/usePushTapNavigation";
+import { usePushTokenRegistration } from "../../hooks/usePushTokenRegistration";
 import { recordsTabBarCollapse } from "../../lib/recordsScroll";
 
 const TAB_BAR_SIDE_MARGIN_RATIO = 0.05;
@@ -21,6 +23,8 @@ const TAB_ICONS: Record<string, LucideIcon> = {
 
 export default function TabsLayout() {
   const router = useRouter();
+  usePushTokenRegistration();
+  usePushTapNavigation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const segments = useSegments();

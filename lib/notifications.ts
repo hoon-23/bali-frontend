@@ -93,6 +93,60 @@ export async function cancelAllSetTimerReminders(): Promise<void> {
   );
 }
 
+export type NotificationPermission = "granted" | "denied" | "undetermined";
+
+// 현재 기기 알림 권한 상태 — 권한 요청 팝업을 띄우지 않고 조회만 한다.
+export async function getNotificationPermission(): Promise<NotificationPermission> {
+  const Notifications = loadNotifications();
+  const { status } = await Notifications.getPermissionsAsync();
+  return status;
+}
+
+// 서버 푸시 data({ type, referenceId })로 탭했을 때 이동할 화면을 정한다 — 알림함 항목과 같은 값이다.
+// 로컬 알림(세트 타이머 등)이나 알 수 없는 type이면 null(화면 이동 없음).
+// referenceId: ROUTINE_REMINDER=세션 id, WEEKLY/MONTHLY_SUMMARY=분석 id, INACTIVITY_ALERT=빈 문자열.
+export function getPushTapRoute(data: Record<string, unknown> | undefined): string | null {
+  const type = data?.type;
+  const referenceId = typeof data?.referenceId === "string" ? data.referenceId : "";
+  switch (type) {
+    case "ROUTINE_REMINDER":
+      return referenceId ? `/upcoming/${referenceId}` : "/home";
+    case "WEEKLY_SUMMARY":
+    case "MONTHLY_SUMMARY":
+      return "/stats";
+    case "INACTIVITY_ALERT":
+      return "/home";
+    default:
+      return null;
+  }
+}
+
+type NotificationTap = { identifier: string; route: string };
+
+function toNotificationTap(
+  response: import("expo-notifications").NotificationResponse | null | undefined
+): NotificationTap | null {
+  if (!response) return null;
+  const route = getPushTapRoute(response.notification.request.content.data);
+  return route ? { identifier: response.notification.request.identifier, route } : null;
+}
+
+// 푸시를 탭한 순간(앱이 켜져 있거나 백그라운드)의 이동 요청을 구독한다. 해제 함수를 돌려준다.
+export function subscribeToNotificationTaps(onTap: (tap: NotificationTap) => void): () => void {
+  const Notifications = loadNotifications();
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const tap = toNotificationTap(response);
+    if (tap) onTap(tap);
+  });
+  return () => subscription.remove();
+}
+
+// 앱이 완전히 종료된 상태에서 푸시를 탭해 시작된 경우(콜드 스타트)의 이동 요청.
+export async function getInitialNotificationTap(): Promise<NotificationTap | null> {
+  const Notifications = loadNotifications();
+  return toNotificationTap(await Notifications.getLastNotificationResponseAsync());
+}
+
 // 마지막으로 서버에 등록한 토큰 — 로그아웃/탈퇴 시 DELETE 요청에 재사용한다.
 export async function getCachedPushToken(): Promise<string | null> {
   return AsyncStorage.getItem(PUSH_TOKEN_CACHE_KEY);

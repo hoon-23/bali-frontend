@@ -1,6 +1,6 @@
 import { ChevronLeft } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { appAlert } from "../../lib/alert";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
@@ -43,7 +43,7 @@ function formatDateLabel(dateISO: string, todayISODate: string): string {
 export default function UpcomingWorkoutScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { data: session } = useSession(id);
+  const { data: session, isError: sessionLoadFailed } = useSession(id);
   const exerciseMap = useExerciseMap();
   const patchSession = usePatchSession();
   const deleteSession = useDeleteSession();
@@ -55,6 +55,11 @@ export default function UpcomingWorkoutScreen() {
   const [starting, setStarting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // 알림 등으로 이미 삭제됐거나 없는 세션에 들어오면 빈 화면에 갇히지 않게 돌아간다.
+  useEffect(() => {
+    if (sessionLoadFailed) router.back();
+  }, [sessionLoadFailed, router]);
 
   if (!session) {
     return null;

@@ -83,7 +83,7 @@ export default function ProfileScreen() {
       router.push("/account");
     }
     if (item.id === "notifications") {
-      router.push("/notifications");
+      router.push("/notifications/settings");
     }
   };
 

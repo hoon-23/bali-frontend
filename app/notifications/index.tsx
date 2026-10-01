@@ -1,64 +1,43 @@
 import { BellOff, ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { getPushTapRoute } from "../../lib/notifications";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import {
-  NotificationSettings,
-  useNotificationSettings,
-  useRegisterDeviceToken,
-  useUpdateNotificationSettings,
-} from "../../hooks/api/useNotifications";
-import { devicePlatform, registerForPushNotificationsAsync } from "../../lib/notifications";
+  InboxNotification,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotificationInbox,
+} from "../../hooks/api/useNotificationInbox";
 
-type SettingKey = keyof NotificationSettings;
+// "방금 전 / N분 전 / N시간 전 / N일 전 / M월 D일" — 알림 목록에서 흔히 쓰는 상대 시각 표기.
+function formatRelativeTime(sentAt: string): string {
+  const diffMinutes = Math.floor((Date.now() - new Date(sentAt).getTime()) / 60000);
+  if (diffMinutes < 1) return "방금 전";
+  if (diffMinutes < 60) return `${diffMinutes}분 전`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}시간 전`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}일 전`;
+  const date = new Date(sentAt);
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
 
-const TOGGLE_ITEMS: { key: SettingKey; label: string; description: string }[] = [
-  {
-    key: "routineReminderEnabled",
-    label: "루틴 예약 리마인더",
-    description: "예약한 루틴 시작 전에 알려드려요",
-  },
-  {
-    key: "inactivityAlertEnabled",
-    label: "운동 미실행 알림",
-    description: "예약한 루틴을 놓쳤거나 한동안 운동을 쉬면 알려드려요",
-  },
-  {
-    key: "summaryNotificationEnabled",
-    label: "주간·월간 요약",
-    description: "한 주/한 달 운동 통계를 요약해드려요",
-  },
-];
-
-export default function NotificationSettingsScreen() {
+export default function NotificationInboxScreen() {
   const router = useRouter();
-  const { data: settings } = useNotificationSettings();
-  const updateSettings = useUpdateNotificationSettings();
-  const registerDeviceToken = useRegisterDeviceToken();
+  const { data: notifications = [], isLoading, isError, refetch } = useNotificationInbox();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const hasUnread = notifications.some((item) => !item.read);
 
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const registerAttempted = useRef(false);
-
-  useEffect(() => {
-    if (registerAttempted.current) return;
-    registerAttempted.current = true;
-    (async () => {
-      const token = await registerForPushNotificationsAsync();
-      if (!token) {
-        setPermissionDenied(true);
-        return;
-      }
-      registerDeviceToken.mutate({ token, platform: devicePlatform });
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleToggle = (key: SettingKey, value: boolean) => {
-    updateSettings.mutate({ [key]: value });
+  const handlePress = (item: InboxNotification) => {
+    if (!item.read) markRead.mutate(item.id);
+    // 푸시를 탭했을 때와 같은 규칙으로 이동한다(리마인더→예정 운동, 요약→리포트, 미실행→홈).
+    const route = getPushTapRoute({ type: item.type, referenceId: item.referenceId ?? "" });
+    if (route) router.push(route as never);
   };
 
   return (
@@ -68,49 +47,49 @@ export default function NotificationSettingsScreen() {
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
             <ChevronLeft size={20} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.headerTitle}>알림 설정</Text>
-          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>알림</Text>
+          <Pressable
+            style={styles.readAllButton}
+            onPress={() => markAllRead.mutate()}
+            disabled={!hasUnread}
+            hitSlop={8}
+          >
+            <Text style={[styles.readAllText, !hasUnread && styles.readAllTextDisabled]}>모두 읽음</Text>
+          </Pressable>
         </View>
 
-        <View style={styles.content}>
-          {permissionDenied && (
-            <Pressable style={styles.warningCard} onPress={() => Linking.openSettings()}>
-              <BellOff size={18} color="#FBBF24" />
-              <Text style={styles.warningText}>
-                기기 알림 권한이 꺼져 있어요. 눌러서 설정에서 켜주세요.
-              </Text>
+        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          {isError ? (
+            <Pressable style={styles.emptyWrap} onPress={() => refetch()}>
+              <Text style={styles.emptyText}>알림을 불러오지 못했어요. 눌러서 다시 시도해주세요.</Text>
             </Pressable>
-          )}
-
-          <View style={styles.card}>
-            {TOGGLE_ITEMS.map((item, index) => (
-              <View
-                key={item.key}
-                style={[styles.toggleRow, index > 0 && styles.toggleRowDivider]}
-              >
-                <View style={styles.toggleTextGroup}>
-                  <Text style={styles.toggleLabel}>{item.label}</Text>
-                  <Text style={styles.toggleDescription}>{item.description}</Text>
+          ) : notifications.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <BellOff size={28} color="#6B6B6B" />
+              <Text style={styles.emptyText}>{isLoading ? "불러오는 중..." : "받은 알림이 없어요."}</Text>
+            </View>
+          ) : (
+            notifications.map((item) => (
+              <Pressable key={item.id} style={styles.card} onPress={() => handlePress(item)}>
+                <View style={styles.cardTop}>
+                  <View style={styles.titleRow}>
+                    {!item.read && <View style={styles.unreadDot} />}
+                    <Text style={[styles.cardTitle, item.read && styles.cardTitleRead]}>{item.title}</Text>
+                  </View>
+                  <Text style={styles.cardTime}>{formatRelativeTime(item.sentAt)}</Text>
                 </View>
-                <Switch
-                  value={settings?.[item.key] ?? true}
-                  onValueChange={(value) => handleToggle(item.key, value)}
-                  trackColor={{ false: "#3A3A42", true: "rgba(45, 212, 191, 0.5)" }}
-                  thumbColor={settings?.[item.key] ? "#2DD4BF" : "#A0A0A0"}
-                />
-              </View>
-            ))}
-          </View>
-        </View>
+                <Text style={styles.cardBody}>{item.body}</Text>
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -129,35 +108,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerSpacer: {
-    width: 36,
-    height: 36,
-  },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  content: {
+  headerTitle: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  // 뒤로가기 버튼과 같은 폭을 줘서 제목이 가운데에 오도록 한다.
+  readAllButton: { minWidth: 36, alignItems: "flex-end" },
+  readAllText: { color: "#2DD4BF", fontSize: 13, fontWeight: "600" },
+  readAllTextDisabled: { color: "#3A3A42" },
+  listContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingBottom: 24,
-    gap: 16,
-  },
-  warningCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(251, 191, 36, 0.12)",
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(251, 191, 36, 0.35)",
-    padding: 12,
-  },
-  warningText: {
-    flex: 1,
-    color: "#FBBF24",
-    fontSize: 12,
-    fontWeight: "600",
+    paddingBottom: 40,
+    gap: 12,
   },
   card: {
     backgroundColor: "#1C1C25",
@@ -165,29 +124,16 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 16,
+    gap: 6,
     ...CARD_SHADOW,
   },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 14,
-  },
-  toggleRowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
-  },
-  toggleTextGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  toggleLabel: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  toggleDescription: {
-    color: "#A0A0A0",
-    fontSize: 12,
-  },
+  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  titleRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#2DD4BF" },
+  cardTitle: { flexShrink: 1, color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  cardTitleRead: { color: "#A0A0A0", fontWeight: "600" },
+  cardTime: { color: "#6B6B6B", fontSize: 12 },
+  cardBody: { color: "#A0A0A0", fontSize: 13, lineHeight: 19 },
+  emptyWrap: { alignItems: "center", gap: 12, paddingVertical: 80 },
+  emptyText: { color: "#6B6B6B", fontSize: 14, textAlign: "center" },
 });
