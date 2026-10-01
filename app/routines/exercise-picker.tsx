@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { useExercisePickerFilterStore } from "../../store/exercisePickerFilterStore";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import {
   BODY_REGION_KOREAN,
@@ -74,11 +75,15 @@ export default function ExercisePickerScreen() {
       : routineCategory;
   const isCardioCategory = effectiveCategory === "CARDIO";
   const [query, setQuery] = useState("");
-  const [bodyRegionFilter, setBodyRegionFilter] = useState<BodyRegion | null>(
-    effectiveCategory === "LEGS" ? "LOWER" : null
-  );
-  const [filter, setFilter] = useState<ExerciseMuscleGroup | null>(null);
-  const [equipmentFilter, setEquipmentFilter] = useState<ExerciseEquipment | null>(null);
+  // 필터 칩은 화면을 다시 열어도 유지되게 스토어에 둔다(연달아 운동을 추가할 때 매번 초기화되던 문제).
+  const storedBodyRegion = useExercisePickerFilterStore((state) => state.bodyRegion);
+  const bodyRegionFilter: BodyRegion | null =
+    storedBodyRegion !== undefined ? storedBodyRegion : effectiveCategory === "LEGS" ? "LOWER" : null;
+  const filter = useExercisePickerFilterStore((state) => state.muscleGroup);
+  const equipmentFilter = useExercisePickerFilterStore((state) => state.equipment);
+  const setBodyRegionFilter = useExercisePickerFilterStore((state) => state.setBodyRegion);
+  const setFilter = useExercisePickerFilterStore((state) => state.setMuscleGroup);
+  const setEquipmentFilter = useExercisePickerFilterStore((state) => state.setEquipment);
   const cardioExercises = useMemo(
     () => exercises.filter((exercise) => exercise.muscleGroup === "CARDIO"),
     [exercises]
