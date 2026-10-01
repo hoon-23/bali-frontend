@@ -72,6 +72,8 @@ export function useDeleteSession() {
       // 완료된 기록 삭제 시에도 홈 화면 통계가 갱신되어야 한다 (usePatchSession과 동일한 이유).
       queryClient.invalidateQueries({ queryKey: ["lifetimeStats"] });
       queryClient.invalidateQueries({ queryKey: ["monthlyCurrent"] });
+      queryClient.invalidateQueries({ queryKey: ["weeklyCurrent"] });
+      queryClient.invalidateQueries({ queryKey: ["dailyAnalysis"] });
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
@@ -121,6 +123,8 @@ export function usePatchSession() {
       // 탭이 언마운트되지 않아 갱신되지 않던 문제 — 관련 캐시도 함께 무효화한다.
       queryClient.invalidateQueries({ queryKey: ["lifetimeStats"] });
       queryClient.invalidateQueries({ queryKey: ["monthlyCurrent"] });
+      queryClient.invalidateQueries({ queryKey: ["weeklyCurrent"] });
+      queryClient.invalidateQueries({ queryKey: ["dailyAnalysis"] });
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
