@@ -59,6 +59,7 @@ export type AnalysisSummaryResponse = {
   // 중량/맨몸 구분 없는 완료 세트 수 — 근육군 집중도 계산에 사용.
   setsByMuscleGroup?: Partial<Record<AnalysisMuscleGroup, number>>;
   // 월간 응답에서는 전월 대비를 뜻한다(필드명은 volumeChangeFromLastWeekPercent 관례를 따름).
+  // 맨몸 기록이 있는 세션의 세션당 평균 반복수 증감률(%). 직전 기간 해당 세션이 2회 미만이면 null.
   bodyweightRepsChangeFromLastWeekPercent?: number | null;
 };
 

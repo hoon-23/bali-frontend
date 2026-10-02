@@ -42,6 +42,16 @@ function LatestInsightCard() {
   );
 }
 
+// 직전 기간이 아주 작으면 증가율이 수백~수천 %로 튀어 실제보다 훨씬 커 보인다 — 이 값 이상이면
+// 이 값을 넘으면 숫자를 빼고 "크게 늘었어요"로만 말한다(감소율은 100%를 못 넘으므로 해당 없음).
+const LARGE_INCREASE_PERCENT = 100;
+
+function formatChangeText(periodLabel: string, change: number): string {
+  // 서버 증감률은 총량이 아니라 "맨몸 기록이 있는 세션의 세션당 평균" 기준이라 문구도 세션당으로 쓴다.
+  if (change > LARGE_INCREASE_PERCENT) return `${periodLabel}보다 세션당 크게 늘었어요`;
+  return `${periodLabel}보다 세션당 ${Math.abs(Math.round(change))}% ${change >= 0 ? "증가" : "감소"}했어요`;
+}
+
 // 맨몸 종목은 무게 볼륨이 0이라 볼륨 집계에 안 잡힌다 — 종목별 총 반복수(세트×반복수)를 따로 보여준다.
 function BodyweightRepsSection({
   summary,
@@ -72,7 +82,7 @@ function BodyweightRepsSection({
         })}
         {change != null && (
           <Text style={[styles.emptyStateText, styles.muscleRowSpacing]}>
-            {periodLabel}보다 {Math.abs(Math.round(change))}% {change >= 0 ? "증가" : "감소"}했어요
+            {formatChangeText(periodLabel, change)}
           </Text>
         )}
       </View>
@@ -312,7 +322,11 @@ export default function StatsScreen() {
                     <Text style={styles.emptyStateText}>이 주는 운동 기록이 없어요.</Text>
                   ) : topMuscleGroups.length === 0 ? (
                     <Text style={styles.emptyStateText}>
-                      {weekOffset === 0 ? "이번 주 운동 기록이 아직 없어요." : "불러오는 중..."}
+                      {weekOffset === 0
+                        ? "이번 주 운동 기록이 아직 없어요."
+                        : weeklyPast.isLoading
+                          ? "불러오는 중..."
+                          : "이 주는 근육군 기록이 없어요."}
                     </Text>
                   ) : (
                     topMuscleGroups.map((item, index) => (
@@ -422,7 +436,11 @@ export default function StatsScreen() {
                     <Text style={styles.emptyStateText}>이 달은 운동 기록이 없어요.</Text>
                   ) : topMuscleGroupsMonth.length === 0 ? (
                     <Text style={styles.emptyStateText}>
-                      {monthOffset === 0 ? "이번 달 운동 기록이 아직 없어요." : "불러오는 중..."}
+                      {monthOffset === 0
+                        ? "이번 달 운동 기록이 아직 없어요."
+                        : monthlyPast.isLoading
+                          ? "불러오는 중..."
+                          : "이 달은 근육군 기록이 없어요."}
                     </Text>
                   ) : (
                     topMuscleGroupsMonth.map((item, index) => (
