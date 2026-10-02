@@ -176,7 +176,14 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.greetingSub}>안녕하세요</Text>
-              <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
+              <View style={styles.greetingRow}>
+                <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
+                {me?.level && (
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelBadgeText}>Lv.{me.level.level}</Text>
+                  </View>
+                )}
+              </View>
             </View>
             <Pressable style={styles.bellButton} hitSlop={8} onPress={() => router.push("/notifications")}>
               <Bell size={18} color="#FBBF24" />
@@ -477,11 +484,29 @@ const styles = StyleSheet.create({
     color: "#A0A0A0",
     fontSize: 13,
   },
+  // 배지는 닉네임 줄 높이 안에 들어가서, 레벨 값이 늦게 와도 아래 요소가 밀리지 않는다.
+  greetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 2,
+  },
   greeting: {
     color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "700",
-    marginTop: 2,
+  },
+  // 프로필 탭의 레벨 배지와 같은 모양.
+  levelBadge: {
+    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  levelBadgeText: {
+    color: "#2DD4BF",
+    fontSize: 12,
+    fontWeight: "700",
   },
   // 벨 버튼 오른쪽 위에 겹쳐 놓는 안 읽은 알림 개수 — 버튼 크기는 그대로라 주변 레이아웃이 밀리지 않는다.
   bellBadge: {

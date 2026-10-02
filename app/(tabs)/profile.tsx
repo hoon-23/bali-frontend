@@ -19,10 +19,6 @@ import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { isPlaceholderEmail, useMe } from "../../hooks/api/useMe";
 import { clearCachedPushToken, getCachedPushToken } from "../../lib/notifications";
 
-// 레벨/경험치는 백엔드에 아직 개념 자체가 없는 프로토타입 데이터 — 실 설계 전까지 하드코딩 유지.
-const LEVEL = 5;
-const EXP_CURRENT = 650;
-const EXP_TARGET = 1000;
 
 type SettingItem = {
   id: string;
@@ -87,7 +83,11 @@ export default function ProfileScreen() {
     }
   };
 
-  const expProgress = Math.min(100, (EXP_CURRENT / EXP_TARGET) * 100);
+  // 값이 오기 전에도 배지/진행 바 자리는 그대로 두고 내용만 비워 레이아웃이 밀리지 않게 한다.
+  const level = me?.level;
+  const expProgress = level && level.xpForNextLevel > 0
+    ? Math.min(100, (level.currentXp / level.xpForNextLevel) * 100)
+    : 0;
 
   return (
     <ScreenBackground>
@@ -120,10 +120,10 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <View style={styles.levelRow}>
               <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>Lv.{LEVEL}</Text>
+                <Text style={styles.levelBadgeText}>Lv.{level?.level ?? "—"}</Text>
               </View>
               <Text style={styles.expText}>
-                {formatThousands(EXP_CURRENT)} / {formatThousands(EXP_TARGET)} XP
+                {level ? `${formatThousands(level.currentXp)} / ${formatThousands(level.xpForNextLevel)} XP` : " "}
               </Text>
             </View>
             <View style={styles.progressTrack}>

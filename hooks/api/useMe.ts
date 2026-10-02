@@ -8,6 +8,17 @@ export type MeResponse = {
   // 기존 consecutiveDays(연속운동일수)는 예약일/실제 수행일 불일치로 값이 부정확해서
   // "이번 주(월~일, KST) 중 운동한 날짜 수(0~7)"로 의미가 바뀌었다(백엔드 develop, 2026-09-22).
   weeklyWorkoutDays: number;
+  level: LevelInfo;
+};
+
+// 레벨/경험치는 서버가 조회 시점에 완료 세션으로 계산해 내려준다(레벨 곡선 계산은 프론트에 없다).
+export type LevelInfo = {
+  level: number;
+  // 현재 레벨 안에서 쌓인 XP — 진행 바 분자.
+  currentXp: number;
+  // 현재 레벨에서 다음 레벨까지 필요한 전체 XP — 진행 바 분모. 레벨마다 달라진다.
+  xpForNextLevel: number;
+  totalXp: number;
 };
 
 // 소셜 로그인 provider가 이메일을 안 준 경우 백엔드가 채워 넣는 내부 placeholder
