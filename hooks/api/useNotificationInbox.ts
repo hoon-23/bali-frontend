@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { AppState } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
+import { setAppIconBadgeCount } from "../../lib/notifications";
 
 // bali-api의 NotificationType enum을 그대로 따름.
 export type InboxNotificationType = "ROUTINE_REMINDER" | "INACTIVITY_ALERT" | "WEEKLY_SUMMARY" | "MONTHLY_SUMMARY";
@@ -61,6 +62,13 @@ export function useUnreadNotificationCount(): number {
     });
     return () => subscription.remove();
   }, [queryClient]);
+
+  // 앱 아이콘 뱃지도 같은 값으로 맞춘다 — 읽음/모두 읽음(낙관적 갱신)과 포그라운드 재조회가 모두
+  // 이 캐시 값을 바꾸므로 여기 한 곳에서 동기화하면 된다. 조회 전/실패(undefined)일 때는 건드리지 않아
+  // 네트워크 오류로 뱃지가 잘못 지워지지 않게 한다.
+  useEffect(() => {
+    if (data !== undefined) setAppIconBadgeCount(data);
+  }, [data]);
 
   return data ?? 0;
 }

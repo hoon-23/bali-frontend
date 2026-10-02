@@ -29,9 +29,21 @@ export function configureNotificationHandler(): void {
       shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: true,
-      shouldSetBadge: false,
+      // 서버 푸시가 badge(안 읽은 알림 수)를 실어 보내므로 포그라운드에서 받아도 아이콘 숫자에 반영한다.
+      shouldSetBadge: true,
     }),
   });
+}
+
+// 앱 아이콘 뱃지를 안 읽은 알림 수에 맞춘다(0이면 지움). 서버는 푸시를 보낼 때만 숫자를 바꿀 수 있어서,
+// 앱 안에서 읽음 처리했거나 포그라운드로 돌아왔을 때는 프론트가 직접 맞춰야 한다.
+// 알림 권한이 없으면 OS가 무시하고, 실패해도 화면 동작에는 영향이 없어 조용히 넘긴다.
+export function setAppIconBadgeCount(count: number): void {
+  try {
+    loadNotifications().setBadgeCountAsync(Math.max(0, count)).catch(() => {});
+  } catch {
+    // 네이티브 모듈이 없는 런타임(Expo Go 등)
+  }
 }
 
 // 세트 타이머 등 로컬 알림 전용 권한 확인/요청 — registerForPushNotificationsAsync와 달리
