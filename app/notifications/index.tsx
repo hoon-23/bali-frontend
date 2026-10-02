@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
-import { getPushTapRoute } from "../../lib/notifications";
+import { getPushTapRoute, openPushTapRoute } from "../../lib/notifications";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import {
@@ -37,7 +37,7 @@ export default function NotificationInboxScreen() {
     if (!item.read) markRead.mutate(item.id);
     // 푸시를 탭했을 때와 같은 규칙으로 이동한다(리마인더→예정 운동, 요약→리포트, 미실행→홈).
     const route = getPushTapRoute({ type: item.type, referenceId: item.referenceId ?? "" });
-    if (route) router.push(route as never);
+    if (route) openPushTapRoute(router, route);
   };
 
   return (

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
+import type { Router } from "expo-router";
 import { Platform } from "react-native";
 import type { DevicePlatform } from "../hooks/api/useNotifications";
 
@@ -118,6 +119,17 @@ export function getPushTapRoute(data: Record<string, unknown> | undefined): stri
       return "/home";
     default:
       return null;
+  }
+}
+
+// getPushTapRoute가 돌려준 경로로 이동한다.
+// 탭 경로(/home, /stats)를 스택 화면(알림함 등)에서 push하면 루트 Stack에 (tabs)가 하나 더 쌓여
+// 애니메이션 없이 화면이 뚝 바뀐다 — 기존 (tabs)까지 되돌아가며 탭만 바꾸도록 dismissTo를 쓴다.
+export function openPushTapRoute(router: Pick<Router, "push" | "dismissTo">, route: string): void {
+  if (route === "/home" || route === "/stats") {
+    router.dismissTo(route);
+  } else {
+    router.push(route as never);
   }
 }
 
