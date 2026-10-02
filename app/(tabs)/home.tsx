@@ -28,7 +28,8 @@ import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useUnreadNotificationCount } from "../../hooks/api/useNotificationInbox";
 import { useMe } from "../../hooks/api/useMe";
-import { useLifetimeStats, useMonthlyCurrent } from "../../hooks/api/useAnalysis";
+import { useLifetimeStats } from "../../hooks/api/useAnalysis";
+import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
 import { useExercises, ApiExercise } from "../../hooks/api/useExercises";
 import { useUpcomingSessions, getTodayISODate } from "../../hooks/api/useUpcomingSessions";
@@ -47,7 +48,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const TODAY_CARD_GAP = 12; // todayCardList의 카드 사이 간격과 동일한 값 — 배너와의 간격도 이걸로 통일한다.
-// 이번 달 근육군별 집중도에 아직 데이터가 없을 때 보여줄 디폴트 바 3줄 — 실제 집계는
+// 이번 주 근육군별 집중도에 아직 데이터가 없을 때 보여줄 디폴트 바 3줄 — 실제 집계는
 // 아니지만 흔히 많이 하는 부위 3개를 자리에 채워 넣고, 길이도 서로 다르게 줘서
 // "데이터 없음" 대신 "곧 이런 모양으로 채워질 것"처럼 보이게 한다.
 const MUSCLE_BAR_PLACEHOLDERS = [
@@ -87,8 +88,9 @@ export default function HomeScreen() {
   const { data: me, isError: meError, refetch: refetchMe } = useMe();
   const unreadCount = useUnreadNotificationCount();
   const { data: lifetime } = useLifetimeStats();
-  const { data: monthlyCurrent } = useMonthlyCurrent();
-  const topMuscleGroupsMonth = computeTopMuscleGroups(monthlyCurrent?.summary);
+  // 리포트 주간 보기(이번 주)와 같은 데이터·같은 계산으로 맞춘다.
+  const { data: weeklyCurrent } = useWeeklyCurrent();
+  const topMuscleGroupsWeek = computeTopMuscleGroups(weeklyCurrent?.summary);
   const { data: exercises } = useExercises();
   const {
     data: sessions,
@@ -212,15 +214,15 @@ export default function HomeScreen() {
           </View>
 
           <View>
-            <Text style={[styles.sectionTitle, topMuscleGroupsMonth.length === 0 && styles.sectionTitleTight]}>
-              이번 달 근육군별 집중도
+            <Text style={[styles.sectionTitle, topMuscleGroupsWeek.length === 0 && styles.sectionTitleTight]}>
+              이번 주 근육군별 집중도
             </Text>
-            {topMuscleGroupsMonth.length === 0 && (
+            {topMuscleGroupsWeek.length === 0 && (
               <Text style={styles.sectionSubcopy}>운동을 기록하면 여기 채워져요</Text>
             )}
             <View style={styles.card}>
-              {topMuscleGroupsMonth.length > 0
-                ? topMuscleGroupsMonth.map((item) => (
+              {topMuscleGroupsWeek.length > 0
+                ? topMuscleGroupsWeek.map((item) => (
                     <View key={item.label} style={styles.muscleBarRow}>
                       <View style={styles.muscleBarHeader}>
                         <Text style={styles.muscleBarLabel}>{item.label}</Text>
