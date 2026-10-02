@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
+import type { LevelInfo } from "./useMe";
 
 export type SetTiming = {
   setIndex: number;
@@ -27,6 +28,17 @@ export type ApiSessionLogDetail = {
   lastWeight: number | null;
 };
 
+// 세션을 COMPLETED로 바꾸는 PATCH 응답에만 오는 경험치 결과(그 외에는 null).
+// earnedXp = after.totalXp - before.totalXp = baseXp + bonusXp. 0이면 zeroReason에 이유가 온다.
+export type SessionXpResult = {
+  earnedXp: number;
+  baseXp: number;
+  bonusXp: number;
+  zeroReason: "DAILY_LIMIT" | "NO_COMPLETED_LOG" | null;
+  before: LevelInfo;
+  after: LevelInfo;
+};
+
 export type ApiSessionDetail = {
   id: string;
   date: string;
@@ -36,6 +48,7 @@ export type ApiSessionDetail = {
   logs: ApiSessionLogDetail[];
   perceivedDifficulty: number | null;
   title: string;
+  xp?: SessionXpResult | null;
 };
 
 export function useSession(id: string | undefined) {

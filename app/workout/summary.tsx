@@ -2,12 +2,14 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { isBodyweightExercise } from "../../constants/exercises";
 import { useExerciseMap } from "../../hooks/api/useExercises";
+import { XpGainCard } from "../../components/XpGainCard";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
   const logs = useWorkoutSessionStore((state) => state.logs);
   const endSession = useWorkoutSessionStore((state) => state.endSession);
+  const xpResult = useWorkoutSessionStore((state) => state.xpResult);
 
   const exerciseMap = useExerciseMap();
 
@@ -25,6 +27,8 @@ export default function WorkoutSummaryScreen() {
         <Text style={styles.subtitle}>
           {logs.length}개 중 {completedCount}개 운동 완료
         </Text>
+
+        {xpResult && <XpGainCard xp={xpResult} />}
 
         <View style={styles.list}>
           {logs.map((log) => {

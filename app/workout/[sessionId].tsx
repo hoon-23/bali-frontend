@@ -136,6 +136,7 @@ export default function WorkoutSessionScreen() {
   const expandedId = useWorkoutSessionStore((state) => state.expandedId);
   const startSession = useWorkoutSessionStore((state) => state.startSession);
   const appendLogs = useWorkoutSessionStore((state) => state.appendLogs);
+  const setXpResult = useWorkoutSessionStore((state) => state.setXpResult);
   const setExpandedId = useWorkoutSessionStore((state) => state.setExpandedId);
   const updateField = useWorkoutSessionStore((state) => state.updateField);
   const adjustActualSets = useWorkoutSessionStore((state) => state.adjustActualSets);
@@ -198,7 +199,8 @@ export default function WorkoutSessionScreen() {
   const handleFinish = async (perceivedDifficulty?: number) => {
     if (isRealSession) {
       try {
-        await patchSession.mutateAsync({ sessionId, status: "COMPLETED", perceivedDifficulty });
+        const completed = await patchSession.mutateAsync({ sessionId, status: "COMPLETED", perceivedDifficulty });
+        setXpResult(completed.xp ?? null);
       } catch {
         appAlert("운동 종료 처리에 실패했어요. 다시 시도해주세요.");
         return;

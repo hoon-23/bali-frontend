@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import type { SessionXpResult } from "../hooks/api/useSessions";
+
 export type SetTiming = {
   setIndex: number;
   startedAt: string;
@@ -30,6 +32,9 @@ type WorkoutSessionState = {
   isRealSession: boolean;
   logs: ExerciseLog[];
   expandedId: string | null;
+  // 운동 완료 응답의 경험치 결과 — 완료 화면(summary)이 읽는다. 실제 세션이 아니거나 못 받았으면 null.
+  xpResult: SessionXpResult | null;
+  setXpResult: (xp: SessionXpResult | null) => void;
   startSession: (sessionId: string, logs: ExerciseLog[], isRealSession: boolean) => void;
   appendLogs: (newLogs: ExerciseLog[]) => void;
   setExpandedId: (id: string | null) => void;
@@ -46,6 +51,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => 
   isRealSession: false,
   logs: [],
   expandedId: null,
+  xpResult: null,
+
+  setXpResult: (xp) => set({ xpResult: xp }),
 
   startSession: (sessionId, logs, isRealSession) =>
     set({
@@ -109,5 +117,5 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => 
     set({ logs: updatedLogs, expandedId: nextIncomplete?.id ?? null });
   },
 
-  endSession: () => set({ sessionId: null, isRealSession: false, logs: [], expandedId: null }),
+  endSession: () => set({ sessionId: null, isRealSession: false, logs: [], expandedId: null, xpResult: null }),
 }));
