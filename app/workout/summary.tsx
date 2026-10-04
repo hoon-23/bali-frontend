@@ -1,12 +1,31 @@
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { isBodyweightExercise } from "../../constants/exercises";
-import { useExerciseMap } from "../../hooks/api/useExercises";
+import { isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { hasLogRecord } from "../../lib/session/logRecord";
 import { XpGainCard } from "../../components/XpGainCard";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
+// 전환 종료 이벤트를 못 받는 경우(animation: none 등)를 대비한 안전장치 시간(ms).
+const TRANSITION_FALLBACK_MS = 1200;
+
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
+  const navigation = useNavigation<NativeStackNavigationProp<Record<string, undefined>>>();
+  // 화면이 실제로 자리 잡은 뒤에만 경험치 연출을 시작한다(한 번 true가 되면 되돌리지 않는다).
+  const [transitionDone, setTransitionDone] = useState(false);
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("transitionEnd", (e) => {
+      if (!e.data.closing) setTransitionDone(true);
+    });
+    const timer = setTimeout(() => setTransitionDone(true), TRANSITION_FALLBACK_MS);
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
+  }, [navigation]);
   const logs = useWorkoutSessionStore((state) => state.logs);
   const endSession = useWorkoutSessionStore((state) => state.endSession);
   const xpResult = useWorkoutSessionStore((state) => state.xpResult);
@@ -14,6 +33,11 @@ export default function WorkoutSummaryScreen() {
   const exerciseMap = useExerciseMap();
 
   const completedCount = logs.filter((log) => log.completed).length;
+
+  // 기록이 하나라도 있으면(부분 수행 포함) 격려 문구, 없으면 종료 안내 문구
+  const hasAnyRecord = logs.some((log) =>
+    hasLogRecord(log, isCardioExercise(exerciseMap.get(log.exerciseId)))
+  );
 
   const handleConfirm = () => {
     endSession();
@@ -23,12 +47,14 @@ export default function WorkoutSummaryScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>수고하셨어요!</Text>
+        <Text style={styles.title} numberOfLines={1} lineBreakStrategyIOS="hangul-word">
+          {hasAnyRecord ? "수고하셨어요!" : "운동이 종료되었어요."}
+        </Text>
         <Text style={styles.subtitle}>
           {logs.length}개 중 {completedCount}개 운동 완료
         </Text>
 
-        {xpResult && <XpGainCard xp={xpResult} />}
+        {xpResult && <XpGainCard xp={xpResult} start={transitionDone} />}
 
         <View style={styles.list}>
           {logs.map((log) => {

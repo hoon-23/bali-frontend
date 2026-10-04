@@ -34,6 +34,8 @@ export type SessionXpResult = {
   earnedXp: number;
   baseXp: number;
   bonusXp: number;
+  // 부분 수행(완료 체크 없이 기록된 수행량만 인정) 여부. 구버전 서버 응답에는 없으므로 false로 간주한다.
+  partial?: boolean;
   zeroReason: "DAILY_LIMIT" | "NO_COMPLETED_LOG" | null;
   before: LevelInfo;
   after: LevelInfo;
