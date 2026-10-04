@@ -19,6 +19,7 @@ import {
   NotificationPermission,
   registerForPushNotificationsAsync,
 } from "../../lib/notifications";
+import { AppText } from "../../components/AppText";
 
 type SettingKey = keyof NotificationSettings;
 
@@ -120,7 +121,7 @@ export default function NotificationSettingsScreen() {
               >
                 <View style={styles.toggleTextGroup}>
                   <Text style={styles.toggleLabel}>{item.label}</Text>
-                  <Text style={styles.toggleDescription}>{item.description}</Text>
+                  <AppText style={styles.toggleDescription}>{item.description}</AppText>
                 </View>
                 <Switch
                   value={settings?.[item.key] ?? false}

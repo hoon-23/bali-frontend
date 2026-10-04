@@ -10,6 +10,7 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { CATEGORY_LABELS } from "../../store/templatesStore";
 import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiTemplate, useTemplates } from "../../hooks/api/useTemplates";
+import { AppText } from "../../components/AppText";
 
 function getMuscleGroupChips(template: ApiTemplate, exerciseMap: Map<string, ApiExercise>): string[] {
   const groups = new Set<string>();
@@ -90,7 +91,7 @@ export default function RoutinesScreen() {
           })}
 
           {templates.length === 0 && (
-            <Text style={styles.emptyText}>아직 저장된 루틴이 없어요. + 버튼으로 만들어보세요.</Text>
+            <AppText style={styles.emptyText}>아직 저장된 루틴이 없어요. + 버튼으로 만들어보세요.</AppText>
           )}
         </ScrollView>
       </SafeAreaView>

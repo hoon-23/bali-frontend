@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CARD_SHADOW } from "../constants/shadow";
+import { breakSentences } from "../lib/format/text";
 import { useAlertStore } from "../store/alertStore";
 
 // 앱 전역에서 쓰는 테마 알림창. app/_layout.tsx에 한 번만 마운트하고,
@@ -21,8 +22,14 @@ export function AppAlertModal() {
       <Pressable style={styles.overlay} onPress={hide}>
         <Pressable style={styles.card} onPress={() => {}}>
           <View style={styles.content}>
-            <Text style={styles.title}>{current.title}</Text>
-            {current.message && <Text style={styles.message}>{current.message}</Text>}
+            <Text style={styles.title} lineBreakStrategyIOS="hangul-word">
+              {current.title}
+            </Text>
+            {current.message && (
+              <Text style={styles.message} lineBreakStrategyIOS="hangul-word">
+                {breakSentences(current.message)}
+              </Text>
+            )}
           </View>
           <View style={styles.buttonRow}>
             {current.buttons.map((button, index) => (

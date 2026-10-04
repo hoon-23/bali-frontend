@@ -12,6 +12,7 @@ import {
   useMarkNotificationRead,
   useNotificationInbox,
 } from "../../hooks/api/useNotificationInbox";
+import { AppText } from "../../components/AppText";
 
 // "방금 전 / N분 전 / N시간 전 / N일 전 / M월 D일" — 알림 목록에서 흔히 쓰는 상대 시각 표기.
 function formatRelativeTime(sentAt: string): string {
@@ -61,7 +62,7 @@ export default function NotificationInboxScreen() {
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {isError ? (
             <Pressable style={styles.emptyWrap} onPress={() => refetch()}>
-              <Text style={styles.emptyText}>알림을 불러오지 못했어요. 눌러서 다시 시도해주세요.</Text>
+              <AppText style={styles.emptyText}>알림을 불러오지 못했어요. 눌러서 다시 시도해주세요.</AppText>
             </Pressable>
           ) : notifications.length === 0 ? (
             <View style={styles.emptyWrap}>

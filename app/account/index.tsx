@@ -1,8 +1,10 @@
 import { ChevronLeft, CircleMinus, CirclePlus } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppTextInput } from "../../components/AppTextInput";
+import { dismissThen, KeyboardDismissView } from "../../components/KeyboardDismissView";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
@@ -86,6 +88,7 @@ export default function AccountScreen() {
 
   return (
     <ScreenBackground>
+      <KeyboardDismissView>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
@@ -105,7 +108,7 @@ export default function AccountScreen() {
 
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>닉네임</Text>
-            <TextInput
+            <AppTextInput
               style={[styles.input, !nicknameValid && styles.inputError]}
               value={nickname}
               onChangeText={setNickname}
@@ -123,7 +126,7 @@ export default function AccountScreen() {
             <View style={styles.stepperRow}>
               <Pressable
                 style={styles.stepperButton}
-                onPress={() => setWeeklyGoal((v) => Math.max(WEEKLY_GOAL_MIN, v - 1))}
+                onPress={dismissThen(() => setWeeklyGoal((v) => Math.max(WEEKLY_GOAL_MIN, v - 1)))}
                 disabled={weeklyGoal <= WEEKLY_GOAL_MIN}
                 hitSlop={8}
               >
@@ -135,7 +138,7 @@ export default function AccountScreen() {
               <Text style={styles.stepperValue}>주 {weeklyGoal}회</Text>
               <Pressable
                 style={styles.stepperButton}
-                onPress={() => setWeeklyGoal((v) => Math.min(WEEKLY_GOAL_MAX, v + 1))}
+                onPress={dismissThen(() => setWeeklyGoal((v) => Math.min(WEEKLY_GOAL_MAX, v + 1)))}
                 disabled={weeklyGoal >= WEEKLY_GOAL_MAX}
                 hitSlop={8}
               >
@@ -160,6 +163,7 @@ export default function AccountScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+      </KeyboardDismissView>
     </ScreenBackground>
   );
 }
