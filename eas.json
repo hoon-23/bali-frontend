@@ -29,7 +29,8 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://d2x91gr9oekfgj.cloudfront.net"
+        "EXPO_PUBLIC_API_BASE_URL": "https://d2x91gr9oekfgj.cloudfront.net",
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
       }
     }
   },
