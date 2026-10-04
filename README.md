@@ -38,10 +38,11 @@ constants/      # 테마, 색상 등 상수
 ```bash
 nvm use          # Node 22
 npm install
-npm start         # 또는 npm run ios / npm run android
+npx expo run:ios  # 시뮬레이터 개발 빌드 설치 및 실행
+npm start         # Metro 개발 서버 실행
 ```
 
-iOS 시뮬레이터 또는 실기기의 [Expo Go](https://expo.dev/go) 앱으로 QR코드를 스캔해 실행할 수 있습니다.
+소셜 로그인(Google/Kakao/Naver/Apple) 등 네이티브 모듈을 사용하므로 Expo Go 로는 실행되지 않으며, 로컬에서는 iOS 시뮬레이터 개발 빌드와 Metro 로 확인합니다. 실기기는 EAS production 빌드를 TestFlight 로 배포해 확인합니다.
 
 ## 참고
 
