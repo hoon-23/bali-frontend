@@ -3,6 +3,8 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { PlanLockCard } from "../../components/PlanLimitSheet";
+import { isLimitExceededError } from "../../lib/api/planLimit";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -177,6 +179,8 @@ export default function StatsScreen() {
     monthOffset === 0 ? monthlyCurrent.data?.totalWorkoutMinutes : monthlyPast.data?.summary?.totalWorkoutMinutes;
   const monthSummary = monthOffset === 0 ? monthlyCurrent.data?.summary : monthlyPast.data?.summary;
   const monthPastUnavailable = monthOffset < 0 && monthlyPast.data !== undefined && monthlyPast.data?.summary == null;
+  // 월간 인사이트가 무료 플랜 한도로 잠긴 경우(403 MONTHLY_INSIGHTS) — 에러 대신 잠금 UI를 보여준다.
+  const monthLocked = isLimitExceededError(monthOffset === 0 ? monthlyCurrent.error : monthlyPast.error);
   const topMuscleGroupsMonth = useMemo(
     () => computeTopMuscleGroups(monthSummary),
     [monthSummary],
@@ -351,6 +355,8 @@ export default function StatsScreen() {
             </>
           ) : (
             <>
+              {monthLocked && <PlanLockCard limit="MONTHLY_INSIGHTS" />}
+              {!monthLocked && (
               <View style={styles.summaryRow}>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>이번 주 운동일</Text>
@@ -363,6 +369,7 @@ export default function StatsScreen() {
                   </Text>
                 </View>
               </View>
+              )}
 
               <View style={styles.card}>
                 <View style={styles.calendarHeader}>
@@ -427,6 +434,7 @@ export default function StatsScreen() {
                 </View>
               </View>
 
+              {!monthLocked && (
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
                 <View style={styles.card}>
@@ -457,10 +465,13 @@ export default function StatsScreen() {
                   )}
                 </View>
               </View>
-              <BodyweightRepsSection
-                summary={monthSummary}
-                periodLabel="지난달"
-              />
+              )}
+              {!monthLocked && (
+                <BodyweightRepsSection
+                  summary={monthSummary}
+                  periodLabel="지난달"
+                />
+              )}
 
             </>
           )}

@@ -2,6 +2,7 @@ import axios from "axios";
 import { NativeModules } from "react-native";
 import { useAuthStore } from "../../store/authStore";
 import { getRefreshToken, setRefreshToken } from "../auth/tokenStorage";
+import { isLimitExceededError } from "./planLimit";
 
 // 실물 기기에서는 "localhost"가 기기 자신을 가리켜서 개발 머신의 백엔드에 닿지 않는다.
 // Metro를 쓰는 dev client는 JS 번들을 내려받은 호스트(scriptURL, 개발 머신의 LAN IP)를
@@ -47,7 +48,9 @@ let refreshPromise: Promise<string> | null = null;
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    console.error(
+    // 한도 초과(403 LIMIT_EXCEEDED)는 앱이 시트로 안내하는 정상 업무 응답이라 error 레벨(빨간 LogBox)로 찍지 않는다.
+    const logLevel = isLimitExceededError(error) ? console.log : console.error;
+    logLevel(
       `[API] ${error.config?.method?.toUpperCase()} ${error.config?.url} ->`,
       error.response?.status,
       error.response?.data ?? error.message

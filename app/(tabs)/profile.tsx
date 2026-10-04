@@ -1,5 +1,6 @@
-import { Bell, ChevronRight, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -9,6 +10,7 @@ import {
   TAB_BAR_BOTTOM_MARGIN,
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
+import { SUBSCRIPTION_UI_ENABLED } from "../../constants/features";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
@@ -30,15 +32,38 @@ type SettingItem = {
 const SETTING_ITEMS: SettingItem[] = [
   { id: "notifications", icon: Bell, label: "알림 설정" },
   { id: "account", icon: User, label: "계정 정보" },
+  { id: "myExercises", icon: Dumbbell, label: "내 운동 관리" },
   { id: "privacy", icon: FileText, label: "개인정보처리방침" },
   { id: "logout", icon: LogOut, label: "로그아웃", danger: true },
 ];
+
+// 만료 시각(ISO)을 "YYYY.MM.DD" 로 표시 — 파싱 실패 시 null
+function formatPlanExpiry(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { data: me } = useMe();
   const inProgressSessionId = useInProgressSessionId();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ focus?: string; t?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  // 구독 카드의 스크롤 내 y 위치 — "PRO 알아보기"로 들어왔을 때 이 위치로 스크롤한다.
+  const subscriptionY = useRef(0);
+
+  useEffect(() => {
+    if (SUBSCRIPTION_UI_ENABLED && params.focus === "subscription") {
+      scrollRef.current?.scrollTo({ y: Math.max(0, subscriptionY.current - 12), animated: true });
+    }
+  }, [params.focus, params.t]);
+
+  // 플랜이 없는 구서버 응답은 FREE로 간주
+  const isPro = me?.plan === "PRO";
+  const planExpiresLabel = me?.planExpiresAt ? formatPlanExpiry(me.planExpiresAt) : null;
 
   const handleConfirmLogout = async () => {
     const refreshToken = await getRefreshToken();
@@ -78,6 +103,9 @@ export default function ProfileScreen() {
     if (item.id === "account") {
       router.push("/account");
     }
+    if (item.id === "myExercises") {
+      router.push("/exercises");
+    }
     if (item.id === "notifications") {
       router.push("/notifications/settings");
     }
@@ -93,6 +121,7 @@ export default function ProfileScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
             {
@@ -130,6 +159,41 @@ export default function ProfileScreen() {
               <View style={[styles.progressFill, { width: `${expProgress}%` }]} />
             </View>
           </View>
+
+          {SUBSCRIPTION_UI_ENABLED && (
+            <View
+              style={styles.card}
+              onLayout={(event) => {
+                subscriptionY.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <View style={styles.levelRow}>
+                <Text style={styles.settingLabel}>구독</Text>
+                <View style={[styles.levelBadge, !isPro && styles.planBadgeFree]}>
+                  <Text style={[styles.levelBadgeText, !isPro && styles.planBadgeFreeText]}>
+                    {isPro ? "PRO" : "무료"}
+                  </Text>
+                </View>
+              </View>
+              {isPro ? (
+                <Text style={styles.planDescription} lineBreakStrategyIOS="hangul-word">
+                  {planExpiresLabel ? `${planExpiresLabel}까지 이용할 수 있어요` : "PRO를 이용 중이에요"}
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.planDescription} lineBreakStrategyIOS="hangul-word">
+                    PRO에서는 루틴과 직접 만든 운동을 한도 없이 만들고, 월간 인사이트를 볼 수 있어요.
+                  </Text>
+                  <Pressable
+                    style={styles.proButton}
+                    onPress={() => appAlert("곧 만나요", "PRO는 아직 준비 중이에요. 조금만 기다려주세요.")}
+                  >
+                    <Text style={styles.proButtonText}>PRO 시작하기</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
 
           <View style={styles.card}>
             {SETTING_ITEMS.map((item, index) => (
@@ -233,6 +297,28 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
     backgroundColor: "#2DD4BF",
+  },
+  planBadgeFree: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  planBadgeFreeText: {
+    color: "#A0A0A0",
+  },
+  planDescription: {
+    color: "#A0A0A0",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  proButton: {
+    backgroundColor: "#2DD4BF",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  proButtonText: {
+    color: "#0B0B0F",
+    fontSize: 15,
+    fontWeight: "700",
   },
   settingRow: {
     flexDirection: "row",

@@ -9,7 +9,13 @@ export type MeResponse = {
   // "이번 주(월~일, KST) 중 운동한 날짜 수(0~7)"로 의미가 바뀌었다(백엔드 develop, 2026-09-22).
   weeklyWorkoutDays: number;
   level: LevelInfo;
+  // 구독 플랜. 구버전 서버 응답에는 없을 수 있어 optional — 없으면 FREE로 간주한다.
+  plan?: UserPlan;
+  // PRO 만료 시각(ISO). FREE이거나 만료 없음이면 null/없음.
+  planExpiresAt?: string | null;
 };
+
+export type UserPlan = "FREE" | "PRO";
 
 // 레벨/경험치는 서버가 조회 시점에 완료 세션으로 계산해 내려준다(레벨 곡선 계산은 프론트에 없다).
 export type LevelInfo = {

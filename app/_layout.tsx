@@ -12,6 +12,7 @@ import { getRefreshToken } from "../lib/auth/tokenStorage";
 import { refreshAccessToken } from "../lib/api/client";
 import { AppAlertModal } from "../components/AppAlertModal";
 import { AnimatedSplashIntro } from "../components/AnimatedSplashIntro";
+import { isLimitExceededError } from "../lib/api/planLimit";
 import { configureNotificationHandler } from "../lib/notifications";
 
 // JS 번들이 로드되기 전(네이티브 부팅 구간)만 네이티브 스플래시로 가리고,
@@ -23,6 +24,8 @@ const queryClient = new QueryClient({
     queries: {
       retry: (failureCount, error: any) => {
         if (error?.response?.status === 401) return false;
+        // 한도 초과(403)는 재시도해도 같은 결과라서 바로 잠금 UI를 보여주도록 재시도하지 않는다.
+        if (isLimitExceededError(error)) return false;
         return failureCount < 3;
       },
     },
