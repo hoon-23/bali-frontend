@@ -1,24 +1,33 @@
 import { CircleCheck, CircleMinus, CirclePlus } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
+import { AppToast, AppToastData } from "../../components/AppToast";
+import { AppTextInput } from "../../components/AppTextInput";
+import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { appAlert } from "../../lib/alert";
+import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
+import { hasLogRecord } from "../../lib/session/logRecord";
+import { loadScheduledOrigin } from "../../lib/session/scheduledOrigin";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { cancelAllSetTimerReminders, cancelSetTimerReminder, scheduleSetTimerReminder } from "../../lib/notifications";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { isBodyweightExercise } from "../../constants/exercises";
-import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
-import { ApiSessionDetail, useSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
+import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiSessionDetail, useSession, useDeleteSession, usePatchSession, usePatchSessionLog } from "../../hooks/api/useSessions";
+import { getTodayKstISODate } from "../../hooks/api/useUpcomingSessions";
 import { ApiTemplate, useTemplate } from "../../hooks/api/useTemplates";
 import {
   ActualField,
@@ -26,6 +35,49 @@ import {
   SetTiming,
   useWorkoutSessionStore,
 } from "../../store/workoutSessionStore";
+
+// 토스트와 "운동 종료" 버튼 사이 간격 — 펄스(scale 1.06, 위로 약 1.5pt 확대)보다 충분히 크다.
+const TOAST_GAP = 16;
+
+// 운동 하나의 목표를 모두 채웠는지 — "완료로 표시" 버튼의 톤 결정에 쓴다.
+// 유산소는 목표 시간(없으면 기록이 있는지), 근력 운동은 목표 세트 수 기준이다.
+function isLogTargetReached(log: ExerciseLog, isCardio: boolean): boolean {
+  if (isCardio) {
+    const actual = Number(log.actualDurationSeconds) || 0;
+    return log.targetDurationSeconds > 0 ? actual >= log.targetDurationSeconds : actual > 0;
+  }
+  return (Number(log.actualSets) || 0) >= log.targetSets;
+}
+
+// 로그 PATCH 본문 구성(완료 표시/종료 직전 flush 공용). completed는 넣지 않고 호출 쪽에서 붙인다.
+// CARDIO 로그는 sets/reps/weight/setTimings가 채워져 있으면 서버가 예외를 던지므로
+// (백엔드 검증 규칙) actualDurationSeconds만 보낸다.
+// 맨몸 종목은 입력란이 없어도 STRENGTH 세트 규칙상 weight=0을 항상 보낸다.
+// emptyWeightAsZero: 입력이 없을 때 weight를 undefined 대신 0으로 보낼지(flush용).
+function buildLogPayload(
+  log: ExerciseLog,
+  isCardio: boolean,
+  isBodyweight: boolean,
+  emptyWeightAsZero = false
+) {
+  if (isCardio) {
+    return {
+      actualDurationSeconds: log.actualDurationSeconds ? Number(log.actualDurationSeconds) : undefined,
+    };
+  }
+  return {
+    actualSets: log.actualSets ? Number(log.actualSets) : undefined,
+    actualReps: log.actualReps ? Number(log.actualReps) : undefined,
+    actualWeight: isBodyweight
+      ? 0
+      : log.actualWeight
+        ? Number(log.actualWeight)
+        : emptyWeightAsZero
+          ? 0
+          : undefined,
+    setTimings: log.setTimings,
+  };
+}
 
 // 세션 조회가 실패했는데(삭제된 세션 등) templateId조차 없는 극히 드문 경우를 위한
 // 최후의 fallback — 화면이 완전히 빈 채로 렌더링되는 것만 방지한다.
@@ -124,11 +176,17 @@ export default function WorkoutSessionScreen() {
   }>();
   const router = useRouter();
 
-  const { data: apiSession, isError: sessionFetchFailed } = useSession(sessionId);
+  const queryClient = useQueryClient();
+  // 빈 세션을 서버에서 삭제한 뒤엔 상세 조회를 끈다 — 삭제된 id를 다시 조회해 404가 나지 않게 한다.
+  const [sessionGone, setSessionGone] = useState(false);
+  const { data: apiSession, isError: sessionFetchFailed } = useSession(sessionGone ? undefined : sessionId);
   const { data: fallbackTemplate } = useTemplate(templateId);
   const exerciseMap = useExerciseMap();
   const patchSession = usePatchSession();
   const patchSessionLog = usePatchSessionLog();
+  const deleteSession = useDeleteSession();
+  // 예정된 운동 화면에서 시작한 세션인지(예약 출신) — 빈 세션 종료 시 예약 유지 여부 판단에 쓴다.
+  const scheduledOriginSessionId = useWorkoutSessionStore((state) => state.scheduledOriginSessionId);
 
   const storedSessionId = useWorkoutSessionStore((state) => state.sessionId);
   const isRealSession = useWorkoutSessionStore((state) => state.isRealSession);
@@ -143,6 +201,7 @@ export default function WorkoutSessionScreen() {
   const setTargetSets = useWorkoutSessionStore((state) => state.setTargetSets);
   const recordSetTiming = useWorkoutSessionStore((state) => state.recordSetTiming);
   const completeLog = useWorkoutSessionStore((state) => state.completeLog);
+  const uncompleteLog = useWorkoutSessionStore((state) => state.uncompleteLog);
   const handleAddExercisePress = useSingleTapNavigate(() =>
     router.push({ pathname: "/routines/exercise-picker", params: { sessionId } })
   );
@@ -177,27 +236,106 @@ export default function WorkoutSessionScreen() {
   }, [apiSession, isRealSession, sessionId, storedSessionId, exerciseMap]);
 
   const allCompleted = logs.length > 0 && logs.every((log) => log.completed);
-  const allCompletedAlertShownRef = useRef(false);
+  const [toast, setToast] = useState<AppToastData | null>(null);
+  const toastIdRef = useRef(0);
+  const showToast = (message: string, actionLabel: string, onAction: () => void) => {
+    toastIdRef.current += 1;
+    setToast({ id: toastIdRef.current, message, actionLabel, onAction });
+  };
+  // allCompleted가 false -> true로 바뀔 때 "운동 종료" 버튼을 한 번 강조한다(transform만 사용, 레이아웃 불변).
+  const finishPulse = useRef(new Animated.Value(1)).current;
+  const prevAllCompletedRef = useRef(allCompleted);
+  useEffect(() => {
+    const was = prevAllCompletedRef.current;
+    prevAllCompletedRef.current = allCompleted;
+    if (!allCompleted || was) return;
+    Animated.sequence([
+      Animated.timing(finishPulse, { toValue: 1.06, duration: 220, useNativeDriver: true }),
+      Animated.timing(finishPulse, { toValue: 1, duration: 380, useNativeDriver: true }),
+    ]).start();
+    return () => finishPulse.stopAnimation();
+  }, [allCompleted]);
+  // 컨테이너 높이와 종료 버튼 top(같은 컨테이너 기준) — 토스트 bottom 오프셋 계산용.
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
+  const [finishTop, setFinishTop] = useState<number | null>(null);
   const [showDifficultyModal, setShowDifficultyModal] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (allCompleted && !allCompletedAlertShownRef.current) {
-      appAlert("모든 운동을 완료했어요!", "운동을 종료할까요?", [
-        { text: "계속 볼게요", style: "cancel" },
-        { text: "운동 종료", onPress: () => setShowDifficultyModal(true) },
-      ]);
-    }
-    allCompletedAlertShownRef.current = allCompleted;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allCompleted]);
 
   const handleClose = () => {
     router.dismissTo("/home");
   };
 
+  // 로그 하나의 기록 여부 — 종목 정보로 유산소/맨몸을 판별한다.
+  const logHasRecord = (log: ExerciseLog) =>
+    hasLogRecord(log, isCardioExercise(exerciseMap.get(log.exerciseId)));
+
+  // 종료 직전, 완료 체크 안 한 로그 중 기록이 있는 것을 서버에 저장한다(completed는 보내지 않음).
+  // 서버가 부분 수행(경험치 50)을 판정하려면 미완료 종목의 기록도 서버에 있어야 한다.
+  // 실패해도 종료는 막지 않는다(오류 로깅은 인터셉터가 처리).
+  const flushIncompleteLogs = async () => {
+    const targets = logs.filter((log) => !log.completed && logHasRecord(log));
+    const results = await Promise.allSettled(
+      targets.map((log) => {
+        const exercise = exerciseMap.get(log.exerciseId);
+        return patchSessionLog.mutateAsync({
+          sessionId,
+          logId: log.id,
+          ...buildLogPayload(log, isCardioExercise(exercise), isBodyweightExercise(exercise), true),
+        });
+      })
+    );
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn("미완료 기록 저장 실패(종료는 계속 진행)", targets[index].id);
+      }
+    });
+  };
+
+  // 기록이 하나도 없는 채 종료 — COMPLETED를 보내지 않고 세션을 정리한다.
+  // 예약 출신이고 날짜가 오늘/미래면 SCHEDULED로 되돌려 예약을 유지(로그 보존),
+  // 즉흥 시작이거나 날짜가 지난 예약이면 삭제(하드 삭제)한다. 실패해도 종료 흐름은 막지 않는다.
+  const discardEmptySession = async () => {
+    // 메모리 값이 없으면(앱 재시작 등) 영속 저장된 값으로 복구한다. 둘 다 없으면 즉흥 시작으로
+    // 간주해 DELETE — 예약이 아닌 세션을 SCHEDULED로 되돌리면 없던 예정 운동이 생기기 때문이다.
+    const originId = scheduledOriginSessionId ?? (await loadScheduledOrigin());
+    const fromSchedule = originId === sessionId;
+    // 날짜 비교의 "오늘"은 한국(KST) 기준. 날짜를 못 읽었으면(드문 경우) 예약을 잃는 쪽이 더 나쁘므로 유지한다.
+    const keepSchedule = fromSchedule && (!apiSession?.date || apiSession.date >= getTodayKstISODate());
+    try {
+      if (keepSchedule) {
+        // 체크만 하고 기록이 0인 완료 로그는 먼저 해제 — 되돌린 예약을 다시 열 때 완료로 보이지 않게.
+        // 해제 실패가 되돌리기를 막지는 않는다. date는 보내지 않는다(바뀌면 안 됨).
+        const checked = logs.filter((log) => log.completed);
+        await Promise.allSettled(
+          checked.map((log) =>
+            patchSessionLog.mutateAsync({ sessionId, logId: log.id, completed: false })
+          )
+        );
+        await patchSession.mutateAsync({ sessionId, status: "SCHEDULED" });
+      } else {
+        // 상세 조회부터 끄고(404 방지) 캐시를 제거한 뒤 삭제한다. 목록 무효화는 훅이 처리한다.
+        setSessionGone(true);
+        queryClient.removeQueries({ queryKey: ["sessions", sessionId] });
+        try {
+          await deleteSession.mutateAsync(sessionId);
+        } catch (error) {
+          // 404는 이미 지워진 것이므로 성공으로 본다.
+          if (!(isAxiosError(error) && error.response?.status === 404)) throw error;
+        }
+      }
+    } catch {
+      // 서버에 진행 중 세션이 남을 수 있다. 사용자는 요약 화면으로 계속 보낸다.
+      console.warn("빈 운동 세션 정리 실패(종료는 계속 진행)", sessionId);
+      appAlert("운동 기록을 정리하지 못했어요.");
+    }
+  };
+
   const handleFinish = async (perceivedDifficulty?: number) => {
-    if (isRealSession) {
+    if (isRealSession && !logs.some(logHasRecord)) {
+      await discardEmptySession();
+    } else if (isRealSession) {
+      // 모든 flush PATCH가 끝난 뒤에 status PATCH를 보낸다.
+      await flushIncompleteLogs();
       try {
         const completed = await patchSession.mutateAsync({ sessionId, status: "COMPLETED", perceivedDifficulty });
         setXpResult(completed.xp ?? null);
@@ -210,6 +348,7 @@ export default function WorkoutSessionScreen() {
     // 정리한다 — 운동을 종료했다는 건 더 이상 어떤 세트도 진행 중이 아니라는 뜻이라,
     // 실패해도 종료 자체를 막을 이유는 없어서 별도로 감싸 무시한다.
     cancelAllSetTimerReminders().catch(() => {});
+    setToast(null);
     router.push("/workout/summary");
   };
 
@@ -225,42 +364,68 @@ export default function WorkoutSessionScreen() {
     }
     appAlert("완료하지 않은 세트가 있어요", "그래도 운동을 종료할까요?", [
       { text: "계속 할게요", style: "cancel" },
-      { text: "종료", style: "destructive", onPress: () => setShowDifficultyModal(true) },
+      {
+        text: "종료",
+        style: "destructive",
+        // 기록이 하나도 없으면 운동강도 모달 없이 바로 종료(모달의 "건너뛰기"와 같은 경로).
+        onPress: () => {
+          if (logs.some(logHasRecord)) setShowDifficultyModal(true);
+          else handleFinish();
+        },
+      },
     ]);
   };
 
-  const handleCompleteLog = async (log: ExerciseLog) => {
+
+  // 실제 완료 처리 — 서버 PATCH(실제 세션) 성공 후 로컬 완료. 성공 여부를 돌려준다.
+  const doComplete = async (log: ExerciseLog): Promise<boolean> => {
     if (isRealSession) {
-      const isCardio = exerciseMap.get(log.exerciseId)?.muscleGroup === "CARDIO";
+      const isCardio = isCardioExercise(exerciseMap.get(log.exerciseId));
       const isBodyweight = isBodyweightExercise(exerciseMap.get(log.exerciseId));
       try {
-        // CARDIO 로그는 sets/reps/weight/setTimings가 채워져 있으면 서버가 예외를 던지므로
-        // (백엔드 검증 규칙) actualDurationSeconds만 보낸다.
-        await patchSessionLog.mutateAsync(
-          isCardio
-            ? {
-                sessionId,
-                logId: log.id,
-                completed: true,
-                actualDurationSeconds: log.actualDurationSeconds ? Number(log.actualDurationSeconds) : undefined,
-              }
-            : {
-                sessionId,
-                logId: log.id,
-                completed: true,
-                actualSets: log.actualSets ? Number(log.actualSets) : undefined,
-                actualReps: log.actualReps ? Number(log.actualReps) : undefined,
-                // 맨몸 종목은 입력란이 없어도 STRENGTH 세트 규칙상 weight=0을 항상 보낸다
-                actualWeight: isBodyweight ? 0 : log.actualWeight ? Number(log.actualWeight) : undefined,
-                setTimings: log.setTimings,
-              }
-        );
+        await patchSessionLog.mutateAsync({
+          sessionId,
+          logId: log.id,
+          completed: true,
+          ...buildLogPayload(log, isCardio, isBodyweight),
+        });
       } catch {
         appAlert("기록 저장에 실패했어요. 다시 시도해주세요.");
-        return;
+        return false;
       }
     }
     completeLog(log.id);
+    return true;
+  };
+
+  // "완료로 표시" — 항상 즉시 완료한다(확인 알럿 없음). 미달 완료일 때만 "되돌리기" 토스트로 안내한다.
+  const handleCompleteLog = async (log: ExerciseLog) => {
+    const isCardio = isCardioExercise(exerciseMap.get(log.exerciseId));
+    const reached = isLogTargetReached(log, isCardio);
+    const ok = await doComplete(log);
+    if (!ok) return;
+    if (!reached) {
+      showToast("완료로 표시했어요", "되돌리기", () => {
+        setToast(null);
+        void handleResumeLog(log);
+      });
+      return;
+    }
+    // 목표를 채우고 모두 완료된 경우는 토스트 없이 "운동 종료" 버튼 강조(allCompleted 효과)로 안내한다.
+  };
+
+  // 완료 취소(이어서 하기) — 실제 세션이면 서버에 completed:false만 보내 되돌리고(기록 필드는
+  // 보내지 않아 서버 값 유지), 실패하면 로컬은 그대로 둔다.
+  const handleResumeLog = async (log: ExerciseLog) => {
+    if (isRealSession) {
+      try {
+        await patchSessionLog.mutateAsync({ sessionId, logId: log.id, completed: false });
+      } catch (error) {
+        appAlert(getKoreanApiErrorMessage(error) ?? "완료 취소에 실패했어요. 다시 시도해주세요.");
+        return;
+      }
+    }
+    uncompleteLog(log.id);
   };
 
   // 운동 중에도 목표 세트 수를 조정할 수 있게 — PATCH updateItems로 서버에 반영하고
@@ -307,7 +472,11 @@ export default function WorkoutSessionScreen() {
     // (완료 저장 실패 alert가 이 화면 뒤에 깔리는 버그로 발견) — 이 화면 안에도 하나 더
     // 마운트해서 같은 네이티브 레이어(이 화면 자신) 위에서 뜨게 한다.
     <>
-      <SafeAreaView style={styles.container}>
+      <KeyboardDismissView>
+      <SafeAreaView
+        style={styles.container}
+        onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+      >
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>운동 진행 중</Text>
@@ -324,17 +493,18 @@ export default function WorkoutSessionScreen() {
         <ActiveExercisePanel
           key={activeLog.id}
           log={activeLog}
-          isCardio={exerciseMap.get(activeLog.exerciseId)?.muscleGroup === "CARDIO"}
+          isCardio={isCardioExercise(exerciseMap.get(activeLog.exerciseId))}
           isBodyweight={isBodyweightExercise(exerciseMap.get(activeLog.exerciseId))}
           onChangeField={(field, value) => updateField(activeLog.id, field, value)}
           onAdjustSets={(delta) => adjustActualSets(activeLog.id, delta)}
           onAdjustTargetSets={(delta) => handleAdjustTargetSets(activeLog, delta)}
           onRecordSetTiming={(timing) => recordSetTiming(activeLog.id, timing)}
           onComplete={() => handleCompleteLog(activeLog)}
+          onResume={() => handleResumeLog(activeLog)}
         />
       )}
 
-      <ScrollView contentContainerStyle={styles.listContent} automaticallyAdjustKeyboardInsets>
+      <ScrollView contentContainerStyle={styles.listContent} automaticallyAdjustKeyboardInsets {...keyboardScrollProps}>
         <View style={styles.listHeaderRow}>
           <Text style={styles.sectionTitle}>운동 목록</Text>
           {isRealSession && (
@@ -350,7 +520,7 @@ export default function WorkoutSessionScreen() {
         </View>
         {sortedLogs.map((log) => {
           const active = log.id === activeLog?.id;
-          const isCardio = exerciseMap.get(log.exerciseId)?.muscleGroup === "CARDIO";
+          const isCardio = isCardioExercise(exerciseMap.get(log.exerciseId));
           const statusText = isCardio
             ? log.completed
               ? `${formatSeconds(Number(log.actualDurationSeconds) || 0)} 완료`
@@ -371,9 +541,28 @@ export default function WorkoutSessionScreen() {
         })}
       </ScrollView>
 
-      <Pressable style={styles.finishButton} onPress={handleFinishPress}>
-        <Text style={styles.finishButtonText}>운동 종료</Text>
-      </Pressable>
+      {/* 모든 운동이 완료되기 전엔 톤 다운(색만 바꾸고 크기/위치는 고정) — 눌러서 일찍 종료하는 건 계속 가능 */}
+      <Animated.View
+        style={{ transform: [{ scale: finishPulse }] }}
+        onLayout={(e) => setFinishTop(e.nativeEvent.layout.y)}
+      >
+        <Pressable
+          style={[styles.finishButton, !allCompleted && styles.finishButtonToneDown]}
+          onPress={handleFinishPress}
+        >
+          <Text style={[styles.finishButtonText, !allCompleted && styles.buttonTextToneDown]}>운동 종료</Text>
+        </Pressable>
+      </Animated.View>
+
+      {/* 토스트는 측정된 "운동 종료" 버튼 top 바로 위(간격 16)에 둔다. 같은 컨테이너 좌표계라 safe area가 자동 반영된다.
+          측정 전에는 그리지 않는다(레이아웃 직후 한 프레임 안에 측정됨). */}
+      {finishTop !== null && containerHeight !== null && (
+        <AppToast
+          toast={toast}
+          onDismiss={() => setToast(null)}
+          bottom={containerHeight - finishTop + TOAST_GAP}
+        />
+      )}
 
       <Modal
         visible={showDifficultyModal}
@@ -417,6 +606,7 @@ export default function WorkoutSessionScreen() {
         </View>
       </Modal>
       </SafeAreaView>
+      </KeyboardDismissView>
       <AppAlertModal />
     </>
   );
@@ -431,6 +621,7 @@ type ActiveExercisePanelProps = {
   onAdjustTargetSets: (delta: number) => void;
   onRecordSetTiming: (timing: SetTiming) => void;
   onComplete: () => void;
+  onResume: () => void;
 };
 
 // 화면 상단에 고정된, 지금 진행 중인 운동 하나만 보여주는 패널.
@@ -444,7 +635,10 @@ function ActiveExercisePanel({
   onAdjustTargetSets,
   onRecordSetTiming,
   onComplete,
+  onResume,
 }: ActiveExercisePanelProps) {
+  // 이 종목의 목표를 다 채우기 전엔 "완료로 표시"를 톤 다운(비활성화는 아님 — 일찍 끝낼 수 있어야 함)
+  const targetReached = isLogTargetReached(log, isCardio);
   return (
     <View style={styles.activeCard}>
       <Text style={styles.activeName}>{log.name}</Text>
@@ -460,6 +654,9 @@ function ActiveExercisePanel({
             </Text>
           </View>
           {!isCardio && <SetTimingHistory setTimings={log.setTimings} />}
+          <Pressable style={styles.resumeButton} onPress={onResume}>
+            <Text style={styles.resumeButtonText}>이어서 하기</Text>
+          </Pressable>
         </>
       ) : isCardio ? (
         <>
@@ -469,8 +666,13 @@ function ActiveExercisePanel({
             onChangeDuration={(seconds) => onChangeField("actualDurationSeconds", String(seconds))}
           />
 
-          <Pressable style={styles.completeButton} onPress={onComplete}>
-            <Text style={styles.completeButtonText}>완료로 표시</Text>
+          <Pressable
+            style={[styles.completeButton, !targetReached && styles.completeButtonToneDown]}
+            onPress={onComplete}
+          >
+            <Text style={[styles.completeButtonText, !targetReached && styles.buttonTextToneDown]}>
+              완료로 표시
+            </Text>
           </Pressable>
         </>
       ) : (
@@ -507,7 +709,7 @@ function ActiveExercisePanel({
             </View>
             <View style={styles.statTile}>
               <Text style={styles.statLabel}>반복</Text>
-              <TextInput
+              <AppTextInput
                 style={styles.statValueInput}
                 value={log.actualReps}
                 onChangeText={(value) => onChangeField("actualReps", value)}
@@ -519,7 +721,7 @@ function ActiveExercisePanel({
             {!isBodyweight && (
               <View style={styles.statTile}>
                 <Text style={styles.statLabel}>무게(kg)</Text>
-                <TextInput
+                <AppTextInput
                   style={styles.statValueInput}
                   value={log.actualWeight}
                   onChangeText={(value) => onChangeField("actualWeight", sanitizeWeightInput(value))}
@@ -531,8 +733,13 @@ function ActiveExercisePanel({
             )}
           </View>
 
-          <Pressable style={styles.completeButton} onPress={onComplete}>
-            <Text style={styles.completeButtonText}>완료로 표시</Text>
+          <Pressable
+            style={[styles.completeButton, !targetReached && styles.completeButtonToneDown]}
+            onPress={onComplete}
+          >
+            <Text style={[styles.completeButtonText, !targetReached && styles.buttonTextToneDown]}>
+              완료로 표시
+            </Text>
           </Pressable>
         </>
       )}
@@ -876,6 +1083,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  // 완료 취소 보조 버튼 — "완료로 표시"보다 약한 아웃라인 스타일
+  resumeButton: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(45, 212, 191, 0.4)",
+  },
+  resumeButtonText: {
+    color: "#2DD4BF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  completeButtonToneDown: {
+    backgroundColor: "rgba(45, 212, 191, 0.16)",
+  },
+  // 톤 다운 버튼 글자 — 원래 어두운 글자색 대신 민트색을 써서 흐린 배경 위에서도 읽히게 한다.
+  buttonTextToneDown: {
+    color: "#2DD4BF",
+  },
   listContent: {
     paddingHorizontal: 24,
     paddingTop: 20,
@@ -938,6 +1165,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderRadius: 12,
     alignItems: "center",
+  },
+  finishButtonToneDown: {
+    backgroundColor: "rgba(45, 212, 191, 0.16)",
   },
   finishButtonText: {
     color: "#0B0B0F",

@@ -25,7 +25,8 @@ import {
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { toDisplayMuscleGroup } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { isEmptyFinishedSession } from "../../lib/session/logRecord";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { ApiSessionDetail, useSessionHistory } from "../../hooks/api/useSessions";
 import { getTodayISODate, useUpcomingSessions } from "../../hooks/api/useUpcomingSessions";
@@ -105,6 +106,13 @@ export default function TemplatesScreen() {
     .sort((a, b) => a.date.localeCompare(b.date));
   const pastSessions = (historyPages?.pages.flatMap((page) => page.content) ?? []).filter(
     (session) => session.status !== "SCHEDULED"
+  ).filter(
+    // 기록 없이 종료된 빈 세션은 서버엔 두고 목록에서만 숨긴다
+    (session) =>
+      !isEmptyFinishedSession(session, (exerciseId) => {
+        const exercise = exerciseMap.get(exerciseId);
+        return exercise ? isCardioExercise(exercise) : null;
+      })
   );
 
   const handleEndReached = () => {

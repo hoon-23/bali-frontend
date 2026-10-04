@@ -1,9 +1,14 @@
 import { CirclePlus, Search, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
+import { AppTextInput } from "../../components/AppTextInput";
+import { ExerciseFormSheet } from "../../components/ExerciseFormSheet";
+import { PlanLimitSheet } from "../../components/PlanLimitSheet";
+import { PlanLimit } from "../../lib/api/planLimit";
+import { dismissThen, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { useExercisePickerFilterStore } from "../../store/exercisePickerFilterStore";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -20,22 +25,18 @@ import {
 import { appAlert } from "../../lib/alert";
 import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { TemplateCategory } from "../../store/templatesStore";
-import { ApiExercise, formatExerciseName, useExercises } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, isCardioExercise, useExercises } from "../../hooks/api/useExercises";
 import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
 import { useSession, usePatchSession } from "../../hooks/api/useSessions";
 
 const DEFAULT_CARDIO_DURATION_SECONDS = 20 * 60;
-const DEFAULT_FUNCTIONAL_DURATION_SECONDS = 30;
-const DEFAULT_FUNCTIONAL_SETS = 3;
 
 // 운동 종류(유산소/기능성/근력)에 따라 세션·템플릿에 addItems로 보낼 목표값 필드가
 // 다르다 — 세 곳(세션 즉흥 추가, 템플릿 추가, 빌더 스토어)에서 반복하지 않게 공용화.
 function buildTargetFields(exercise: ApiExercise) {
-  if (exercise.muscleGroup === "CARDIO") {
+  // 서버 검증은 exercise.type 기준 — CARDIO는 duration만, 그 외(기능성 포함)는 sets/reps/weight만 보낸다.
+  if (isCardioExercise(exercise)) {
     return { targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS };
-  }
-  if (exercise.muscleGroup === "FUNCTIONAL") {
-    return { targetSets: DEFAULT_FUNCTIONAL_SETS, targetDurationSeconds: DEFAULT_FUNCTIONAL_DURATION_SECONDS };
   }
   // 맨몸 종목은 무게 개념이 없어 weight=0
   return { targetSets: 3, targetReps: 10, targetWeight: isBodyweightExercise(exercise) ? 0 : 20 };
@@ -65,6 +66,9 @@ export default function ExercisePickerScreen() {
   const { data: session } = useSession(sessionId);
   const patchSession = usePatchSession();
   const { data: exercises = [] } = useExercises();
+  // "+ 직접 추가" 시트와 한도 초과(403 PERSONAL_EXERCISE_COUNT) 안내 시트 상태
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [limitSheet, setLimitSheet] = useState<PlanLimit | null>(null);
   const routineCategory = useRoutineBuilderStore((state) => state.category);
   // 이미 루틴 "분류"에서 선택된 값을 운동 추가 화면이 그대로 활용한다 —
   // 세션 중 즉흥 추가(sessionId)는 분류 개념이 없어서 대상에서 뺀다.
@@ -85,7 +89,7 @@ export default function ExercisePickerScreen() {
   const setFilter = useExercisePickerFilterStore((state) => state.setMuscleGroup);
   const setEquipmentFilter = useExercisePickerFilterStore((state) => state.setEquipment);
   const cardioExercises = useMemo(
-    () => exercises.filter((exercise) => exercise.muscleGroup === "CARDIO"),
+    () => exercises.filter((exercise) => isCardioExercise(exercise)),
     [exercises]
   );
 
@@ -139,6 +143,14 @@ export default function ExercisePickerScreen() {
     if (equipmentFilter && !availableEquipments.includes(equipmentFilter)) setEquipmentFilter(null);
   }, [equipmentFilter, availableEquipments]);
 
+  // 새 종목이 목록에서 필터에 가려지지 않도록 필터를 풀고, 이름으로 검색어를 채워 바로 찾게 한다.
+  const handleCreated = (name: string) => {
+    setBodyRegionFilter(null);
+    setFilter(null);
+    setEquipmentFilter(null);
+    if (!isCardioCategory) setQuery(name);
+  };
+
   const handleSelect = async (exercise: ApiExercise) => {
     // sessionId가 있으면 진행 중인 운동 세션에 종목을 즉흥 추가하는 경로 —
     // PATCH /api/v1/sessions/{id}의 addItems로 바로 반영한다.
@@ -188,7 +200,7 @@ export default function ExercisePickerScreen() {
     }
     addItem(
       exercise.id,
-      exercise.muscleGroup === "CARDIO" ? "CARDIO" : exercise.muscleGroup === "FUNCTIONAL" ? "FUNCTIONAL" : "STRENGTH"
+      isCardioExercise(exercise) ? "CARDIO" : "STRENGTH"
     );
     router.back();
   };
@@ -210,7 +222,7 @@ export default function ExercisePickerScreen() {
           <>
             <View style={styles.searchWrap}>
               <Search size={16} color="#6B6B6B" />
-              <TextInput
+              <AppTextInput
                 style={styles.searchInput}
                 value={query}
                 onChangeText={setQuery}
@@ -222,10 +234,10 @@ export default function ExercisePickerScreen() {
             <View style={styles.filterRow}>
               <Pressable
                 style={[styles.filterChip, bodyRegionFilter === null && styles.filterChipActive]}
-                onPress={() => {
+                onPress={dismissThen(() => {
                   setBodyRegionFilter(null);
                   setFilter(null);
-                }}
+                })}
               >
                 <Text
                   style={[styles.filterChipText, bodyRegionFilter === null && styles.filterChipTextActive]}
@@ -237,10 +249,10 @@ export default function ExercisePickerScreen() {
                 <Pressable
                   key={region}
                   style={[styles.filterChip, bodyRegionFilter === region && styles.filterChipActive]}
-                  onPress={() => {
+                  onPress={dismissThen(() => {
                     setBodyRegionFilter(bodyRegionFilter === region ? null : region);
                     setFilter(null);
-                  }}
+                  })}
                 >
                   <Text
                     style={[
@@ -258,7 +270,7 @@ export default function ExercisePickerScreen() {
               <View style={styles.filterRow}>
                 <Pressable
                   style={[styles.filterChip, filter === null && styles.filterChipActive]}
-                  onPress={() => setFilter(null)}
+                  onPress={dismissThen(() => setFilter(null))}
                 >
                   <Text style={[styles.filterChipText, filter === null && styles.filterChipTextActive]}>
                     전체
@@ -268,7 +280,7 @@ export default function ExercisePickerScreen() {
                   <Pressable
                     key={group}
                     style={[styles.filterChip, filter === group && styles.filterChipActive]}
-                    onPress={() => setFilter(filter === group ? null : group)}
+                    onPress={dismissThen(() => setFilter(filter === group ? null : group))}
                   >
                     <Text
                       style={[styles.filterChipText, filter === group && styles.filterChipTextActive]}
@@ -283,7 +295,7 @@ export default function ExercisePickerScreen() {
             <View style={styles.filterRow}>
               <Pressable
                 style={[styles.filterChip, equipmentFilter === null && styles.filterChipActive]}
-                onPress={() => setEquipmentFilter(null)}
+                onPress={dismissThen(() => setEquipmentFilter(null))}
               >
                 <Text
                   style={[styles.filterChipText, equipmentFilter === null && styles.filterChipTextActive]}
@@ -295,7 +307,7 @@ export default function ExercisePickerScreen() {
                 <Pressable
                   key={equipment}
                   style={[styles.filterChip, equipmentFilter === equipment && styles.filterChipActive]}
-                  onPress={() => setEquipmentFilter(equipmentFilter === equipment ? null : equipment)}
+                  onPress={dismissThen(() => setEquipmentFilter(equipmentFilter === equipment ? null : equipment))}
                 >
                   <Text
                     style={[
@@ -314,6 +326,7 @@ export default function ExercisePickerScreen() {
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          {...keyboardScrollProps}
         >
           {(isCardioCategory ? cardioExercises : results).map((exercise) => (
             <Pressable
@@ -321,24 +334,54 @@ export default function ExercisePickerScreen() {
               style={styles.exerciseRow}
               onPress={() => handleSelect(exercise)}
             >
-              <View>
-                <Text style={styles.exerciseName}>{formatExerciseName(exercise)}</Text>
+              <View style={styles.exerciseInfo}>
+                <View style={styles.exerciseNameRow}>
+                  <Text style={styles.exerciseName} numberOfLines={2}>
+                    {formatExerciseName(exercise)}
+                  </Text>
+                  {exercise.scope === "PERSONAL" && (
+                    <View style={styles.ownBadge}>
+                      <Text style={styles.ownBadgeText}>내 운동</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.exerciseGroup}>
                   {exercise.equipment
                     ? `${MUSCLE_GROUP_KOREAN[exercise.muscleGroup]} · ${EQUIPMENT_KOREAN[exercise.equipment]}`
                     : MUSCLE_GROUP_KOREAN[exercise.muscleGroup]}
                 </Text>
               </View>
-              <CirclePlus size={22} color="#2DD4BF" />
+              <View style={styles.rowActions}>
+                <CirclePlus size={22} color="#2DD4BF" />
+              </View>
             </Pressable>
           ))}
-          {(isCardioCategory ? cardioExercises : results).length === 0 && (
-            <Text style={styles.emptyText}>검색 결과가 없어요.</Text>
+          {(isCardioCategory ? cardioExercises : results).length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>검색 결과가 없어요.</Text>
+              <Pressable style={styles.addOwnButton} onPress={dismissThen(() => setShowCreateSheet(true))}>
+                <Text style={styles.addOwnButtonText}>
+                  {query.trim() ? `'${query.trim()}' 직접 추가하기` : "직접 추가하기"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={styles.footerLink} onPress={dismissThen(() => setShowCreateSheet(true))} hitSlop={8}>
+              <Text style={styles.footerLinkText}>찾는 운동이 없나요? 직접 추가</Text>
+            </Pressable>
           )}
         </ScrollView>
       </SafeAreaView>
       {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
           AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
+      <ExerciseFormSheet
+        visible={showCreateSheet}
+        initialName={query.trim()}
+        onClose={() => setShowCreateSheet(false)}
+        onCreated={handleCreated}
+        onLimit={setLimitSheet}
+      />
+      <PlanLimitSheet limit={limitSheet} onClose={() => setLimitSheet(null)} />
       <AppAlertModal />
     </ScreenBackground>
   );
@@ -434,7 +477,58 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 14,
   },
+  emptyWrap: {
+    alignItems: "center",
+    gap: 16,
+    marginTop: 40,
+  },
+  addOwnButton: {
+    backgroundColor: "#2DD4BF",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  addOwnButtonText: {
+    color: "#0B0B0F",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  footerLink: {
+    alignSelf: "center",
+    paddingVertical: 12,
+  },
+  footerLinkText: {
+    color: "#A0A0A0",
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  exerciseInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  exerciseNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  ownBadge: {
+    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    borderRadius: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  ownBadgeText: {
+    color: "#2DD4BF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  rowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
   exerciseName: {
+    flexShrink: 1,
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "600",
@@ -448,6 +542,5 @@ const styles = StyleSheet.create({
     color: "#6B6B6B",
     fontSize: 13,
     textAlign: "center",
-    marginTop: 40,
   },
 });

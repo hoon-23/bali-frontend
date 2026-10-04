@@ -31,11 +31,11 @@ export function useTemplates() {
   });
 }
 
-export function useTemplate(id: string | undefined) {
+export function useTemplate(id: string | undefined, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["templates", id],
     queryFn: async () => (await apiClient.get<ApiTemplate>(`/api/v1/templates/${id}`)).data,
-    enabled: !!id,
+    enabled: !!id && (options?.enabled ?? true),
   });
 }
 
@@ -72,8 +72,11 @@ export function useDeleteTemplate() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/api/v1/templates/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["templates"] });
+    onSuccess: (_, id) => {
+      // 삭제된 상세는 재조회하면 404이므로 캐시에서 제거하고,
+      // 목록 쿼리만 exact로 무효화해 상세 쿼리가 refetch되지 않게 한다.
+      queryClient.removeQueries({ queryKey: ["templates", id] });
+      queryClient.invalidateQueries({ queryKey: ["templates"], exact: true });
     },
   });
 }

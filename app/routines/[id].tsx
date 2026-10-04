@@ -1,37 +1,46 @@
 import { ChevronLeft, CircleX, GripVertical, Plus, Trash2 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppTextInput } from "../../components/AppTextInput";
+import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
+import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
 import { isBodyweightExercise } from "../../constants/exercises";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { CATEGORY_LABELS, TemplateItem } from "../../store/templatesStore";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
-import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiTemplate, toItemsPayload, useDeleteTemplate, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
 import { useCreateSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 
 type ItemDraft =
   | { targetSets: number; targetReps: number; targetWeight: number }
-  | { targetDurationSeconds: number }
-  | { targetSets: number; targetDurationSeconds: number };
+  | { targetDurationSeconds: number };
 
 export default function RoutineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { data: template } = useTemplate(id);
+  const deleteTemplate = useDeleteTemplate();
+  // 삭제 중/후에는 상세를 재조회하지 않는다(소프트 삭제된 리소스라 404).
+  const { data: fetchedTemplate } = useTemplate(id, {
+    enabled: !(deleteTemplate.isPending || deleteTemplate.isSuccess),
+  });
+  // 삭제 성공 시 캐시에서 상세가 제거되므로, 화면 전환이 끝날 때까지 마지막 데이터를 유지한다.
+  const lastTemplateRef = useRef<ApiTemplate | undefined>(undefined);
+  if (fetchedTemplate) lastTemplateRef.current = fetchedTemplate;
+  const template = fetchedTemplate ?? lastTemplateRef.current;
   const exerciseMap = useExerciseMap();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
   const createSession = useCreateSession();
   const patchSession = usePatchSession();
-  const deleteTemplate = useDeleteTemplate();
   const updateTemplate = useUpdateTemplate();
   const [starting, setStarting] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -160,9 +169,8 @@ export default function RoutineDetailScreen() {
 
   return (
     <ScreenBackground>
-      {/* 입력 필드 바깥(빈 영역)을 탭하면 키보드를 내린다 — 안쪽 버튼/입력란은
-          자기 터치를 먼저 가져가므로 이 Pressable까지 안 내려온다. */}
-      <Pressable style={styles.dismissKeyboardArea} onPress={Keyboard.dismiss}>
+      {/* 입력 필드 바깥(빈 영역)을 탭하면 키보드를 내린다(공용 래퍼) */}
+      <KeyboardDismissView>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
@@ -183,6 +191,7 @@ export default function RoutineDetailScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets
+          {...keyboardScrollProps}
           data={template.items}
           keyExtractor={(item) => item.id}
           dragItemOverflow
@@ -192,7 +201,7 @@ export default function RoutineDetailScreen() {
               <View style={styles.card}>
                 <View style={styles.titleRow}>
                   {editMode ? (
-                    <TextInput
+                    <AppTextInput
                       style={styles.nameInput}
                       value={nameDraft}
                       onChangeText={setNameDraft}
@@ -252,7 +261,7 @@ export default function RoutineDetailScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
-      </Pressable>
+      </KeyboardDismissView>
     </ScreenBackground>
   );
 }
@@ -279,8 +288,7 @@ function RoutineDetailItemRow({
   onSave,
   onDelete,
 }: RoutineDetailItemRowProps) {
-  const isCardio = exercise?.muscleGroup === "CARDIO";
-  const isFunctional = exercise?.muscleGroup === "FUNCTIONAL";
+  const isCardio = isCardioExercise(exercise);
   const isBodyweight = isBodyweightExercise(exercise);
   const [targetSets, setTargetSets] = useState(String(item.targetSets ?? 0));
   const [targetReps, setTargetReps] = useState(String(item.targetReps ?? 0));
@@ -288,19 +296,11 @@ function RoutineDetailItemRow({
   const [targetDurationMinutes, setTargetDurationMinutes] = useState(
     String(Math.round((item.targetDurationSeconds ?? 0) / 60))
   );
-  const [targetDurationSeconds, setTargetDurationSeconds] = useState(
-    String(item.targetDurationSeconds ?? 0)
-  );
 
   const handleBlurSave = async () => {
     try {
       if (isCardio) {
         await onSave({ targetDurationSeconds: (Number(targetDurationMinutes) || 0) * 60 });
-      } else if (isFunctional) {
-        await onSave({
-          targetSets: Number(targetSets) || 0,
-          targetDurationSeconds: Number(targetDurationSeconds) || 0,
-        });
       } else {
         await onSave({
           targetSets: Number(targetSets) || 0,
@@ -309,8 +309,8 @@ function RoutineDetailItemRow({
           targetWeight: isBodyweight ? 0 : Number(targetWeight) || 0,
         });
       }
-    } catch {
-      appAlert("저장하지 못했어요. 다시 시도해주세요.");
+    } catch (error) {
+      appAlert(getKoreanApiErrorMessage(error) ?? "저장하지 못했어요. 다시 시도해주세요.");
     }
   };
 
@@ -348,16 +348,6 @@ function RoutineDetailItemRow({
               onChangeText={setTargetDurationMinutes}
               onBlur={handleBlurSave}
             />
-          ) : isFunctional ? (
-            <>
-              <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} onBlur={handleBlurSave} />
-              <ItemInput
-                label="목표 시간(초)"
-                value={targetDurationSeconds}
-                onChangeText={setTargetDurationSeconds}
-                onBlur={handleBlurSave}
-              />
-            </>
           ) : (
             <>
               <ItemInput label="세트" value={targetSets} onChangeText={setTargetSets} onBlur={handleBlurSave} />
@@ -377,11 +367,9 @@ function RoutineDetailItemRow({
         <Text style={styles.itemTarget}>
           {isCardio
             ? `${Math.round((item.targetDurationSeconds ?? 0) / 60)}분`
-            : isFunctional
-              ? `${item.targetSets}세트 × ${item.targetDurationSeconds}초`
-              : isBodyweight
-                ? `${item.targetSets}세트 × ${item.targetReps}회`
-                : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
+            : isBodyweight
+              ? `${item.targetSets}세트 × ${item.targetReps}회`
+              : `${item.targetSets}세트 × ${item.targetReps}회 × ${item.targetWeight}kg`}
         </Text>
       )}
     </View>
@@ -399,7 +387,7 @@ function ItemInput({ label, value, onChangeText, onBlur }: ItemInputProps) {
   return (
     <View style={styles.itemInputGroup}>
       <Text style={styles.itemInputLabel}>{label}</Text>
-      <TextInput
+      <AppTextInput
         style={styles.itemInput}
         value={value}
         onChangeText={onChangeText}
@@ -412,9 +400,6 @@ function ItemInput({ label, value, onChangeText, onBlur }: ItemInputProps) {
 }
 
 const styles = StyleSheet.create({
-  dismissKeyboardArea: {
-    flex: 1,
-  },
   safeArea: {
     flex: 1,
   },

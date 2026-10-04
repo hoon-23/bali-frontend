@@ -13,6 +13,16 @@ export function getTodayISODate(): string {
   return toISODate(new Date());
 }
 
+// 한국(Asia/Seoul) 기준 오늘 날짜 — 서버 날짜 비교용. 기기 시간대와 무관하게 KST로 계산한다.
+// getTodayISODate(기기 로컬)는 기존 호출부 동작 유지를 위해 그대로 둔다.
+export function getTodayKstISODate(): string {
+  try {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  } catch {
+    return getTodayISODate();
+  }
+}
+
 export function useUpcomingSessions() {
   const today = new Date();
   const future = new Date(today);

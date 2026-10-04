@@ -2,12 +2,9 @@ import { create } from "zustand";
 import { TemplateCategory } from "./templatesStore";
 
 const DEFAULT_CARDIO_DURATION_MINUTES = "20";
-// 기능성(맨몸 코어) 운동은 유산소처럼 "분" 단위를 쓰기엔 목표 시간이 너무 짧아서
-// (예: 플랭크 30초 = "0.5분") 별도로 "초" 단위 필드를 둔다.
-const DEFAULT_FUNCTIONAL_DURATION_SECONDS = "30";
-const DEFAULT_FUNCTIONAL_SETS = "3";
 
-export type ExerciseKind = "CARDIO" | "FUNCTIONAL" | "STRENGTH";
+// 서버 exercise.type 기준 — 기능성(FUNCTIONAL) 등 CARDIO 외 종목은 모두 STRENGTH(세트/횟수/무게).
+export type ExerciseKind = "CARDIO" | "STRENGTH";
 
 export type DraftItem = {
   id: string;
@@ -16,7 +13,6 @@ export type DraftItem = {
   targetReps: string;
   targetWeight: string;
   targetDurationMinutes: string;
-  targetDurationSeconds: string;
 };
 
 type RoutineBuilderState = {
@@ -29,7 +25,7 @@ type RoutineBuilderState = {
   removeItem: (id: string) => void;
   updateItemField: (
     id: string,
-    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes" | "targetDurationSeconds",
+    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes",
     value: string
   ) => void;
   reorderItems: (items: DraftItem[]) => void;
@@ -55,11 +51,10 @@ export const useRoutineBuilderStore = create<RoutineBuilderState>((set) => ({
         {
           id: `draft-${Date.now()}`,
           exerciseId,
-          targetSets: kind === "FUNCTIONAL" ? DEFAULT_FUNCTIONAL_SETS : "3",
+          targetSets: "3",
           targetReps: "10",
           targetWeight: "20",
           targetDurationMinutes: kind === "CARDIO" ? DEFAULT_CARDIO_DURATION_MINUTES : "",
-          targetDurationSeconds: kind === "FUNCTIONAL" ? DEFAULT_FUNCTIONAL_DURATION_SECONDS : "",
         },
       ],
     })),

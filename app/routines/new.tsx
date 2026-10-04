@@ -1,7 +1,9 @@
 import { Check, CircleX, GripVertical, Plus, X } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { useEffect } from "react";
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppTextInput } from "../../components/AppTextInput";
+import { dismissThen, KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
 import { isBodyweightExercise } from "../../constants/exercises";
@@ -14,7 +16,9 @@ import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { CATEGORY_LABELS, TemplateCategory } from "../../store/templatesStore";
 import { DraftItem, useRoutineBuilderStore } from "../../store/routineBuilderStore";
-import { ApiExercise, formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { PlanLimitSheet } from "../../components/PlanLimitSheet";
+import { PlanLimit, getKoreanApiErrorMessage, getLimitExceeded } from "../../lib/api/planLimit";
 import { useCreateTemplate } from "../../hooks/api/useTemplates";
 
 const CATEGORIES: TemplateCategory[] = ["PUSH", "PULL", "LEGS", "STRENGTH", "CARDIO"];
@@ -32,6 +36,8 @@ export default function NewRoutineScreen() {
   const reset = useRoutineBuilderStore((state) => state.reset);
   const exerciseMap = useExerciseMap();
   const createTemplate = useCreateTemplate();
+  // 무료 플랜 루틴 개수 한도 초과(403 TEMPLATE_COUNT) 시 안내 시트
+  const [limitSheet, setLimitSheet] = useState<PlanLimit | null>(null);
   const handleAddExercisePress = useSingleTapNavigate(() => router.push("/routines/exercise-picker"));
 
   useEffect(() => {
@@ -57,20 +63,12 @@ export default function NewRoutineScreen() {
         category,
         items: items.map((item, index) => {
           const exercise = exerciseMap.get(item.exerciseId);
-          const muscleGroup = exercise?.muscleGroup;
-          if (muscleGroup === "CARDIO") {
+          // 서버 검증은 exercise.type 기준 — CARDIO는 duration만, 그 외(기능성 포함)는 sets/reps/weight만 보낸다.
+          if (isCardioExercise(exercise)) {
             return {
               exerciseId: item.exerciseId,
               sortOrder: index,
               targetDurationSeconds: (Number(item.targetDurationMinutes) || 0) * 60,
-            };
-          }
-          if (muscleGroup === "FUNCTIONAL") {
-            return {
-              exerciseId: item.exerciseId,
-              sortOrder: index,
-              targetSets: Number(item.targetSets) || 0,
-              targetDurationSeconds: Number(item.targetDurationSeconds) || 0,
             };
           }
           return {
@@ -85,16 +83,22 @@ export default function NewRoutineScreen() {
       },
       {
         onSuccess: () => router.back(),
-        onError: () => appAlert("루틴 저장에 실패했어요. 다시 시도해주세요."),
+        onError: (error) => {
+          const limit = getLimitExceeded(error);
+          if (limit) {
+            setLimitSheet(limit);
+            return;
+          }
+          appAlert(getKoreanApiErrorMessage(error) ?? "루틴 저장에 실패했어요. 다시 시도해주세요.");
+        },
       }
     );
   };
 
   return (
     <ScreenBackground>
-      {/* 입력 필드 바깥(빈 영역)을 탭하면 키보드를 내린다 — 안쪽 버튼/입력란은
-          자기 터치를 먼저 가져가므로 이 Pressable까지 안 내려온다. */}
-      <Pressable style={styles.dismissKeyboardArea} onPress={Keyboard.dismiss}>
+      {/* 입력 필드 바깥(빈 영역)을 탭하면 키보드를 내린다(공용 래퍼) */}
+      <KeyboardDismissView>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
@@ -110,6 +114,7 @@ export default function NewRoutineScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets
+          {...keyboardScrollProps}
           data={items}
           keyExtractor={(item) => item.id}
           onDragEnd={({ data }) => reorderItems(data)}
@@ -117,7 +122,7 @@ export default function NewRoutineScreen() {
             <View style={styles.headerSections}>
               <View>
                 <Text style={styles.label}>루틴 이름</Text>
-                <TextInput
+                <AppTextInput
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
@@ -135,7 +140,7 @@ export default function NewRoutineScreen() {
                       <Pressable
                         key={item}
                         style={[styles.categoryChip, selected && styles.categoryChipSelected]}
-                        onPress={() => setCategory(item)}
+                        onPress={dismissThen(() => setCategory(item))}
                       >
                         <Text
                           style={[
@@ -176,9 +181,10 @@ export default function NewRoutineScreen() {
           )}
         />
       </SafeAreaView>
-      </Pressable>
+      </KeyboardDismissView>
       {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
           AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
+      <PlanLimitSheet limit={limitSheet} onClose={() => setLimitSheet(null)} />
       <AppAlertModal />
     </ScreenBackground>
   );
@@ -191,14 +197,13 @@ type RoutineItemRowProps = {
   onDrag: () => void;
   onRemove: () => void;
   onChangeField: (
-    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes" | "targetDurationSeconds",
+    field: "targetSets" | "targetReps" | "targetWeight" | "targetDurationMinutes",
     value: string
   ) => void;
 };
 
 function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeField }: RoutineItemRowProps) {
-  const isCardio = exercise?.muscleGroup === "CARDIO";
-  const isFunctional = exercise?.muscleGroup === "FUNCTIONAL";
+  const isCardio = isCardioExercise(exercise);
   const isBodyweight = isBodyweightExercise(exercise);
 
   return (
@@ -218,19 +223,6 @@ function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeFi
             label="목표 시간(분)"
             value={item.targetDurationMinutes}
             onChangeText={(value) => onChangeField("targetDurationMinutes", value)}
-          />
-        </View>
-      ) : isFunctional ? (
-        <View style={styles.itemInputRow}>
-          <ItemInput
-            label="세트"
-            value={item.targetSets}
-            onChangeText={(value) => onChangeField("targetSets", value)}
-          />
-          <ItemInput
-            label="목표 시간(초)"
-            value={item.targetDurationSeconds}
-            onChangeText={(value) => onChangeField("targetDurationSeconds", value)}
           />
         </View>
       ) : (
@@ -268,7 +260,7 @@ function ItemInput({ label, value, onChangeText }: ItemInputProps) {
   return (
     <View style={styles.itemInputGroup}>
       <Text style={styles.itemInputLabel}>{label}</Text>
-      <TextInput
+      <AppTextInput
         style={styles.itemInput}
         value={value}
         onChangeText={onChangeText}
@@ -280,9 +272,6 @@ function ItemInput({ label, value, onChangeText }: ItemInputProps) {
 }
 
 const styles = StyleSheet.create({
-  dismissKeyboardArea: {
-    flex: 1,
-  },
   safeArea: {
     flex: 1,
   },

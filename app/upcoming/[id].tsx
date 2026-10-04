@@ -1,22 +1,26 @@
 import { ChevronLeft } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { appAlert } from "../../lib/alert";
+import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppTextInput } from "../../components/AppTextInput";
+import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { isBodyweightExercise, toDisplayMuscleGroup } from "../../constants/exercises";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiSessionLogDetail, useDeleteSession, useSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 import { estimateSessionDurationMinutes } from "../../lib/session/sessionDisplay";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
-type Draft = Record<string, { sets: string; reps: string; weight: string }>;
+// minutes는 유산소(CARDIO) 종목의 목표 시간(분) — 서버 exercise.type 기준으로 sets/reps/weight와 배타적으로 쓴다.
+type Draft = Record<string, { sets: string; reps: string; weight: string; minutes: string }>;
 
 function buildDraft(logs: ApiSessionLogDetail[]): Draft {
   const next: Draft = {};
@@ -25,6 +29,7 @@ function buildDraft(logs: ApiSessionLogDetail[]): Draft {
       sets: String(log.targetSets ?? ""),
       reps: String(log.targetReps ?? ""),
       weight: String(log.targetWeight ?? ""),
+      minutes: log.targetDurationSeconds != null ? String(Math.round(log.targetDurationSeconds / 60)) : "",
     };
   });
   return next;
@@ -80,7 +85,7 @@ export default function UpcomingWorkoutScreen() {
     setErrorLogIds(new Set());
   };
 
-  const handleDraftChange = (logId: string, field: "sets" | "reps" | "weight", value: string) => {
+  const handleDraftChange = (logId: string, field: "sets" | "reps" | "weight" | "minutes", value: string) => {
     const nextValue = field === "weight" ? sanitizeWeightInput(value) : value;
     setDraft((prev) => ({ ...prev, [logId]: { ...prev[logId], [field]: nextValue } }));
   };
@@ -89,6 +94,18 @@ export default function UpcomingWorkoutScreen() {
     const nextErrors = new Set<string>();
     const updateItems = logs.map((log) => {
       const entry = draft[log.id];
+      if (isCardioExercise(exerciseMap.get(log.exerciseId))) {
+        // 유산소는 목표 시간만 보낸다(sets/reps/weight를 같이 보내면 서버가 400).
+        const minutes = Number(entry?.minutes);
+        const valid = Number.isFinite(minutes) && minutes > 0;
+        if (!valid) nextErrors.add(log.id);
+        return {
+          logId: log.id,
+          exerciseId: log.exerciseId,
+          sortOrder: log.sortOrder,
+          targetDurationSeconds: valid ? minutes * 60 : log.targetDurationSeconds ?? undefined,
+        };
+      }
       const sets = Number(entry?.sets);
       const reps = Number(entry?.reps);
       // 맨몸 종목은 무게 입력란이 없으므로 검증을 건너뛰고 weight=0으로 보낸다
@@ -119,8 +136,8 @@ export default function UpcomingWorkoutScreen() {
     try {
       await patchSession.mutateAsync({ sessionId: id, updateItems });
       setIsEditing(false);
-    } catch {
-      appAlert("수정 사항을 저장하지 못했어요. 다시 시도해주세요.");
+    } catch (error) {
+      appAlert(getKoreanApiErrorMessage(error) ?? "수정 사항을 저장하지 못했어요. 다시 시도해주세요.");
     } finally {
       setSaving(false);
     }
@@ -171,6 +188,8 @@ export default function UpcomingWorkoutScreen() {
         status: "IN_PROGRESS",
         ...(correctDateToToday ? { date: getTodayISODate() } : {}),
       });
+      // 예약 출신 표시 — 기록 없이 종료하면 삭제 대신 예약으로 되돌린다.
+      useWorkoutSessionStore.getState().markScheduledOrigin(id);
       router.push(`/workout/${id}`);
     } catch {
       appAlert("운동을 시작하지 못했어요. 다시 시도해주세요.");
@@ -215,6 +234,7 @@ export default function UpcomingWorkoutScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets
+          {...keyboardScrollProps}
         >
           <View style={styles.summaryCard}>
             {muscleGroup && (
@@ -236,23 +256,38 @@ export default function UpcomingWorkoutScreen() {
               const exerciseName = exercise ? formatExerciseName(exercise) : "알 수 없는 운동";
               const hasError = errorLogIds.has(log.id);
 
+              const isCardio = isCardioExercise(exercise);
+
               if (!isEditing) {
                 return (
                   <View key={log.id} style={styles.itemCard}>
                     <Text style={styles.itemName}>{exerciseName}</Text>
+                    {isCardio ? (
+                      <Text style={styles.itemTarget}>{Math.round((log.targetDurationSeconds ?? 0) / 60)}분</Text>
+                    ) : (
                     <Text style={styles.itemTarget}>
                       {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회
                       {isBodyweightExercise(exercise) ? "" : ` × ${log.targetWeight ?? 0}kg`}
                     </Text>
+                    )}
                   </View>
                 );
               }
 
-              const entry = draft[log.id] ?? { sets: "", reps: "", weight: "" };
+              const entry = draft[log.id] ?? { sets: "", reps: "", weight: "", minutes: "" };
               return (
                 <View key={log.id} style={styles.itemCard}>
                   <Text style={styles.itemName}>{exerciseName}</Text>
                   <View style={styles.itemEditRow}>
+                    {isCardio ? (
+                      <EditField
+                        label="목표 시간(분)"
+                        value={entry.minutes}
+                        hasError={hasError}
+                        onChangeText={(value) => handleDraftChange(log.id, "minutes", value)}
+                      />
+                    ) : (
+                    <>
                     <EditField
                       label="세트"
                       value={entry.sets}
@@ -272,6 +307,8 @@ export default function UpcomingWorkoutScreen() {
                         hasError={hasError}
                         onChangeText={(value) => handleDraftChange(log.id, "weight", value)}
                       />
+                    )}
+                    </>
                     )}
                   </View>
                   {hasError && (
@@ -328,7 +365,7 @@ function EditField({ label, value, hasError, onChangeText }: EditFieldProps) {
   return (
     <View style={styles.itemInputGroup}>
       <Text style={styles.itemInputLabel}>{label}</Text>
-      <TextInput
+      <AppTextInput
         style={[styles.itemInput, hasError && styles.itemInputError]}
         value={value}
         onChangeText={onChangeText}
