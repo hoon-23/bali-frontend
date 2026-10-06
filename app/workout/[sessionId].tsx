@@ -5,6 +5,7 @@ import { isAxiosError } from "axios";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  AppState,
   Modal,
   Pressable,
   ScrollView,
@@ -33,6 +34,8 @@ import {
   ActualField,
   ExerciseLog,
   SetTiming,
+  runningElapsedSeconds,
+  settleRunningTimers,
   useWorkoutSessionStore,
 } from "../../store/workoutSessionStore";
 
@@ -97,6 +100,9 @@ const FALLBACK_LOGS: ExerciseLog[] = [
     actualDurationSeconds: "0",
     completed: false,
     setTimings: [],
+    durationStartedAt: null,
+    setStartedAt: null,
+    setReminderId: null,
   },
 ];
 
@@ -122,6 +128,9 @@ function buildLogsFromApiTemplate(
       actualDurationSeconds: "0",
       completed: false,
       setTimings: [],
+      durationStartedAt: null,
+      setStartedAt: null,
+      setReminderId: null,
     };
   });
 }
@@ -158,6 +167,9 @@ function buildLogsFromApiSession(
         actualDurationSeconds: log.actualDurationSeconds != null ? String(log.actualDurationSeconds) : "0",
         completed: log.completed,
         setTimings: log.setTimings ?? [],
+        durationStartedAt: null,
+        setStartedAt: null,
+        setReminderId: null,
       };
     });
 }
@@ -200,6 +212,12 @@ export default function WorkoutSessionScreen() {
   const adjustActualSets = useWorkoutSessionStore((state) => state.adjustActualSets);
   const setTargetSets = useWorkoutSessionStore((state) => state.setTargetSets);
   const recordSetTiming = useWorkoutSessionStore((state) => state.recordSetTiming);
+  const startDuration = useWorkoutSessionStore((state) => state.startDuration);
+  const stopDuration = useWorkoutSessionStore((state) => state.stopDuration);
+  const startSet = useWorkoutSessionStore((state) => state.startSet);
+  const setSetReminderId = useWorkoutSessionStore((state) => state.setSetReminderId);
+  const settleLogTimers = useWorkoutSessionStore((state) => state.settleLogTimers);
+  const settleAllTimers = useWorkoutSessionStore((state) => state.settleAllTimers);
   const completeLog = useWorkoutSessionStore((state) => state.completeLog);
   const uncompleteLog = useWorkoutSessionStore((state) => state.uncompleteLog);
   const handleAddExercisePress = useSingleTapNavigate(() =>
@@ -272,8 +290,9 @@ export default function WorkoutSessionScreen() {
   // 종료 직전, 완료 체크 안 한 로그 중 기록이 있는 것을 서버에 저장한다(completed는 보내지 않음).
   // 서버가 부분 수행(경험치 50)을 판정하려면 미완료 종목의 기록도 서버에 있어야 한다.
   // 실패해도 종료는 막지 않는다(오류 로깅은 인터셉터가 처리).
-  const flushIncompleteLogs = async () => {
-    const targets = logs.filter((log) => !log.completed && logHasRecord(log));
+  // settledLogs: 흐르던 타이머를 정산한 직후의 로그(렌더 시점 logs는 정산 전 값이라 쓰지 않는다).
+  const flushIncompleteLogs = async (settledLogs: ExerciseLog[]) => {
+    const targets = settledLogs.filter((log) => !log.completed && logHasRecord(log));
     const results = await Promise.allSettled(
       targets.map((log) => {
         const exercise = exerciseMap.get(log.exerciseId);
@@ -294,7 +313,7 @@ export default function WorkoutSessionScreen() {
   // 기록이 하나도 없는 채 종료 — COMPLETED를 보내지 않고 세션을 정리한다.
   // 예약 출신이고 날짜가 오늘/미래면 SCHEDULED로 되돌려 예약을 유지(로그 보존),
   // 즉흥 시작이거나 날짜가 지난 예약이면 삭제(하드 삭제)한다. 실패해도 종료 흐름은 막지 않는다.
-  const discardEmptySession = async () => {
+  const discardEmptySession = async (settledLogs: ExerciseLog[]) => {
     // 메모리 값이 없으면(앱 재시작 등) 영속 저장된 값으로 복구한다. 둘 다 없으면 즉흥 시작으로
     // 간주해 DELETE — 예약이 아닌 세션을 SCHEDULED로 되돌리면 없던 예정 운동이 생기기 때문이다.
     const originId = scheduledOriginSessionId ?? (await loadScheduledOrigin());
@@ -305,7 +324,7 @@ export default function WorkoutSessionScreen() {
       if (keepSchedule) {
         // 체크만 하고 기록이 0인 완료 로그는 먼저 해제 — 되돌린 예약을 다시 열 때 완료로 보이지 않게.
         // 해제 실패가 되돌리기를 막지는 않는다. date는 보내지 않는다(바뀌면 안 됨).
-        const checked = logs.filter((log) => log.completed);
+        const checked = settledLogs.filter((log) => log.completed);
         await Promise.allSettled(
           checked.map((log) =>
             patchSessionLog.mutateAsync({ sessionId, logId: log.id, completed: false })
@@ -330,12 +349,43 @@ export default function WorkoutSessionScreen() {
     }
   };
 
+  // 세트 리마인드 알림 취소 — 알림 id는 스토어에 있어서 화면을 닫았다 열어도 취소할 수 있다.
+  // 정산/세트 완료가 스토어의 id를 비우기 전에 호출해야 한다. 실패해도 흐름은 막지 않는다.
+  const cancelSetReminders = (targetLogs: ExerciseLog[]) => {
+    targetLogs.forEach((log) => {
+      if (log.setStartedAt && log.setReminderId) cancelSetTimerReminder(log.setReminderId).catch(() => {});
+    });
+  };
+
+  // "세트 시작" — 스토어에 시작 시각을 올리고 리마인드 알림을 예약해 id를 스토어에 저장한다.
+  // 권한 거부 등으로 id가 null이거나 예약이 실패하면 알림 없이 조용히 진행한다.
+  const handleStartSet = (logId: string) => {
+    startSet(logId);
+    scheduleSetTimerReminder()
+      .then((id) => {
+        if (!id) return;
+        // 예약이 끝나기 전에 세트가 이미 끝났다면 저장하지 않고 바로 취소한다.
+        if (!setSetReminderId(logId, id)) cancelSetTimerReminder(id).catch(() => {});
+      })
+      .catch(() => {});
+  };
+
+  // "세트 완료" — 기록을 붙이기 전에 스토어의 알림 id로 취소한다(기록이 id를 비운다).
+  const handleRecordSetTiming = (logId: string, timing: SetTiming) => {
+    cancelSetReminders(useWorkoutSessionStore.getState().logs.filter((log) => log.id === logId));
+    recordSetTiming(logId, timing);
+  };
+
   const handleFinish = async (perceivedDifficulty?: number) => {
-    if (isRealSession && !logs.some(logHasRecord)) {
-      await discardEmptySession();
+    // 서버 전송·요약 화면 이동 전에 흐르던 타이머(유산소 구간/진행 중 세트)를 먼저 정산한다.
+    cancelSetReminders(useWorkoutSessionStore.getState().logs);
+    settleAllTimers();
+    const settledLogs = useWorkoutSessionStore.getState().logs;
+    if (isRealSession && !settledLogs.some(logHasRecord)) {
+      await discardEmptySession(settledLogs);
     } else if (isRealSession) {
       // 모든 flush PATCH가 끝난 뒤에 status PATCH를 보낸다.
-      await flushIncompleteLogs();
+      await flushIncompleteLogs(settledLogs);
       try {
         const completed = await patchSession.mutateAsync({ sessionId, status: "COMPLETED", perceivedDifficulty });
         setXpResult(completed.xp ?? null);
@@ -362,14 +412,17 @@ export default function WorkoutSessionScreen() {
       setShowDifficultyModal(true);
       return;
     }
-    appAlert("완료하지 않은 세트가 있어요", "그래도 운동을 종료할까요?", [
+    appAlert("완료하지 않은 운동이 있어요", "그래도 운동을 종료할까요?", [
       { text: "계속 할게요", style: "cancel" },
       {
         text: "종료",
         style: "destructive",
         // 기록이 하나도 없으면 운동강도 모달 없이 바로 종료(모달의 "건너뛰기"와 같은 경로).
+        // 흐르는 중인 타이머 시간도 기록으로 친다 — 실제 정산은 handleFinish에서 한다.
         onPress: () => {
-          if (logs.some(logHasRecord)) setShowDifficultyModal(true);
+          const nowMs = Date.now();
+          const latestLogs = useWorkoutSessionStore.getState().logs;
+          if (latestLogs.some((log) => logHasRecord(settleRunningTimers(log, nowMs)))) setShowDifficultyModal(true);
           else handleFinish();
         },
       },
@@ -400,9 +453,13 @@ export default function WorkoutSessionScreen() {
 
   // "완료로 표시" — 항상 즉시 완료한다(확인 알럿 없음). 미달 완료일 때만 "되돌리기" 토스트로 안내한다.
   const handleCompleteLog = async (log: ExerciseLog) => {
+    // 흐르던 타이머를 먼저 정산해 그 시간까지 서버에 보낸다 — 완료 후 이 운동의 타이머는 멈춘 상태가 된다.
+    cancelSetReminders(useWorkoutSessionStore.getState().logs.filter((item) => item.id === log.id));
+    settleLogTimers(log.id);
+    const settledLog = useWorkoutSessionStore.getState().logs.find((item) => item.id === log.id) ?? log;
     const isCardio = isCardioExercise(exerciseMap.get(log.exerciseId));
-    const reached = isLogTargetReached(log, isCardio);
-    const ok = await doComplete(log);
+    const reached = isLogTargetReached(settledLog, isCardio);
+    const ok = await doComplete(settledLog);
     if (!ok) return;
     if (!reached) {
       showToast("완료로 표시했어요", "되돌리기", () => {
@@ -498,7 +555,10 @@ export default function WorkoutSessionScreen() {
           onChangeField={(field, value) => updateField(activeLog.id, field, value)}
           onAdjustSets={(delta) => adjustActualSets(activeLog.id, delta)}
           onAdjustTargetSets={(delta) => handleAdjustTargetSets(activeLog, delta)}
-          onRecordSetTiming={(timing) => recordSetTiming(activeLog.id, timing)}
+          onRecordSetTiming={(timing) => handleRecordSetTiming(activeLog.id, timing)}
+          onStartSet={() => handleStartSet(activeLog.id)}
+          onStartDuration={() => startDuration(activeLog.id)}
+          onStopDuration={() => stopDuration(activeLog.id)}
           onComplete={() => handleCompleteLog(activeLog)}
           onResume={() => handleResumeLog(activeLog)}
         />
@@ -524,7 +584,9 @@ export default function WorkoutSessionScreen() {
           const statusText = isCardio
             ? log.completed
               ? `${formatSeconds(Number(log.actualDurationSeconds) || 0)} 완료`
-              : formatSeconds(log.targetDurationSeconds)
+              : Number(log.targetDurationSeconds) > 0
+                ? formatSeconds(log.targetDurationSeconds)
+                : "" // 목표 시간이 없으면 표기 생략
             : log.completed
               ? `${log.actualSets || 0}세트 완료`
               : `${log.actualSets || 0}/${log.targetSets} 세트`;
@@ -620,6 +682,9 @@ type ActiveExercisePanelProps = {
   onAdjustSets: (delta: number) => void;
   onAdjustTargetSets: (delta: number) => void;
   onRecordSetTiming: (timing: SetTiming) => void;
+  onStartSet: () => void;
+  onStartDuration: () => void;
+  onStopDuration: () => void;
   onComplete: () => void;
   onResume: () => void;
 };
@@ -634,6 +699,9 @@ function ActiveExercisePanel({
   onAdjustSets,
   onAdjustTargetSets,
   onRecordSetTiming,
+  onStartSet,
+  onStartDuration,
+  onStopDuration,
   onComplete,
   onResume,
 }: ActiveExercisePanelProps) {
@@ -663,7 +731,9 @@ function ActiveExercisePanel({
           <DurationTimer
             targetDurationSeconds={log.targetDurationSeconds}
             actualDurationSeconds={Number(log.actualDurationSeconds) || 0}
-            onChangeDuration={(seconds) => onChangeField("actualDurationSeconds", String(seconds))}
+            startedAt={log.durationStartedAt}
+            onStart={onStartDuration}
+            onStop={onStopDuration}
           />
 
           <Pressable
@@ -677,7 +747,13 @@ function ActiveExercisePanel({
         </>
       ) : (
         <>
-          <SetTimer setTimings={log.setTimings} targetSets={log.targetSets} onRecordSetTiming={onRecordSetTiming} />
+          <SetTimer
+            setTimings={log.setTimings}
+            targetSets={log.targetSets}
+            startedAt={log.setStartedAt}
+            onStart={onStartSet}
+            onRecordSetTiming={onRecordSetTiming}
+          />
 
           <View style={styles.targetSetsRow}>
             <Text style={styles.targetSetsLabel}>목표 세트 수</Text>
@@ -750,67 +826,60 @@ function ActiveExercisePanel({
 type SetTimerProps = {
   setTimings: SetTiming[];
   targetSets: number;
+  // 진행 중 세트의 시작 시각(스토어 값) — null이 아니면 세트가 진행 중이다.
+  startedAt: string | null;
+  onStart: () => void;
   onRecordSetTiming: (timing: SetTiming) => void;
 };
+
+// 타이머가 흐르는 동안 화면 갱신용으로 1초마다 현재 시각을 돌려준다.
+// 시간 계산 자체는 스토어의 시작 시각 기준이라, 백그라운드에서 tick이 밀리거나 화면을 닫았다
+// 열어도 값이 어긋나지 않는다. 앱이 다시 활성화되면 다음 tick을 기다리지 않고 바로 갱신한다.
+function useNowTick(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setNow(Date.now());
+    });
+    // 언마운트/정지 시엔 tick만 정리한다 — 스토어의 시작 시각은 건드리지 않는다.
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [active]);
+  return now;
+}
 
 // 세트별 스톱워치. pause 없음 — "세트 시작" → "세트 완료" 한 번씩만 눌러
 // 세트 하나의 시작/종료 시각을 기록한다(휴식시간은 추적하지 않음).
 // 목표 세트 수를 넘겨도 계속 기록할 수 있게 두되(추가 세트를 실제로 더 하는 경우 대비),
 // 목표 초과 여부만 라벨로 구분해서 보여준다.
-function SetTimer({ setTimings, targetSets, onRecordSetTiming }: SetTimerProps) {
-  const [running, setRunning] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const startedAtRef = useRef<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // "세트 완료"를 깜빡하고 폰을 놓아버린 경우를 잡기 위한 리마인드 알림 id.
-  // 다른 운동으로 전환/화면 이탈해도(컴포넌트 unmount) 일부러 취소하지 않는다 —
-  // 오히려 그게 "깜빡했을" 상황이라 알림이 그대로 울려야 의미가 있다.
-  const reminderIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
+function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTiming }: SetTimerProps) {
+  const running = startedAt != null;
+  const now = useNowTick(running);
+  const elapsedSeconds = runningElapsedSeconds(startedAt, now);
+  // "세트 완료"를 깜빡하고 폰을 놓아버린 경우를 잡기 위한 리마인드 알림은 스토어(setReminderId)에
+  // 있고 예약/취소는 화면 핸들러가 맡는다. 다른 운동으로 전환/화면 이탈(unmount)해도 일부러
+  // 취소하지 않는다 — 그게 "깜빡했을" 상황이라 알림이 울려야 의미가 있다. 다만 돌아와서
+  // "세트 완료"/완료로 표시를 하면 스토어의 id로 취소된다.
   const currentSetIndex = setTimings.length;
   const isOverTarget = targetSets > 0 && currentSetIndex + 1 > targetSets;
 
   const handleStart = () => {
-    const now = new Date();
-    startedAtRef.current = now.toISOString();
-    setElapsedSeconds(0);
-    setRunning(true);
-    // 잠금화면 등으로 백그라운드에 가면 setInterval이 지연/스킵될 수 있어서,
-    // 카운터를 그냥 +1 하면 실제 경과 시간과 어긋난다(예: 화면 표시 00:05, 실제 45초).
-    // 매 tick마다 startedAt 기준 실제 경과 시간을 다시 계산해 값을 맞춘다.
-    intervalRef.current = setInterval(() => {
-      const startedAt = startedAtRef.current;
-      if (!startedAt) return;
-      setElapsedSeconds(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
-    }, 1000);
-    scheduleSetTimerReminder()
-      .then((id) => {
-        reminderIdRef.current = id;
-      })
-      .catch(() => {});
+    onStart();
   };
 
   const handleStop = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRunning(false);
-    if (startedAtRef.current) {
+    if (startedAt) {
+      // 스토어의 recordSetTiming이 기록을 붙이면서 진행 중 세트 시작 시각도 함께 비운다.
       onRecordSetTiming({
         setIndex: currentSetIndex,
-        startedAt: startedAtRef.current,
+        startedAt,
         endedAt: new Date().toISOString(),
       });
-    }
-    startedAtRef.current = null;
-    setElapsedSeconds(0);
-    if (reminderIdRef.current) {
-      cancelSetTimerReminder(reminderIdRef.current).catch(() => {});
-      reminderIdRef.current = null;
     }
   };
 
@@ -842,49 +911,21 @@ function formatSeconds(total: number): string {
 
 type DurationTimerProps = {
   targetDurationSeconds: number;
+  // 멈춘 구간까지의 누적 시간(스토어 값).
   actualDurationSeconds: number;
-  onChangeDuration: (totalSeconds: number) => void;
+  // 지금 흐르는 구간의 시작 시각(스토어 값) — null이 아니면 측정 중이다.
+  startedAt: string | null;
+  onStart: () => void;
+  onStop: () => void;
 };
 
-// 유산소용 단일 누적 스톱워치 — 세트 개념이 없어서 시작/정지를 여러 번 오갈 수 있고,
-// 정지할 때마다 누적 시간을 onChangeDuration으로 알린다(일시정지 후 이어서 측정 가능).
-function DurationTimer({ targetDurationSeconds, actualDurationSeconds, onChangeDuration }: DurationTimerProps) {
-  const [running, setRunning] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(actualDurationSeconds);
-  const baseSecondsRef = useRef(actualDurationSeconds);
-  const startedAtRef = useRef<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  const handleStart = () => {
-    startedAtRef.current = new Date().toISOString();
-    setRunning(true);
-    intervalRef.current = setInterval(() => {
-      const startedAt = startedAtRef.current;
-      if (!startedAt) return;
-      const delta = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
-      setElapsedSeconds(baseSecondsRef.current + delta);
-    }, 1000);
-  };
-
-  const handleStop = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setRunning(false);
-    const startedAt = startedAtRef.current;
-    if (startedAt) {
-      const delta = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
-      const total = baseSecondsRef.current + delta;
-      baseSecondsRef.current = total;
-      setElapsedSeconds(total);
-      onChangeDuration(total);
-    }
-    startedAtRef.current = null;
-  };
+// 유산소용 단일 누적 스톱워치 — 세트 개념이 없어서 시작/정지를 여러 번 오갈 수 있다(일시정지 후 이어서 측정 가능).
+// 시작 시각과 누적 시간은 스토어에 있어서, 화면을 닫았다 열어도 흐르던 시간이 이어진다.
+function DurationTimer({ targetDurationSeconds, actualDurationSeconds, startedAt, onStart, onStop }: DurationTimerProps) {
+  const running = startedAt != null;
+  const now = useNowTick(running);
+  // 표시 시간 = 누적 시간 + 흐르는 구간 — 정지하면 스토어가 같은 계산으로 누적 시간에 합친다.
+  const elapsedSeconds = actualDurationSeconds + runningElapsedSeconds(startedAt, now);
 
   return (
     <View style={styles.timerWrap}>
@@ -894,7 +935,7 @@ function DurationTimer({ targetDurationSeconds, actualDurationSeconds, onChangeD
       <Text style={styles.timerClock}>{formatSeconds(elapsedSeconds)}</Text>
       <Pressable
         style={[styles.timerButton, running && styles.timerButtonActive]}
-        onPress={running ? handleStop : handleStart}
+        onPress={running ? onStop : onStart}
       >
         <Text style={styles.timerButtonText}>
           {running ? "일시정지" : elapsedSeconds > 0 ? "이어서 측정" : "측정 시작"}
