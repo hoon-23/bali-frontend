@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { type DimensionValue, type StyleProp, StyleSheet, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -25,11 +25,25 @@ type SkeletonProps = {
   radius?: number;
   // 여백(marginVertical 등)이나 위치 보정용 추가 스타일.
   style?: StyleProp<ViewStyle>;
+  // 이 시간(ms)이 지난 뒤에야 보인다. 그동안은 같은 크기의 투명한 자리만 차지해 레이아웃은 그대로다.
+  // 캐시/빠른 응답으로 스켈레톤이 100~200ms 번쩍이는 것을 막는다. 기본 0이면 즉시 보인다.
+  delayMs?: number;
 };
 
 // 데이터가 처음 도착하기 전, 실제 콘텐츠 자리에 같은 크기로 그려 두는 자리표시 막대.
 // 불투명도를 천천히 오르내리며 "불러오는 중"임을 알리고, 동작 줄이기 설정이 켜져 있으면 멈춘 채로 둔다.
-export function Skeleton({ width = "100%", height, radius, style }: SkeletonProps) {
+export function Skeleton({ width = "100%", height, radius, style, delayMs = 0 }: SkeletonProps) {
+  const [visible, setVisible] = useState(delayMs <= 0);
+
+  useEffect(() => {
+    if (delayMs <= 0) {
+      setVisible(true);
+      return;
+    }
+    const timer = setTimeout(() => setVisible(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [delayMs]);
+
   const reduceMotion = useReducedMotion();
   const opacity = useSharedValue(PULSE_MAX_OPACITY);
 
@@ -63,13 +77,17 @@ export function Skeleton({ width = "100%", height, radius, style }: SkeletonProp
         styles.base,
         { width, height, borderRadius: radius ?? Math.min(8, height / 2) },
         style,
-        animatedStyle,
+        visible ? animatedStyle : styles.hidden,
       ]}
     />
   );
 }
 
 const styles = StyleSheet.create({
+  // 표시 지연 중에는 자리만 차지한다.
+  hidden: {
+    opacity: 0,
+  },
   // 어두운 카드 배경(#1C1C25) 위에서 은은하게 보이는 밝기.
   base: {
     backgroundColor: "rgba(255, 255, 255, 0.09)",

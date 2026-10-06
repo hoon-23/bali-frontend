@@ -161,15 +161,13 @@ function MuscleRowsSkeleton() {
             <Skeleton width={labelWidth} height={13} style={styles.textLineSkeleton} />
             <Skeleton width={28} height={12} />
           </View>
-          <Skeleton height={6} radius={3} />
+          {/* 실제 행과 같은 트랙(채움 없음) — 데이터가 오면 막대가 이 자리에서 차오른다. */}
+          <View style={styles.progressTrack} />
         </View>
       ))}
     </>
   );
 }
-
-// 주간 막대 그래프 최초 로딩 중 막대 높이(px, 트랙 90px 기준) — 들쭉날쭉하게 줘서 "0분" 막대와 구분되게 한다.
-const BAR_SKELETON_HEIGHTS = [36, 58, 28, 66, 44, 30, 50];
 
 const DAILY_TARGET_MINUTES = 60;
 const WEEKLY_TARGET_MINUTES = 480; // 8h — 백엔드에 사용자 목표 개념이 없어 고정 표시값
@@ -373,22 +371,20 @@ export default function StatsScreen() {
                   {weekBarMinutes.map((value, index) => (
                     <View key={index} style={styles.barColumn}>
                       <View style={styles.barTrack}>
-                        {dailyThisWeek.isPending ? (
-                          <Skeleton width={18} height={BAR_SKELETON_HEIGHTS[index]} radius={6} />
-                        ) : (
-                          <AnimatedBar
-                            direction="vertical"
-                            progress={maxBarValue > 0 ? value / maxBarValue : 0}
-                            delay={index * 60}
-                            style={[
-                              styles.bar,
-                              {
-                                backgroundColor:
-                                  index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
-                              },
-                            ]}
-                          />
-                        )}
+                        {/* 로딩 중에도 같은 막대를 유지하고 progress만 0으로 둔다(스켈레톤으로 모양을 바꾸지 않는다).
+                            데이터가 오면 같은 인스턴스가 0에서 목표값으로 차오른다. */}
+                        <AnimatedBar
+                          direction="vertical"
+                          progress={dailyThisWeek.isPending || maxBarValue <= 0 ? 0 : value / maxBarValue}
+                          delay={index * 60}
+                          style={[
+                            styles.bar,
+                            {
+                              backgroundColor:
+                                index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
+                            },
+                          ]}
+                        />
                       </View>
                       <Text style={styles.barLabel}>{WEEKDAY_LABELS_MON_FIRST[index]}</Text>
                     </View>
@@ -400,7 +396,7 @@ export default function StatsScreen() {
                 <View style={styles.totalTimeRow}>
                   <Text style={styles.cardTitle}>총 운동시간</Text>
                   {weekSummaryPending ? (
-                    <Skeleton width={72} height={18} style={styles.totalTimeSkeleton} />
+                    <Skeleton width={72} height={18} style={styles.totalTimeSkeleton} delayMs={150} />
                   ) : (
                     <Text style={styles.totalTimeValue}>
                       {totalWorkoutMinutes != null ? formatHours(totalWorkoutMinutes) : "—"}
@@ -465,7 +461,7 @@ export default function StatsScreen() {
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>총 운동시간</Text>
                   {monthSummaryPending ? (
-                    <Skeleton width={64} height={17} style={styles.summaryValueSkeleton} />
+                    <Skeleton width={64} height={17} style={styles.summaryValueSkeleton} delayMs={150} />
                   ) : (
                     <Text style={styles.summaryValue}>
                       {monthTotalMinutes != null ? formatHours(monthTotalMinutes) : "—"}
