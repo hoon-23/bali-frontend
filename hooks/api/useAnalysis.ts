@@ -50,7 +50,8 @@ export type AnalysisSummaryResponse = {
   totalWorkoutMinutes: number;
   volumeByExercise: Record<string, number>;
   volumeByMuscleGroup: Partial<Record<AnalysisMuscleGroup, number>>;
-  cardioTotalMinutes: number;
+  // 구버전 행은 null일 수 있다.
+  cardioTotalMinutes: number | null;
   completionRate: number;
   volumeChangeFromLastWeekPercent: number | null;
   // 아래 3개는 맨몸 운동 지원과 함께 추가된 필드 — 구버전 서버 응답에는 없을 수 있어 optional.

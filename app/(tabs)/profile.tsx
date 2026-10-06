@@ -1,3 +1,4 @@
+import { AnimatedBar } from "../../components/AnimatedBar";
 import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
@@ -156,7 +157,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${expProgress}%` }]} />
+              <AnimatedBar progress={expProgress / 100} style={styles.progressFill} />
             </View>
           </View>
 

@@ -1,3 +1,4 @@
+import { AnimatedBar } from "../../components/AnimatedBar";
 import { Bell, ChevronDown, ChevronRight, ChevronUp } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -89,6 +90,7 @@ export default function HomeScreen() {
   const unreadCount = useUnreadNotificationCount();
   const { data: lifetime } = useLifetimeStats();
   // 리포트 주간 보기(이번 주)와 같은 데이터·같은 계산으로 맞춘다.
+  // 월간 분석 API는 무료 플랜에서 403(MONTHLY_INSIGHTS)이라 월간 인사이트는 리포트 탭에만 둔다.
   const { data: weeklyCurrent } = useWeeklyCurrent();
   const topMuscleGroupsWeek = computeTopMuscleGroups(weeklyCurrent?.summary);
   const { data: exercises } = useExercises();
@@ -197,6 +199,32 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
+          {/* 로딩 전에도 같은 높이를 잡아 두어 데이터가 와도 아래 요소가 밀리지 않는다. */}
+          <Pressable
+            style={styles.xpRow}
+            disabled={!me?.level}
+            onPress={() => router.push("/profile")}
+            accessibilityRole="button"
+            accessibilityLabel="프로필의 경험치 보기"
+          >
+            {me?.level && (
+              <>
+                <View style={styles.xpBody}>
+                  <Text style={styles.xpText}>
+                    {formatThousands(me.level.currentXp)} / {formatThousands(me.level.xpForNextLevel)} XP
+                  </Text>
+                  <View style={styles.xpTrack}>
+                    <AnimatedBar
+                      progress={me.level.xpForNextLevel > 0 ? me.level.currentXp / me.level.xpForNextLevel : 0}
+                      style={styles.xpFill}
+                    />
+                  </View>
+                </View>
+                <ChevronRight size={16} color="#6B6B6B" />
+              </>
+            )}
+          </Pressable>
+
           <View style={styles.statsRow}>
             <StatTile
               label="총 운동일"
@@ -218,7 +246,7 @@ export default function HomeScreen() {
               이번 주 근육군별 집중도
             </Text>
             {topMuscleGroupsWeek.length === 0 && (
-              <Text style={styles.sectionSubcopy}>운동을 기록하면 여기 채워져요</Text>
+              <Text style={styles.sectionSubcopy}>이번 주 운동 기록이 아직 없어요</Text>
             )}
             <View style={styles.card}>
               {topMuscleGroupsWeek.length > 0
@@ -229,7 +257,7 @@ export default function HomeScreen() {
                         <Text style={styles.muscleBarPercent}>{item.percent}%</Text>
                       </View>
                       <View style={styles.muscleBarTrack}>
-                        <View style={[styles.muscleBarFill, { width: `${item.percent}%` }]} />
+                        <AnimatedBar progress={item.percent / 100} style={styles.muscleBarFill} />
                       </View>
                     </View>
                   ))
@@ -239,7 +267,7 @@ export default function HomeScreen() {
                         <Text style={styles.muscleBarLabelMuted}>{item.label}</Text>
                       </View>
                       <View style={styles.muscleBarTrack}>
-                        <View style={[styles.muscleBarFillEmpty, { width: `${item.percent}%` }]} />
+                        <AnimatedBar progress={item.percent / 100} style={styles.muscleBarFillEmpty} />
                       </View>
                     </View>
                   ))}
@@ -551,6 +579,33 @@ const styles = StyleSheet.create({
     color: "#D0D0D0",
     fontSize: 13,
     flexShrink: 1,
+  },
+  // 고정 높이 — 레벨 값이 늦게 와도 레이아웃이 흔들리지 않는다.
+  xpRow: {
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: -8,
+  },
+  xpBody: {
+    flex: 1,
+    gap: 6,
+  },
+  xpText: {
+    color: "#A0A0A0",
+    fontSize: 12,
+  },
+  xpTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
+  },
+  xpFill: {
+    height: "100%",
+    borderRadius: 2,
+    backgroundColor: "#2DD4BF",
   },
   statsRow: {
     flexDirection: "row",

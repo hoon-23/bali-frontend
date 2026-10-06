@@ -3,6 +3,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { AnimatedBar, AnimatedCell } from "../../components/AnimatedBar";
 import { PlanLockCard } from "../../components/PlanLimitSheet";
 import { isLimitExceededError } from "../../lib/api/planLimit";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -66,6 +67,7 @@ function BodyweightRepsSection({
   const entries = Object.entries(summary?.bodyweightRepsByExercise ?? {})
     .filter(([, reps]) => reps > 0)
     .sort((a, b) => b[1] - a[1]);
+  // 해당 기간에 맨몸 운동 기록이 없으면 섹션 전체를 숨긴다.
   if (entries.length === 0) return null;
 
   const change = summary?.bodyweightRepsChangeFromLastWeekPercent;
@@ -87,6 +89,24 @@ function BodyweightRepsSection({
             {formatChangeText(periodLabel, change)}
           </Text>
         )}
+      </View>
+    </View>
+  );
+}
+
+// 유산소 시간 — 근육군 집중도·맨몸 반복수와 같은 위계의 섹션. 시간이 0 또는 null이면 섹션 전체를 숨긴다.
+function CardioTimeSection({ minutes }: { minutes: number | null }) {
+  // 해당 기간의 유산소 시간이 0 또는 null이면 섹션을 표시하지 않는다.
+  if (minutes == null || minutes === 0) return null;
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>유산소 시간</Text>
+      <View style={styles.card}>
+        <View style={styles.totalTimeRow}>
+          <Text style={styles.cardTitle}>총 유산소 시간</Text>
+          <Text style={styles.totalTimeValue}>{formatHours(minutes)}</Text>
+        </View>
       </View>
     </View>
   );
@@ -192,6 +212,12 @@ export default function StatsScreen() {
   const weekSummary = weekOffset === 0 ? weeklyCurrent.data?.summary : weeklyPast.data?.summary;
   const pastWeekUnavailable = weekOffset < 0 && weeklyPast.data !== undefined && weeklyPast.data?.summary == null;
 
+  // 유산소 시간 — 이번 주는 최상위 cardioMinutes, 과거 주는 summary.cardioTotalMinutes. 구버전 행은 null일 수 있어 0으로 표시.
+  const weekCardioMinutes =
+    (weekOffset === 0 ? weeklyCurrent.data?.cardioMinutes : weeklyPast.data?.summary?.cardioTotalMinutes) ?? 0;
+  const monthCardioMinutes =
+    (monthOffset === 0 ? monthlyCurrent.data?.cardioMinutes : monthlyPast.data?.summary?.cardioTotalMinutes) ?? 0;
+
   const topMuscleGroups = useMemo(() => computeTopMuscleGroups(weekSummary), [weekSummary]);
 
   const weekDailyByDate = useMemo(() => dailyMapByDate(dailyThisWeek.data), [dailyThisWeek.data]);
@@ -282,16 +308,20 @@ export default function StatsScreen() {
                 <View style={styles.barChart}>
                   {weekBarMinutes.map((value, index) => (
                     <View key={index} style={styles.barColumn}>
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: Math.max(2, 90 * (value / maxBarValue)),
-                            backgroundColor:
-                              index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
-                          },
-                        ]}
-                      />
+                      <View style={styles.barTrack}>
+                        <AnimatedBar
+                          direction="vertical"
+                          progress={maxBarValue > 0 ? value / maxBarValue : 0}
+                          delay={index * 60}
+                          style={[
+                            styles.bar,
+                            {
+                              backgroundColor:
+                                index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
+                            },
+                          ]}
+                        />
+                      </View>
                       <Text style={styles.barLabel}>{WEEKDAY_LABELS_MON_FIRST[index]}</Text>
                     </View>
                   ))}
@@ -306,13 +336,9 @@ export default function StatsScreen() {
                   </Text>
                 </View>
                 <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${Math.min(100, ((totalWorkoutMinutes ?? 0) / WEEKLY_TARGET_MINUTES) * 100)}%`,
-                      },
-                    ]}
+                  <AnimatedBar
+                    progress={(totalWorkoutMinutes ?? 0) / WEEKLY_TARGET_MINUTES}
+                    style={styles.progressFill}
                   />
                 </View>
               </View>
@@ -340,7 +366,7 @@ export default function StatsScreen() {
                           <Text style={styles.muscleValue}>{item.percent}%</Text>
                         </View>
                         <View style={styles.progressTrack}>
-                          <View style={[styles.progressFill, { width: `${item.percent}%` }]} />
+                          <AnimatedBar progress={item.percent / 100} style={styles.progressFill} />
                         </View>
                       </View>
                     ))
@@ -351,12 +377,14 @@ export default function StatsScreen() {
                 summary={weekSummary}
                 periodLabel="지난주"
               />
+              <CardioTimeSection minutes={weekCardioMinutes} />
 
             </>
           ) : (
             <>
               {monthLocked && <PlanLockCard limit="MONTHLY_INSIGHTS" />}
               {!monthLocked && (
+              <>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>이번 주 운동일</Text>
@@ -369,6 +397,7 @@ export default function StatsScreen() {
                   </Text>
                 </View>
               </View>
+              </>
               )}
 
               <View style={styles.card}>
@@ -409,10 +438,12 @@ export default function StatsScreen() {
                           ? toISODate(new Date(monthDisplayDate.getFullYear(), monthDisplayDate.getMonth(), day))
                           : null;
                       const count = dateStr ? monthDailyByDate.get(dateStr)?.completedSets ?? 0 : 0;
+                      if (day === null) return <View key={dayIndex} style={styles.dayCell} />;
                       return (
-                        <View
+                        <AnimatedCell
                           key={dayIndex}
-                          style={[styles.dayCell, day !== null && { backgroundColor: getHeatColor(count) }]}
+                          index={weekIndex * 7 + dayIndex}
+                          style={[styles.dayCell, { backgroundColor: getHeatColor(count) }]}
                         />
                       );
                     })}
@@ -458,7 +489,7 @@ export default function StatsScreen() {
                           <Text style={styles.muscleValue}>{item.percent}%</Text>
                         </View>
                         <View style={styles.progressTrack}>
-                          <View style={[styles.progressFill, { width: `${item.percent}%` }]} />
+                          <AnimatedBar progress={item.percent / 100} style={styles.progressFill} />
                         </View>
                       </View>
                     ))
@@ -472,6 +503,7 @@ export default function StatsScreen() {
                   periodLabel="지난달"
                 />
               )}
+              {!monthLocked && <CardioTimeSection minutes={monthCardioMinutes} />}
 
             </>
           )}
@@ -596,8 +628,13 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
+  barTrack: {
+    height: 90,
+    justifyContent: "flex-end",
+  },
   bar: {
     width: 18,
+    minHeight: 2,
     borderRadius: 6,
   },
   barLabel: {
