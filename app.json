@@ -3,6 +3,14 @@
     "name": "Swayt",
     "slug": "bali-frontend",
     "version": "1.4.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8c37e3a2-0e18-4469-9f1f-2c227d6e2cb3",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "scheme": "bali-frontend",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
