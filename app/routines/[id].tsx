@@ -363,7 +363,7 @@ function RoutineDetailItemRow({
             </>
           )}
         </View>
-      ) : (
+      ) : isCardio && Math.round((item.targetDurationSeconds ?? 0) / 60) <= 0 ? null : (
         <Text style={styles.itemTarget}>
           {isCardio
             ? `${Math.round((item.targetDurationSeconds ?? 0) / 60)}분`

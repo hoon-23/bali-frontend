@@ -5,7 +5,7 @@ import { breakSentences } from "../lib/format/text";
 
 const ZERO_REASON_TEXT: Record<NonNullable<SessionXpResult["zeroReason"]>, string> = {
   DAILY_LIMIT: "하루 최대 2회까지만 경험치가 쌓여요. 오늘은 한도에 도달했어요.",
-  NO_COMPLETED_LOG: "기록한 운동이 부족해서 경험치가 쌓이지 않았어요. 완료로 표시하거나 세트를 충분히 기록하면 쌓여요.",
+  NO_COMPLETED_LOG: "기록한 운동이 부족해서 경험치가 쌓이지 않았어요. 완료로 표시하거나 운동을 충분히 기록하면 쌓여요.",
 };
 
 // 화면 전환이 끝났다는 신호(start)를 받은 뒤 잠깐 자리 잡을 시간을 두고 시작한다.

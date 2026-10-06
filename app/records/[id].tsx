@@ -8,7 +8,9 @@ import { isBodyweightExercise } from "../../constants/exercises";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
-import { formatExerciseName, useExerciseMap } from "../../hooks/api/useExercises";
+import { formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { formatSetSeconds0 } from "../../lib/format/duration";
+import { hasLogRecord } from "../../lib/session/logRecord";
 import {
   ApiSessionDetail,
   ApiSessionLogDetail,
@@ -156,6 +158,7 @@ export default function SessionRecordScreen() {
                   log={log}
                   exerciseName={exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}
                   isBodyweight={isBodyweightExercise(exercise)}
+                  isCardio={isCardioExercise(exercise)}
                   expanded={expandedId === log.id}
                   onToggle={() => setExpandedId((prev) => (prev === log.id ? null : log.id))}
                 />
@@ -178,22 +181,31 @@ type ExerciseAccordionProps = {
   log: ApiSessionLogDetail;
   exerciseName: string;
   isBodyweight: boolean;
+  isCardio: boolean;
   expanded: boolean;
   onToggle: () => void;
 };
 
-function ExerciseAccordion({ log, exerciseName, isBodyweight, expanded, onToggle }: ExerciseAccordionProps) {
-  const hasActual = log.actualSets != null || log.actualReps != null || log.actualWeight != null;
+function ExerciseAccordion({ log, exerciseName, isBodyweight, isCardio, expanded, onToggle }: ExerciseAccordionProps) {
+  // 유산소는 시간(초)·페이스 기준으로 표기하고, 근력은 기존 세트×회×kg 표기를 그대로 쓴다.
+  const targetMinutes = Math.round((log.targetDurationSeconds ?? 0) / 60);
+  const actualSeconds = log.actualDurationSeconds ?? 0;
+  const hasCardioActual = actualSeconds > 0 || !!log.actualPace;
+  const hasActual = hasLogRecord(log, false);
 
   return (
     <View style={styles.card}>
       <Pressable style={styles.exerciseHeader} onPress={onToggle}>
         <View>
           <Text style={styles.exerciseName}>{exerciseName}</Text>
-          <Text style={styles.exerciseTarget}>
-            목표 {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회
-            {isBodyweight ? "" : ` × ${log.targetWeight ?? 0}kg`}
-          </Text>
+          {isCardio ? (
+            targetMinutes > 0 ? <Text style={styles.exerciseTarget}>목표 {targetMinutes}분</Text> : null
+          ) : (
+            <Text style={styles.exerciseTarget}>
+              목표 {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회
+              {isBodyweight ? "" : ` × ${log.targetWeight ?? 0}kg`}
+            </Text>
+          )}
         </View>
         <View style={styles.exerciseHeaderRight}>
           <View style={[styles.completeBadge, log.completed && styles.completeBadgeActive]}>
@@ -211,12 +223,20 @@ function ExerciseAccordion({ log, exerciseName, isBodyweight, expanded, onToggle
 
       {expanded && (
         <View style={styles.detailBody}>
-          <Text style={styles.detailLine}>
-            기록{" "}
-            {hasActual
-              ? `${log.actualSets ?? 0}세트 × ${log.actualReps ?? 0}회${isBodyweight ? "" : ` × ${log.actualWeight ?? 0}kg`}`
-              : "없음"}
-          </Text>
+          {isCardio ? (
+            <Text style={styles.detailLine}>
+              {hasCardioActual
+                ? `시간 ${formatSetSeconds0(actualSeconds)}${log.actualPace ? ` · 페이스 ${log.actualPace}` : ""}`
+                : "기록된 시간이 없어요"}
+            </Text>
+          ) : (
+            <Text style={styles.detailLine}>
+              기록{" "}
+              {hasActual
+                ? `${log.actualSets}세트 × ${log.actualReps}회${isBodyweight || !(Number(log.actualWeight) > 0) ? "" : ` × ${log.actualWeight}kg`}`
+                : "없음"}
+            </Text>
+          )}
           {log.setTimings && log.setTimings.length > 0 && (
             <View style={styles.timingRow}>
               {log.setTimings

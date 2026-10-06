@@ -263,7 +263,9 @@ export default function UpcomingWorkoutScreen() {
                   <View key={log.id} style={styles.itemCard}>
                     <Text style={styles.itemName}>{exerciseName}</Text>
                     {isCardio ? (
-                      <Text style={styles.itemTarget}>{Math.round((log.targetDurationSeconds ?? 0) / 60)}분</Text>
+                      Math.round((log.targetDurationSeconds ?? 0) / 60) > 0 ? (
+                        <Text style={styles.itemTarget}>{Math.round((log.targetDurationSeconds ?? 0) / 60)}분</Text>
+                      ) : null
                     ) : (
                     <Text style={styles.itemTarget}>
                       {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회

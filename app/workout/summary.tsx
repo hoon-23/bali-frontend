@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { isBodyweightExercise } from "../../constants/exercises";
 import { isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import { formatSetSeconds0 } from "../../lib/format/duration";
 import { hasLogRecord } from "../../lib/session/logRecord";
 import { XpGainCard } from "../../components/XpGainCard";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
@@ -60,6 +61,10 @@ export default function WorkoutSummaryScreen() {
           {logs.map((log) => {
             const weightSuffix = (weight: number | string) =>
               isBodyweightExercise(exerciseMap.get(log.exerciseId)) ? "" : ` × ${weight}kg`;
+            const isCardio = isCardioExercise(exerciseMap.get(log.exerciseId));
+            // 유산소는 시간 기준으로 표기하고, 근력은 기존 세트×회×kg 표기를 그대로 쓴다.
+            const targetMinutes = Math.round((log.targetDurationSeconds ?? 0) / 60);
+            const actualSeconds = Number(log.actualDurationSeconds) || 0;
             return (
             <View key={log.id} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -68,13 +73,25 @@ export default function WorkoutSummaryScreen() {
                   {log.completed ? "완료" : "미완료"}
                 </Text>
               </View>
-              <Text style={styles.detailLine}>
-                목표 {log.targetSets}세트 × {log.targetReps}회{weightSuffix(log.targetWeight)}
-              </Text>
-              {log.completed && (
-                <Text style={styles.detailLine}>
-                  기록 {log.actualSets || 0}세트 × {log.actualReps || 0}회{weightSuffix(log.actualWeight || 0)}
-                </Text>
+              {isCardio ? (
+                <>
+                  {targetMinutes > 0 && <Text style={styles.detailLine}>목표 {targetMinutes}분</Text>}
+                  {hasLogRecord(log, true) && (
+                    <Text style={styles.detailLine}>기록 {formatSetSeconds0(actualSeconds)}</Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.detailLine}>
+                    목표 {log.targetSets}세트 × {log.targetReps}회{weightSuffix(log.targetWeight)}
+                  </Text>
+                  {hasLogRecord(log, false) && (
+                    <Text style={styles.detailLine}>
+                      기록 {Number(log.actualSets)}세트 × {Number(log.actualReps)}회
+                      {Number(log.actualWeight) > 0 ? weightSuffix(log.actualWeight as number | string) : ""}
+                    </Text>
+                  )}
+                </>
               )}
             </View>
             );
