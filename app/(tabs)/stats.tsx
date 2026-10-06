@@ -7,6 +7,7 @@ import { AnimatedBar, AnimatedCell } from "../../components/AnimatedBar";
 import { PlanLockCard } from "../../components/PlanLimitSheet";
 import { isLimitExceededError } from "../../lib/api/planLimit";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
   SCREEN_HORIZONTAL_MARGIN,
@@ -16,8 +17,9 @@ import {
 import { CARD_SHADOW } from "../../constants/shadow";
 import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
+import { secondsToKoreanDuration } from "../../lib/format/duration";
 import { formatThousands } from "../../lib/format/number";
-import { useExerciseMap, formatExerciseName } from "../../hooks/api/useExercises";
+import { useExerciseMap, useExercises, formatExerciseName } from "../../hooks/api/useExercises";
 import { useLatestInsight } from "../../hooks/api/useLatestInsight";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useMe } from "../../hooks/api/useMe";
@@ -64,6 +66,8 @@ function BodyweightRepsSection({
   periodLabel: string;
 }) {
   const exerciseMap = useExerciseMap();
+  // 운동 이름 맵이 아직 한 번도 안 왔으면 "알 수 없는 운동" 대신 스켈레톤 줄을 보인다.
+  const { isPending: exercisesPending } = useExercises();
   const entries = Object.entries(summary?.bodyweightRepsByExercise ?? {})
     .filter(([, reps]) => reps > 0)
     .sort((a, b) => b[1] - a[1]);
@@ -79,7 +83,13 @@ function BodyweightRepsSection({
           const exercise = exerciseMap.get(exerciseId);
           return (
             <View key={exerciseId} style={[styles.muscleRow, index > 0 && styles.muscleRowSpacing]}>
-              <Text style={styles.muscleLabel}>{exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}</Text>
+              {exercise ? (
+                <Text style={styles.muscleLabel}>{formatExerciseName(exercise)}</Text>
+              ) : exercisesPending ? (
+                <Skeleton width={96} height={13} style={styles.textLineSkeleton} />
+              ) : (
+                <Text style={styles.muscleLabel}>알 수 없는 운동</Text>
+              )}
               <Text style={styles.muscleValue}>{formatThousands(reps)}회</Text>
             </View>
           );
@@ -95,9 +105,23 @@ function BodyweightRepsSection({
 }
 
 // 유산소 시간 — 근육군 집중도·맨몸 반복수와 같은 위계의 섹션. 시간이 0 또는 null이면 섹션 전체를 숨긴다.
-function CardioTimeSection({ minutes }: { minutes: number | null }) {
+function CardioTimeSection({
+  minutes,
+  summary,
+}: {
+  minutes: number | null;
+  summary: AnalysisSummaryResponse | null | undefined;
+}) {
+  const exerciseMap = useExerciseMap();
+  // 운동 이름 맵이 아직 한 번도 안 왔으면 스켈레톤 줄을 보인다(맨몸 섹션과 동일).
+  const { isPending: exercisesPending } = useExercises();
   // 해당 기간의 유산소 시간이 0 또는 null이면 섹션을 표시하지 않는다.
   if (minutes == null || minutes === 0) return null;
+
+  // 종목별 초 — 구버전 행은 빈 맵이거나 필드가 없다. 합계는 위 minutes(서버 총합)를 쓰고 여기서 다시 합산하지 않는다.
+  const entries = Object.entries(summary?.cardioSecondsByExercise ?? {})
+    .filter(([, seconds]) => seconds > 0)
+    .sort((a, b) => b[1] - a[1]);
 
   return (
     <View>
@@ -107,10 +131,45 @@ function CardioTimeSection({ minutes }: { minutes: number | null }) {
           <Text style={styles.cardTitle}>총 유산소 시간</Text>
           <Text style={styles.totalTimeValue}>{formatHours(minutes)}</Text>
         </View>
+        {entries.map(([exerciseId, seconds], index) => {
+          const exercise = exerciseMap.get(exerciseId);
+          return (
+            <View key={exerciseId} style={[styles.muscleRow, index === 0 ? styles.muscleRowSpacing : { marginTop: 8 }]}>
+              {exercise ? (
+                <Text style={styles.muscleLabel}>{formatExerciseName(exercise)}</Text>
+              ) : exercisesPending ? (
+                <Skeleton width={96} height={13} style={styles.textLineSkeleton} />
+              ) : (
+                <Text style={styles.muscleLabel}>유산소</Text>
+              )}
+              <Text style={styles.muscleValue}>{secondsToKoreanDuration(seconds)}</Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
+
+// 근육군별 집중도 카드의 최초 로딩 모양 — 실제 행(이름·퍼센트·진행 바) 3줄과 같은 틀.
+function MuscleRowsSkeleton() {
+  return (
+    <>
+      {[56, 40, 48].map((labelWidth, index) => (
+        <View key={index} style={[index > 0 && styles.muscleRowSpacing]}>
+          <View style={styles.muscleRow}>
+            <Skeleton width={labelWidth} height={13} style={styles.textLineSkeleton} />
+            <Skeleton width={28} height={12} />
+          </View>
+          <Skeleton height={6} radius={3} />
+        </View>
+      ))}
+    </>
+  );
+}
+
+// 주간 막대 그래프 최초 로딩 중 막대 높이(px, 트랙 90px 기준) — 들쭉날쭉하게 줘서 "0분" 막대와 구분되게 한다.
+const BAR_SKELETON_HEIGHTS = [36, 58, 28, 66, 44, 30, 50];
 
 const DAILY_TARGET_MINUTES = 60;
 const WEEKLY_TARGET_MINUTES = 480; // 8h — 백엔드에 사용자 목표 개념이 없어 고정 표시값
@@ -168,7 +227,7 @@ export default function StatsScreen() {
     }
   }, [params.view]);
 
-  const { data: me } = useMe();
+  const { data: me, isPending: mePending } = useMe();
 
   const weekOf = useMemo(() => getMondayISODate(weekOffset), [weekOffset]);
   const weekSunday = useMemo(() => addDaysISODate(weekOf, 6), [weekOf]);
@@ -219,6 +278,11 @@ export default function StatsScreen() {
     (monthOffset === 0 ? monthlyCurrent.data?.cardioMinutes : monthlyPast.data?.summary?.cardioTotalMinutes) ?? 0;
 
   const topMuscleGroups = useMemo(() => computeTopMuscleGroups(weekSummary), [weekSummary]);
+
+  // 최초 로딩(캐시에 데이터가 아직 없음) 여부 — isPending은 에러이거나 이미 데이터가 있으면 false라서
+  // 백그라운드 재조회 때 스켈레톤으로 되돌아가지 않는다. 월간 403(잠금)도 에러라 false가 된다.
+  const weekSummaryPending = weekOffset === 0 ? weeklyCurrent.isPending : weeklyPast.isPending;
+  const monthSummaryPending = monthOffset === 0 ? monthlyCurrent.isPending : monthlyPast.isPending;
 
   const weekDailyByDate = useMemo(() => dailyMapByDate(dailyThisWeek.data), [dailyThisWeek.data]);
   const weekBarMinutes = useMemo(
@@ -309,18 +373,22 @@ export default function StatsScreen() {
                   {weekBarMinutes.map((value, index) => (
                     <View key={index} style={styles.barColumn}>
                       <View style={styles.barTrack}>
-                        <AnimatedBar
-                          direction="vertical"
-                          progress={maxBarValue > 0 ? value / maxBarValue : 0}
-                          delay={index * 60}
-                          style={[
-                            styles.bar,
-                            {
-                              backgroundColor:
-                                index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
-                            },
-                          ]}
-                        />
+                        {dailyThisWeek.isPending ? (
+                          <Skeleton width={18} height={BAR_SKELETON_HEIGHTS[index]} radius={6} />
+                        ) : (
+                          <AnimatedBar
+                            direction="vertical"
+                            progress={maxBarValue > 0 ? value / maxBarValue : 0}
+                            delay={index * 60}
+                            style={[
+                              styles.bar,
+                              {
+                                backgroundColor:
+                                  index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
+                              },
+                            ]}
+                          />
+                        )}
                       </View>
                       <Text style={styles.barLabel}>{WEEKDAY_LABELS_MON_FIRST[index]}</Text>
                     </View>
@@ -331,9 +399,13 @@ export default function StatsScreen() {
               <View style={styles.card}>
                 <View style={styles.totalTimeRow}>
                   <Text style={styles.cardTitle}>총 운동시간</Text>
-                  <Text style={styles.totalTimeValue}>
-                    {totalWorkoutMinutes != null ? formatHours(totalWorkoutMinutes) : "—"}
-                  </Text>
+                  {weekSummaryPending ? (
+                    <Skeleton width={72} height={18} style={styles.totalTimeSkeleton} />
+                  ) : (
+                    <Text style={styles.totalTimeValue}>
+                      {totalWorkoutMinutes != null ? formatHours(totalWorkoutMinutes) : "—"}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.progressTrack}>
                   <AnimatedBar
@@ -346,17 +418,13 @@ export default function StatsScreen() {
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
                 <View style={styles.card}>
-                  {weekOffset === 0 && weeklyCurrent.isLoading ? (
-                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
+                  {weekSummaryPending ? (
+                    <MuscleRowsSkeleton />
                   ) : pastWeekUnavailable ? (
                     <Text style={styles.emptyStateText}>이 주는 운동 기록이 없어요.</Text>
                   ) : topMuscleGroups.length === 0 ? (
                     <Text style={styles.emptyStateText}>
-                      {weekOffset === 0
-                        ? "이번 주 운동 기록이 아직 없어요."
-                        : weeklyPast.isLoading
-                          ? "불러오는 중..."
-                          : "이 주는 근육군 기록이 없어요."}
+                      {weekOffset === 0 ? "이번 주 운동 기록이 아직 없어요." : "이 주는 근육군 기록이 없어요."}
                     </Text>
                   ) : (
                     topMuscleGroups.map((item, index) => (
@@ -377,7 +445,7 @@ export default function StatsScreen() {
                 summary={weekSummary}
                 periodLabel="지난주"
               />
-              <CardioTimeSection minutes={weekCardioMinutes} />
+              <CardioTimeSection minutes={weekCardioMinutes} summary={weekSummary} />
 
             </>
           ) : (
@@ -388,13 +456,21 @@ export default function StatsScreen() {
               <View style={styles.summaryRow}>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>이번 주 운동일</Text>
-                  <Text style={styles.summaryValue}>{me ? `${me.weeklyWorkoutDays}일` : "—"}</Text>
+                  {mePending ? (
+                    <Skeleton width={44} height={17} style={styles.summaryValueSkeleton} />
+                  ) : (
+                    <Text style={styles.summaryValue}>{me ? `${me.weeklyWorkoutDays}일` : "—"}</Text>
+                  )}
                 </View>
                 <View style={styles.summaryTile}>
                   <Text style={styles.summaryLabel}>총 운동시간</Text>
-                  <Text style={styles.summaryValue}>
-                    {monthTotalMinutes != null ? formatHours(monthTotalMinutes) : "—"}
-                  </Text>
+                  {monthSummaryPending ? (
+                    <Skeleton width={64} height={17} style={styles.summaryValueSkeleton} />
+                  ) : (
+                    <Text style={styles.summaryValue}>
+                      {monthTotalMinutes != null ? formatHours(monthTotalMinutes) : "—"}
+                    </Text>
+                  )}
                 </View>
               </View>
               </>
@@ -469,17 +545,13 @@ export default function StatsScreen() {
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
                 <View style={styles.card}>
-                  {monthOffset === 0 && monthlyCurrent.isLoading ? (
-                    <Text style={styles.emptyStateText}>불러오는 중...</Text>
+                  {monthSummaryPending ? (
+                    <MuscleRowsSkeleton />
                   ) : monthPastUnavailable ? (
                     <Text style={styles.emptyStateText}>이 달은 운동 기록이 없어요.</Text>
                   ) : topMuscleGroupsMonth.length === 0 ? (
                     <Text style={styles.emptyStateText}>
-                      {monthOffset === 0
-                        ? "이번 달 운동 기록이 아직 없어요."
-                        : monthlyPast.isLoading
-                          ? "불러오는 중..."
-                          : "이 달은 근육군 기록이 없어요."}
+                      {monthOffset === 0 ? "이번 달 운동 기록이 아직 없어요." : "이 달은 근육군 기록이 없어요."}
                     </Text>
                   ) : (
                     topMuscleGroupsMonth.map((item, index) => (
@@ -503,7 +575,7 @@ export default function StatsScreen() {
                   periodLabel="지난달"
                 />
               )}
-              {!monthLocked && <CardioTimeSection minutes={monthCardioMinutes} />}
+              {!monthLocked && <CardioTimeSection minutes={monthCardioMinutes} summary={monthSummary} />}
 
             </>
           )}
@@ -651,6 +723,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
+  // 18pt 한 줄 높이(약 22px)에 맞추기 위한 위아래 여백.
+  totalTimeSkeleton: {
+    marginVertical: 2,
+  },
+  // 13pt 한 줄 높이(약 15px)에 맞추기 위한 위아래 여백.
+  textLineSkeleton: {
+    marginVertical: 1,
+  },
   progressTrack: {
     height: 6,
     borderRadius: 3,
@@ -734,6 +814,10 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "700",
+  },
+  // 17pt 한 줄 높이(약 20px)에 맞추기 위한 위아래 여백.
+  summaryValueSkeleton: {
+    marginVertical: 2,
   },
   calendarHeader: {
     flexDirection: "row",

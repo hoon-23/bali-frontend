@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
   SCREEN_HORIZONTAL_MARGIN,
@@ -48,7 +49,9 @@ function formatPlanExpiry(iso: string): string | null {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { data: me } = useMe();
+  // isPending은 캐시에 데이터가 아직 없고 에러도 아닐 때만 true — 이때만 스켈레톤을 보인다.
+  // 백그라운드 재조회 중에는 기존 값이 그대로 남아 깜빡이지 않는다.
+  const { data: me, isPending: mePending } = useMe();
   const inProgressSessionId = useInProgressSessionId();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ focus?: string; t?: string }>();
@@ -139,22 +142,43 @@ export default function ProfileScreen() {
         >
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{me?.nickname?.[0] ?? "?"}</Text>
+              {/* 로딩 중에는 "?" 대신 빈 원만 둔다 */}
+              {!mePending && <Text style={styles.avatarText}>{me?.nickname?.[0] ?? "?"}</Text>}
             </View>
-            <Text style={styles.name}>{me?.nickname ?? "—"} 님</Text>
-            {me?.email && !isPlaceholderEmail(me.email) && (
-              <Text style={styles.email}>{me.email}</Text>
+            {mePending ? (
+              <>
+                {/* 닉네임(20pt)·이메일(13pt) 한 줄 높이에 맞춘 막대 */}
+                <Skeleton width={110} height={20} style={styles.nameSkeleton} />
+                <Skeleton width={150} height={13} style={styles.emailSkeleton} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.name}>{me?.nickname ?? "—"} 님</Text>
+                {me?.email && !isPlaceholderEmail(me.email) && (
+                  <Text style={styles.email}>{me.email}</Text>
+                )}
+              </>
             )}
           </View>
 
           <View style={styles.card}>
             <View style={styles.levelRow}>
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>Lv.{level?.level ?? "—"}</Text>
-              </View>
-              <Text style={styles.expText}>
-                {level ? `${formatThousands(level.currentXp)} / ${formatThousands(level.xpForNextLevel)} XP` : " "}
-              </Text>
+              {mePending ? (
+                <>
+                  {/* 레벨 배지(약 24px)·XP 문구(12pt) 크기에 맞춘 막대 */}
+                  <Skeleton width={52} height={24} radius={12} />
+                  <Skeleton width={96} height={12} />
+                </>
+              ) : (
+                <>
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelBadgeText}>Lv.{level?.level ?? "—"}</Text>
+                  </View>
+                  <Text style={styles.expText}>
+                    {level ? `${formatThousands(level.currentXp)} / ${formatThousands(level.xpForNextLevel)} XP` : " "}
+                  </Text>
+                </>
+              )}
             </View>
             <View style={styles.progressTrack}>
               <AnimatedBar progress={expProgress / 100} style={styles.progressFill} />
@@ -170,13 +194,27 @@ export default function ProfileScreen() {
             >
               <View style={styles.levelRow}>
                 <Text style={styles.settingLabel}>구독</Text>
-                <View style={[styles.levelBadge, !isPro && styles.planBadgeFree]}>
-                  <Text style={[styles.levelBadgeText, !isPro && styles.planBadgeFreeText]}>
-                    {isPro ? "PRO" : "무료"}
-                  </Text>
-                </View>
+                {mePending ? (
+                  // 플랜을 모르는 동안 "무료"로 잘못 보이지 않게 배지 자리만 잡아 둔다.
+                  <Skeleton width={52} height={24} radius={12} />
+                ) : (
+                  <View style={[styles.levelBadge, !isPro && styles.planBadgeFree]}>
+                    <Text style={[styles.levelBadgeText, !isPro && styles.planBadgeFreeText]}>
+                      {isPro ? "PRO" : "무료"}
+                    </Text>
+                  </View>
+                )}
               </View>
-              {isPro ? (
+              {mePending ? (
+                // 대부분인 무료 플랜 모양(설명 2줄 + 버튼)에 맞춘 자리표시 — 업그레이드 문구를 미리 보이지 않는다.
+                <>
+                  <View>
+                    <Skeleton height={13} style={styles.planLineSkeleton} />
+                    <Skeleton width="60%" height={13} style={styles.planLineSkeleton} />
+                  </View>
+                  <Skeleton height={44} radius={12} />
+                </>
+              ) : isPro ? (
                 <Text style={styles.planDescription} lineBreakStrategyIOS="hangul-word">
                   {planExpiresLabel ? `${planExpiresLabel}까지 이용할 수 있어요` : "PRO를 이용 중이에요"}
                 </Text>
@@ -258,6 +296,18 @@ const styles = StyleSheet.create({
   email: {
     color: "#A0A0A0",
     fontSize: 13,
+  },
+  // 20pt 한 줄 높이(약 24px)에 맞추기 위한 위아래 여백.
+  nameSkeleton: {
+    marginVertical: 2,
+  },
+  // 13pt 한 줄 높이(약 16px)에 맞추기 위한 위아래 여백.
+  emailSkeleton: {
+    marginVertical: 1.5,
+  },
+  // planDescription의 lineHeight(19)에 맞추기 위한 위아래 여백.
+  planLineSkeleton: {
+    marginVertical: 3,
   },
   card: {
     backgroundColor: "#1C1C25",

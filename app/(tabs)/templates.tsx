@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
   SCREEN_HORIZONTAL_MARGIN,
@@ -25,13 +26,23 @@ import {
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { toDisplayMuscleGroup } from "../../constants/exercises";
 import { CARD_SHADOW } from "../../constants/shadow";
-import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
+import {
+  ApiExercise,
+  formatExerciseName,
+  isCardioExercise,
+  useExerciseMap,
+  useExercises,
+} from "../../hooks/api/useExercises";
 import { isEmptyFinishedSession } from "../../lib/session/logRecord";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { ApiSessionDetail, useSessionHistory } from "../../hooks/api/useSessions";
 import { getTodayISODate, useUpcomingSessions } from "../../hooks/api/useUpcomingSessions";
 import { recordsTabBarCollapse } from "../../lib/recordsScroll";
 import { estimateSessionDurationMinutes } from "../../lib/session/sessionDisplay";
+
+// 최초 로딩 중에 보여줄 카드 모양 스켈레톤 개수
+const UPCOMING_SKELETON_COUNT = 2;
+const RECORD_SKELETON_COUNT = 3;
 
 // 맨 위 근처(오버스크롤 포함)에서는 스와이프 방향과 무관하게 항상 펼친 상태로 고정 —
 // 안 그러면 맨 위에서 아래로 당기는 제스처(오버스크롤)의 offset이 흔들리면서
@@ -74,11 +85,20 @@ function firstExerciseThumbnail(
 export default function TemplatesScreen() {
   const router = useRouter();
   const exerciseMap = useExerciseMap();
+  // 운동 이름 맵이 아직 한 번도 안 왔을 때 — 이때는 "알 수 없는 운동" 대신 스켈레톤 줄을 보인다.
+  const { isPending: exercisesPending } = useExercises();
   const today = getTodayISODate();
 
-  const { data: upcomingSessions = [], refetch: refetchUpcoming } = useUpcomingSessions();
+  // isPending은 캐시에 데이터가 아직 없을 때만 true라서, 백그라운드 재조회·당겨서 새로고침 중에는
+  // 기존 목록이 그대로 유지되고 스켈레톤으로 되돌아가지 않는다.
+  const {
+    data: upcomingSessions = [],
+    isPending: upcomingPending,
+    refetch: refetchUpcoming,
+  } = useUpcomingSessions();
   const {
     data: historyPages,
+    isPending: historyPending,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -191,7 +211,13 @@ export default function TemplatesScreen() {
 
               <View>
                 <Text style={styles.sectionTitle}>예정된 운동</Text>
-                {upcoming.length === 0 ? (
+                {upcomingPending ? (
+                  <View style={styles.list}>
+                    {Array.from({ length: UPCOMING_SKELETON_COUNT }, (_, index) => (
+                      <UpcomingRowSkeleton key={index} />
+                    ))}
+                  </View>
+                ) : upcoming.length === 0 ? (
                   <Text style={styles.emptyText}>예정된 운동이 없어요.</Text>
                 ) : (
                   <View style={styles.list}>
@@ -203,9 +229,12 @@ export default function TemplatesScreen() {
                           style={styles.upcomingRow}
                           onPress={() => router.push(`/upcoming/${session.id}`)}
                         >
-                          {muscleGroup && (
+                          {muscleGroup ? (
                             <Image source={MUSCLE_GROUP_IMAGES[muscleGroup]} style={styles.thumbnail} />
-                          )}
+                          ) : exercisesPending ? (
+                            // 운동 정보가 오기 전에도 썸네일 자리를 잡아 글자가 옆으로 밀리지 않게 한다.
+                            <Skeleton width={52} height={52} radius={12} />
+                          ) : null}
                           <View style={styles.upcomingInfo}>
                             <Text style={styles.upcomingDate}>
                               {formatUpcomingDateLabel(session.date, today)}
@@ -226,7 +255,17 @@ export default function TemplatesScreen() {
               <Text style={styles.sectionTitle}>지난 기록</Text>
             </View>
           }
-          ListEmptyComponent={<Text style={styles.emptyText}>지난 기록이 없어요.</Text>}
+          ListEmptyComponent={
+            historyPending ? (
+              <View style={styles.list}>
+                {Array.from({ length: RECORD_SKELETON_COUNT }, (_, index) => (
+                  <RecordCardSkeleton key={index} />
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>지난 기록이 없어요.</Text>
+            )
+          }
           ListFooterComponent={
             isFetchingNextPage ? (
               <ActivityIndicator style={styles.footerLoading} color="#2DD4BF" />
@@ -271,10 +310,15 @@ export default function TemplatesScreen() {
                     </Text>
                   </View>
                 </View>
-                {exerciseNames.length > 0 && (
-                  <Text style={styles.recordExercises} numberOfLines={2}>
-                    {exerciseNames}
-                  </Text>
+                {exercisesPending && session.logs.length > 0 ? (
+                  // 운동 이름 맵이 오기 전에는 "알 수 없는 운동" 대신 한 줄 높이의 스켈레톤을 둔다.
+                  <Skeleton width="70%" height={13} style={styles.textLineSkeleton} />
+                ) : (
+                  exerciseNames.length > 0 && (
+                    <Text style={styles.recordExercises} numberOfLines={2}>
+                      {exerciseNames}
+                    </Text>
+                  )
                 )}
               </Pressable>
             );
@@ -298,7 +342,45 @@ export default function TemplatesScreen() {
   );
 }
 
+// 예정된 운동 행과 같은 틀(패딩·썸네일 크기)로 그린 로딩용 자리표시.
+function UpcomingRowSkeleton() {
+  return (
+    <View style={styles.upcomingRow}>
+      <Skeleton width={52} height={52} radius={12} />
+      <View style={[styles.upcomingInfo, styles.skeletonLines]}>
+        <Skeleton width={40} height={11} />
+        <Skeleton width="55%" height={15} />
+        <Skeleton width={32} height={12} />
+      </View>
+    </View>
+  );
+}
+
+// 지난 기록 카드와 같은 틀(날짜·제목·상태 배지·운동 이름 줄)로 그린 로딩용 자리표시.
+function RecordCardSkeleton() {
+  return (
+    <View style={styles.recordCard}>
+      <View style={styles.recordHeader}>
+        <View style={styles.skeletonLines}>
+          <Skeleton width={96} height={12} />
+          <Skeleton width={120} height={16} />
+        </View>
+        <Skeleton width={44} height={24} radius={12} />
+      </View>
+      <Skeleton width="70%" height={13} style={styles.textLineSkeleton} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  // 스켈레톤 줄 사이 간격 — 실제 글자 줄 높이(폰트 크기 + 여백)와 비슷하게 맞춘다.
+  skeletonLines: {
+    gap: 5,
+  },
+  // 한 줄 텍스트(13pt) 높이에 맞추기 위한 위아래 여백.
+  textLineSkeleton: {
+    marginVertical: 1,
+  },
   safeArea: {
     flex: 1,
   },

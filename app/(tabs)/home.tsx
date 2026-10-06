@@ -16,6 +16,7 @@ import {
 import { appAlert } from "../../lib/alert";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
   SCREEN_HORIZONTAL_MARGIN,
@@ -86,17 +87,19 @@ export default function HomeScreen() {
   const inProgressSessionId = useInProgressSessionId();
 
   const patchSession = usePatchSession();
-  const { data: me, isError: meError, refetch: refetchMe } = useMe();
+  // isPending은 캐시에 데이터가 아직 없고 에러도 아닐 때만 true — 이때만 스켈레톤을 보인다.
+  // 백그라운드 재조회 중에는 기존 값이 그대로 남아 깜빡이지 않는다.
+  const { data: me, isPending: mePending, isError: meError, refetch: refetchMe } = useMe();
   const unreadCount = useUnreadNotificationCount();
-  const { data: lifetime } = useLifetimeStats();
+  const { data: lifetime, isPending: lifetimePending } = useLifetimeStats();
   // 리포트 주간 보기(이번 주)와 같은 데이터·같은 계산으로 맞춘다.
   // 월간 분석 API는 무료 플랜에서 403(MONTHLY_INSIGHTS)이라 월간 인사이트는 리포트 탭에만 둔다.
-  const { data: weeklyCurrent } = useWeeklyCurrent();
+  const { data: weeklyCurrent, isPending: weeklyPending } = useWeeklyCurrent();
   const topMuscleGroupsWeek = computeTopMuscleGroups(weeklyCurrent?.summary);
   const { data: exercises } = useExercises();
   const {
     data: sessions,
-    isLoading: sessionsLoading,
+    isPending: sessionsPending,
     isError: sessionsError,
     refetch: refetchSessions,
   } = useUpcomingSessions();
@@ -181,7 +184,12 @@ export default function HomeScreen() {
             <View>
               <Text style={styles.greetingSub}>안녕하세요</Text>
               <View style={styles.greetingRow}>
-                <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
+                {mePending ? (
+                  // 닉네임 한 줄(22pt) 높이에 맞춘 막대 — "— 님"이 잠깐 보이던 것을 대신한다.
+                  <Skeleton width={120} height={22} style={styles.greetingSkeleton} />
+                ) : (
+                  <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
+                )}
                 {me?.level && (
                   <View style={styles.levelBadge}>
                     <Text style={styles.levelBadgeText}>Lv.{me.level.level}</Text>
@@ -229,14 +237,17 @@ export default function HomeScreen() {
             <StatTile
               label="총 운동일"
               value={lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
+              loading={lifetimePending}
             />
             <StatTile
               label="총 운동시간"
               value={lifetime ? minutesToDurationText(lifetime.totalWorkoutMinutes) : "—"}
+              loading={lifetimePending}
             />
             <StatTile
               label="이번 주 운동일"
               value={me ? `${me.weeklyWorkoutDays}일` : "—"}
+              loading={mePending}
               onPress={goToMonthlyReport}
             />
           </View>
@@ -245,9 +256,13 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, topMuscleGroupsWeek.length === 0 && styles.sectionTitleTight]}>
               이번 주 근육군별 집중도
             </Text>
-            {topMuscleGroupsWeek.length === 0 && (
-              <Text style={styles.sectionSubcopy}>이번 주 운동 기록이 아직 없어요</Text>
-            )}
+            {topMuscleGroupsWeek.length === 0 &&
+              (weeklyPending ? (
+                // 로딩 중에 "기록이 없어요"가 잘못 보이지 않게 같은 높이의 막대로 자리만 잡는다.
+                <Skeleton width={150} height={12} style={styles.sectionSubcopySkeleton} />
+              ) : (
+                <Text style={styles.sectionSubcopy}>이번 주 운동 기록이 아직 없어요</Text>
+              ))}
             <View style={styles.card}>
               {topMuscleGroupsWeek.length > 0
                 ? topMuscleGroupsWeek.map((item) => (
@@ -316,10 +331,10 @@ export default function HomeScreen() {
                 actionLabel="미리보기"
                 onAction={() => router.push(`/upcoming/${cardState.next.id}`)}
               />
+            ) : sessionsPending ? (
+              <TodayCardSkeleton />
             ) : (
-              <View style={styles.card}>
-                <Text style={styles.legendText}>{sessionsLoading ? "불러오는 중..." : ""}</Text>
-              </View>
+              <View style={styles.card} />
             )}
           </View>
         </ScrollView>
@@ -481,17 +496,40 @@ function SecondarySessionRow({ session, exercises, metaLabel, actionLabel, onAct
   );
 }
 
+// "오늘의 운동" 사진 카드(SessionSummaryCard)와 같은 틀로 그린 로딩용 자리표시.
+// 이 섹션은 화면 맨 아래라, 실제 카드가 더 낮게(EMPTY 등) 오더라도 다른 요소를 밀지 않는다.
+function TodayCardSkeleton() {
+  return (
+    <View style={styles.card}>
+      <Skeleton height={140} radius={12} />
+      <View style={styles.suggestedRow}>
+        <View style={[styles.suggestedTitleGroup, styles.skeletonLines]}>
+          <Skeleton width="45%" height={15} />
+          <Skeleton width={56} height={12} />
+        </View>
+        <Skeleton width={44} height={14} />
+      </View>
+    </View>
+  );
+}
+
 type StatTileProps = {
   value: string;
   label: string;
+  // 최초 로딩 중이면 값 대신 같은 높이의 스켈레톤을 보인다.
+  loading?: boolean;
   onPress?: () => void;
 };
 
-function StatTile({ value, label, onPress }: StatTileProps) {
+function StatTile({ value, label, loading, onPress }: StatTileProps) {
   return (
     <Pressable style={styles.statTile} onPress={onPress} disabled={!onPress}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      {loading ? (
+        <Skeleton width={44} height={17} style={styles.statValueSkeleton} />
+      ) : (
+        <Text style={styles.statValue}>{value}</Text>
+      )}
     </Pressable>
   );
 }
@@ -525,6 +563,13 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "700",
+  },
+  // 22pt 한 줄 높이(약 26px)에 맞추기 위한 위아래 여백.
+  greetingSkeleton: {
+    marginVertical: 2,
+  },
+  skeletonLines: {
+    gap: 5,
   },
   // 프로필 탭의 레벨 배지와 같은 모양.
   levelBadge: {
@@ -631,6 +676,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
+  // 17pt 한 줄 높이(약 20px)에 맞추기 위한 위아래 여백.
+  statValueSkeleton: {
+    marginVertical: 2,
+  },
   sectionTitle: {
     color: "#FFFFFF",
     fontSize: 16,
@@ -644,6 +693,11 @@ const styles = StyleSheet.create({
     color: "#6B6B6B",
     fontSize: 12,
     marginBottom: 12,
+  },
+  // 12pt 한 줄 높이(약 14px) + sectionSubcopy의 아래 여백에 맞춘다.
+  sectionSubcopySkeleton: {
+    marginTop: 1,
+    marginBottom: 13,
   },
   muscleBarRow: {
     gap: 8,

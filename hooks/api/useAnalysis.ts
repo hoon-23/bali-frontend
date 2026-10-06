@@ -62,6 +62,9 @@ export type AnalysisSummaryResponse = {
   // 월간 응답에서는 전월 대비를 뜻한다(필드명은 volumeChangeFromLastWeekPercent 관례를 따름).
   // 맨몸 기록이 있는 세션의 세션당 평균 반복수 증감률(%). 직전 기간 해당 세션이 2회 미만이면 null.
   bodyweightRepsChangeFromLastWeekPercent?: number | null;
+  // 종목별 유산소 시간(초, 키=exerciseId). 구버전 행은 빈 맵이고 아주 오래된 응답엔 필드가 없을 수 있다.
+  // 합계는 cardioTotalMinutes를 쓰고 이 값을 다시 합산하지 않는다(내림 처리로 1분 안팎 차이).
+  cardioSecondsByExercise?: Record<string, number>;
 };
 
 export type WeeklyAnalysisResponse = {
