@@ -36,7 +36,9 @@ export default function NotificationInboxScreen() {
 
   const handlePress = (item: InboxNotification) => {
     if (!item.read) markRead.mutate(item.id);
-    // 푸시를 탭했을 때와 같은 규칙으로 이동한다(리마인더→예정 운동, 요약→리포트, 미실행→홈).
+    // 푸시를 탭했을 때와 같은 규칙으로 이동한다(리마인더→예정 운동, 요약→리포트).
+    // 미실행 알림은 이동할 곳이 마땅치 않아 읽음 처리만 한다(푸시 탭은 기존대로 홈).
+    if (item.type === "INACTIVITY_ALERT") return;
     const route = getPushTapRoute({ type: item.type, referenceId: item.referenceId ?? "" });
     if (route) openPushTapRoute(router, route);
   };
