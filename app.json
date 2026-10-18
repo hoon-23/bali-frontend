@@ -27,7 +27,8 @@
         "com.apple.security.application-groups": [
           "group.com.younghoon.swayt"
         ]
-      }
+      },
+      "appleTeamId": "74LA3MWT3X"
     },
     "android": {
       "adaptiveIcon": {
