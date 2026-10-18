@@ -34,6 +34,9 @@ export type ExerciseLog = {
   // 진행 중 세트의 "세트 완료 깜빡함" 리마인드 알림 id. 화면을 닫았다 열어도 "세트 완료"/정산 때
   // 취소할 수 있도록 스토어에 둔다. 알림이 없거나 예약에 실패했으면 null.
   setReminderId: string | null;
+  // 유산소 종목인지. Live Activity가 세트 대신 시간을 보여줄지 정하는 데 쓴다.
+  // 이 필드가 생기기 전에 저장된 기록에는 없다(undefined는 웨이트로 본다).
+  isCardio?: boolean;
 };
 
 // 진행 중 구간의 경과 초 — 화면 표시와 정산이 모두 이 함수 하나로 계산한다(이중 계산 방지).
@@ -86,9 +89,15 @@ type WorkoutSessionState = {
   xpResult: SessionXpResult | null;
   // 예정된 운동 화면에서 시작한 세션의 id(즉흥 시작이면 null) — 빈 세션 종료 시 예약 유지 판단용.
   scheduledOriginSessionId: string | null;
+  // 루틴/세션 이름 — Live Activity 상단에 "전신 · 2/5"로 보여준다. 모르면 빈 문자열.
+  sessionTitle: string;
+  // 운동이 끝났지만(서버 완료/정리 성공) 요약 화면 확인 전이라 세션 정보가 아직 남아 있는 상태.
+  // Live Activity는 "진행 중인 운동"에만 떠 있어야 해서, 요약 화면이 남아 있어도 이 값으로 먼저 끈다.
+  isFinished: boolean;
+  markFinished: () => void;
   markScheduledOrigin: (sessionId: string) => void;
   setXpResult: (xp: SessionXpResult | null) => void;
-  startSession: (sessionId: string, logs: ExerciseLog[], isRealSession: boolean) => void;
+  startSession: (sessionId: string, logs: ExerciseLog[], isRealSession: boolean, sessionTitle?: string) => void;
   appendLogs: (newLogs: ExerciseLog[]) => void;
   setExpandedId: (id: string | null) => void;
   updateField: (id: string, field: ActualField, value: string) => void;
@@ -111,7 +120,7 @@ type WorkoutSessionState = {
 // 앱이 종료돼도 진행 중 세트·완료 종목이 복원되도록 하기 위함이다(Live Activity 도입의 기반).
 type PersistedWorkoutSession = Pick<
   WorkoutSessionState,
-  "sessionId" | "isRealSession" | "logs" | "expandedId" | "scheduledOriginSessionId"
+  "sessionId" | "isRealSession" | "logs" | "expandedId" | "scheduledOriginSessionId" | "isFinished" | "sessionTitle"
 >;
 
 export const useWorkoutSessionStore = create<WorkoutSessionState>()(
@@ -123,6 +132,10 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
       expandedId: null,
       xpResult: null,
       scheduledOriginSessionId: null,
+      isFinished: false,
+      sessionTitle: "",
+
+      markFinished: () => set({ isFinished: true }),
 
       markScheduledOrigin: (sessionId) => {
         // 앱이 재시작돼도 판별이 유지되도록 별도로 영속 저장한다.
@@ -132,10 +145,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
 
       setXpResult: (xp) => set({ xpResult: xp }),
 
-      startSession: (sessionId, logs, isRealSession) =>
+      startSession: (sessionId, logs, isRealSession, sessionTitle = "") =>
         set({
           sessionId,
           isRealSession,
+          isFinished: false,
+          sessionTitle,
           logs,
           expandedId: logs.find((log) => !log.completed)?.id ?? null,
         }),
@@ -239,7 +254,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
 
       endSession: () => {
         clearScheduledOrigin();
-        set({ sessionId: null, isRealSession: false, logs: [], expandedId: null, xpResult: null, scheduledOriginSessionId: null });
+        set({ sessionId: null, isRealSession: false, isFinished: false, sessionTitle: "", logs: [], expandedId: null, xpResult: null, scheduledOriginSessionId: null });
       },
     }),
     {
@@ -252,6 +267,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
         logs: state.logs,
         expandedId: state.expandedId,
         scheduledOriginSessionId: state.scheduledOriginSessionId,
+        isFinished: state.isFinished,
+        sessionTitle: state.sessionTitle,
       }),
     },
   ),

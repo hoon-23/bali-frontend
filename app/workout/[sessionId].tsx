@@ -131,6 +131,7 @@ function buildLogsFromApiTemplate(
       durationStartedAt: null,
       setStartedAt: null,
       setReminderId: null,
+      isCardio: isCardioExercise(exercise),
     };
   });
 }
@@ -170,6 +171,7 @@ function buildLogsFromApiSession(
         durationStartedAt: null,
         setStartedAt: null,
         setReminderId: null,
+        isCardio: isCardioExercise(exercise),
       };
     });
 }
@@ -238,7 +240,7 @@ export default function WorkoutSessionScreen() {
     // 실제 세션 조회가 성공하면 그 데이터로, 실패(404 등 — 삭제된 세션이나
     // 개발 중 남은 잘못된 링크)하면 templateId로 실제 템플릿을 다시 조립해서 폴백한다.
     if (apiSession) {
-      startSession(sessionId, buildLogsFromApiSession(apiSession, exerciseMap), true);
+      startSession(sessionId, buildLogsFromApiSession(apiSession, exerciseMap), true, apiSession.title);
       return;
     }
     if (sessionFetchFailed) {
@@ -403,6 +405,8 @@ export default function WorkoutSessionScreen() {
         return;
       }
     }
+    // 서버 완료/정리가 끝났으니 운동은 끝난 것 — 요약 화면이 남아 있어도 Live Activity는 지금 꺼야 한다.
+    useWorkoutSessionStore.getState().markFinished();
     // 세트 완료 없이 다른 운동으로 넘어간 것들 때문에 남아있을 수 있는 리마인드 알림을
     // 정리한다 — 운동을 종료했다는 건 더 이상 어떤 세트도 진행 중이 아니라는 뜻이라,
     // 실패해도 종료 자체를 막을 이유는 없어서 별도로 감싸 무시한다.
