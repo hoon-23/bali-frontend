@@ -20,7 +20,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.younghoon.swayt",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
       }
     },
     "android": {
