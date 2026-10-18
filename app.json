@@ -73,7 +73,7 @@
           "color": "#2DD4BF"
         }
       ],
-      "expo-live-activity"
+      "@bacons/apple-targets"
     ],
     "extra": {
       "router": {},
