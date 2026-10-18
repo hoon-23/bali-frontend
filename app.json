@@ -72,7 +72,8 @@
         {
           "color": "#2DD4BF"
         }
-      ]
+      ],
+      "expo-live-activity"
     ],
     "extra": {
       "router": {},
