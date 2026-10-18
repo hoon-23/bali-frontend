@@ -1,7 +1,9 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { SessionXpResult } from "../hooks/api/useSessions";
 import { clearScheduledOrigin, saveScheduledOrigin } from "../lib/session/scheduledOrigin";
+import { sessionPersistStorage } from "../lib/session/sessionPersistStorage";
 
 export type SetTiming = {
   setIndex: number;
@@ -105,129 +107,152 @@ type WorkoutSessionState = {
   endSession: () => void;
 };
 
-export const useWorkoutSessionStore = create<WorkoutSessionState>((set, get) => ({
-  sessionId: null,
-  isRealSession: false,
-  logs: [],
-  expandedId: null,
-  xpResult: null,
-  scheduledOriginSessionId: null,
+// 디스크에 남기는 필드 — 진행 중 기록 본체만. 함수와 완료 응답(xpResult)은 제외한다.
+// 앱이 종료돼도 진행 중 세트·완료 종목이 복원되도록 하기 위함이다(Live Activity 도입의 기반).
+type PersistedWorkoutSession = Pick<
+  WorkoutSessionState,
+  "sessionId" | "isRealSession" | "logs" | "expandedId" | "scheduledOriginSessionId"
+>;
 
-  markScheduledOrigin: (sessionId) => {
-    // 앱이 재시작돼도 판별이 유지되도록 별도로 영속 저장한다.
-    saveScheduledOrigin(sessionId);
-    set({ scheduledOriginSessionId: sessionId });
-  },
+export const useWorkoutSessionStore = create<WorkoutSessionState>()(
+  persist(
+    (set, get) => ({
+      sessionId: null,
+      isRealSession: false,
+      logs: [],
+      expandedId: null,
+      xpResult: null,
+      scheduledOriginSessionId: null,
 
-  setXpResult: (xp) => set({ xpResult: xp }),
+      markScheduledOrigin: (sessionId) => {
+        // 앱이 재시작돼도 판별이 유지되도록 별도로 영속 저장한다.
+        saveScheduledOrigin(sessionId);
+        set({ scheduledOriginSessionId: sessionId });
+      },
 
-  startSession: (sessionId, logs, isRealSession) =>
-    set({
-      sessionId,
-      isRealSession,
-      logs,
-      expandedId: logs.find((log) => !log.completed)?.id ?? null,
+      setXpResult: (xp) => set({ xpResult: xp }),
+
+      startSession: (sessionId, logs, isRealSession) =>
+        set({
+          sessionId,
+          isRealSession,
+          logs,
+          expandedId: logs.find((log) => !log.completed)?.id ?? null,
+        }),
+
+      appendLogs: (newLogs) =>
+        set((state) => ({ logs: [...state.logs, ...newLogs] })),
+
+      setExpandedId: (id) =>
+        set((state) => ({ expandedId: state.expandedId === id ? null : id })),
+
+      updateField: (id, field, value) =>
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === id ? { ...log, [field]: value } : log)),
+        })),
+
+      adjustActualSets: (id, delta) =>
+        set((state) => ({
+          logs: state.logs.map((log) =>
+            log.id === id
+              ? {
+                  ...log,
+                  actualSets: String(Math.max(0, (Number(log.actualSets) || 0) + delta)),
+                }
+              : log
+          ),
+        })),
+
+      setTargetSets: (id, targetSets) =>
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === id ? { ...log, targetSets } : log)),
+        })),
+
+      recordSetTiming: (logId, timing) =>
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === logId ? appendSetTiming(log, timing) : log)),
+        })),
+
+      // 이미 흐르는 중이면 시작 시각을 덮어쓰지 않는다(중복 탭 대비).
+      startDuration: (logId) =>
+        set((state) => ({
+          logs: state.logs.map((log) =>
+            log.id === logId && !log.durationStartedAt
+              ? { ...log, durationStartedAt: new Date().toISOString() }
+              : log
+          ),
+        })),
+
+      stopDuration: (logId) => {
+        const nowMs = Date.now();
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === logId ? settleDuration(log, nowMs) : log)),
+        }));
+      },
+
+      startSet: (logId) =>
+        set((state) => ({
+          logs: state.logs.map((log) =>
+            log.id === logId && !log.setStartedAt ? { ...log, setStartedAt: new Date().toISOString() } : log
+          ),
+        })),
+
+      setSetReminderId: (logId, reminderId) => {
+        const target = get().logs.find((log) => log.id === logId);
+        // 알림 예약은 비동기라, 그 사이 세트가 끝났다면 id를 남기지 않는다(호출부가 바로 취소).
+        if (!target?.setStartedAt) return false;
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === logId ? { ...log, setReminderId: reminderId } : log)),
+        }));
+        return true;
+      },
+
+      settleLogTimers: (logId) => {
+        const nowMs = Date.now();
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === logId ? settleRunningTimers(log, nowMs) : log)),
+        }));
+      },
+
+      settleAllTimers: () => {
+        const nowMs = Date.now();
+        set((state) => ({ logs: state.logs.map((log) => settleRunningTimers(log, nowMs)) }));
+      },
+
+      completeLog: (id) => {
+        const updatedLogs = get().logs.map((log) =>
+          log.id === id ? { ...log, completed: true } : log,
+        );
+        const completedIndex = updatedLogs.findIndex((log) => log.id === id);
+        const nextIncomplete = updatedLogs
+          .slice(completedIndex + 1)
+          .find((log) => !log.completed);
+        set({ logs: updatedLogs, expandedId: nextIncomplete?.id ?? null });
+      },
+
+      // 완료 취소(이어서 하기) — 기록은 그대로 두고 completed만 해제한 뒤 해당 종목을 펼친다.
+      uncompleteLog: (id) =>
+        set((state) => ({
+          logs: state.logs.map((log) => (log.id === id ? { ...log, completed: false } : log)),
+          expandedId: id,
+        })),
+
+      endSession: () => {
+        clearScheduledOrigin();
+        set({ sessionId: null, isRealSession: false, logs: [], expandedId: null, xpResult: null, scheduledOriginSessionId: null });
+      },
     }),
-
-  appendLogs: (newLogs) =>
-    set((state) => ({ logs: [...state.logs, ...newLogs] })),
-
-  setExpandedId: (id) =>
-    set((state) => ({ expandedId: state.expandedId === id ? null : id })),
-
-  updateField: (id, field, value) =>
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === id ? { ...log, [field]: value } : log)),
-    })),
-
-  adjustActualSets: (id, delta) =>
-    set((state) => ({
-      logs: state.logs.map((log) =>
-        log.id === id
-          ? {
-              ...log,
-              actualSets: String(Math.max(0, (Number(log.actualSets) || 0) + delta)),
-            }
-          : log
-      ),
-    })),
-
-  setTargetSets: (id, targetSets) =>
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === id ? { ...log, targetSets } : log)),
-    })),
-
-  recordSetTiming: (logId, timing) =>
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === logId ? appendSetTiming(log, timing) : log)),
-    })),
-
-  // 이미 흐르는 중이면 시작 시각을 덮어쓰지 않는다(중복 탭 대비).
-  startDuration: (logId) =>
-    set((state) => ({
-      logs: state.logs.map((log) =>
-        log.id === logId && !log.durationStartedAt
-          ? { ...log, durationStartedAt: new Date().toISOString() }
-          : log
-      ),
-    })),
-
-  stopDuration: (logId) => {
-    const nowMs = Date.now();
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === logId ? settleDuration(log, nowMs) : log)),
-    }));
-  },
-
-  startSet: (logId) =>
-    set((state) => ({
-      logs: state.logs.map((log) =>
-        log.id === logId && !log.setStartedAt ? { ...log, setStartedAt: new Date().toISOString() } : log
-      ),
-    })),
-
-  setSetReminderId: (logId, reminderId) => {
-    const target = get().logs.find((log) => log.id === logId);
-    // 알림 예약은 비동기라, 그 사이 세트가 끝났다면 id를 남기지 않는다(호출부가 바로 취소).
-    if (!target?.setStartedAt) return false;
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === logId ? { ...log, setReminderId: reminderId } : log)),
-    }));
-    return true;
-  },
-
-  settleLogTimers: (logId) => {
-    const nowMs = Date.now();
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === logId ? settleRunningTimers(log, nowMs) : log)),
-    }));
-  },
-
-  settleAllTimers: () => {
-    const nowMs = Date.now();
-    set((state) => ({ logs: state.logs.map((log) => settleRunningTimers(log, nowMs)) }));
-  },
-
-  completeLog: (id) => {
-    const updatedLogs = get().logs.map((log) =>
-      log.id === id ? { ...log, completed: true } : log,
-    );
-    const completedIndex = updatedLogs.findIndex((log) => log.id === id);
-    const nextIncomplete = updatedLogs
-      .slice(completedIndex + 1)
-      .find((log) => !log.completed);
-    set({ logs: updatedLogs, expandedId: nextIncomplete?.id ?? null });
-  },
-
-  // 완료 취소(이어서 하기) — 기록은 그대로 두고 completed만 해제한 뒤 해당 종목을 펼친다.
-  uncompleteLog: (id) =>
-    set((state) => ({
-      logs: state.logs.map((log) => (log.id === id ? { ...log, completed: false } : log)),
-      expandedId: id,
-    })),
-
-  endSession: () => {
-    clearScheduledOrigin();
-    set({ sessionId: null, isRealSession: false, logs: [], expandedId: null, xpResult: null, scheduledOriginSessionId: null });
-  },
-}));
+    {
+      name: "workoutSession",
+      version: 1,
+      storage: createJSONStorage(() => sessionPersistStorage),
+      partialize: (state): PersistedWorkoutSession => ({
+        sessionId: state.sessionId,
+        isRealSession: state.isRealSession,
+        logs: state.logs,
+        expandedId: state.expandedId,
+        scheduledOriginSessionId: state.scheduledOriginSessionId,
+      }),
+    },
+  ),
+);

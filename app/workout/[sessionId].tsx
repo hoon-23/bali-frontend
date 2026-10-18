@@ -224,7 +224,16 @@ export default function WorkoutSessionScreen() {
     router.push({ pathname: "/routines/exercise-picker", params: { sessionId } })
   );
 
+  // 저장된 진행 중 기록 복원이 끝나기 전에 서버 데이터로 새로 조립하면 복원본을 덮어쓴다.
+  // 복원은 앱 시작 직후 끝나지만, 알림 탭 등으로 이 화면에 바로 들어오는 경우를 대비해 기다린다.
+  const [storeHydrated, setStoreHydrated] = useState(() => useWorkoutSessionStore.persist.hasHydrated());
   useEffect(() => {
+    if (storeHydrated) return;
+    return useWorkoutSessionStore.persist.onFinishHydration(() => setStoreHydrated(true));
+  }, [storeHydrated]);
+
+  useEffect(() => {
+    if (!storeHydrated) return;
     if (sessionId === useWorkoutSessionStore.getState().sessionId) return;
     // 실제 세션 조회가 성공하면 그 데이터로, 실패(404 등 — 삭제된 세션이나
     // 개발 중 남은 잘못된 링크)하면 templateId로 실제 템플릿을 다시 조립해서 폴백한다.
@@ -239,7 +248,7 @@ export default function WorkoutSessionScreen() {
       startSession(sessionId, logs, false);
     }
     // apiSession/sessionFetchFailed 둘 다 아직이면(조회 중) 대기 — 다음 렌더에서 재평가됨.
-  }, [sessionId, apiSession, sessionFetchFailed, fallbackTemplate, exerciseMap, startSession]);
+  }, [storeHydrated, sessionId, apiSession, sessionFetchFailed, fallbackTemplate, exerciseMap, startSession]);
 
   // 운동 중 종목을 추가하면(exercise-picker → addItems) 서버 세션엔 새 log가 생기지만,
   // 화면은 로컬 store를 그려서 보고 있어서 자동으로 안 보인다. apiSession이 갱신될 때마다
