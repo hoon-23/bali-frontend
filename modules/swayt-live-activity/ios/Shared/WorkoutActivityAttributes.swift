@@ -3,9 +3,9 @@ import Foundation
 
 // 운동 Live Activity의 데이터 모양. 앱(시작/갱신)과 위젯(표시)이 같은 정의를 써야 해서
 // 두 타겟이 공유한다. 4KB 제한이 있어 표시에 필요한 값만 담는다.
-// 주의: targets/widget/WorkoutActivityAttributes.swift와 구조·이름이 완전히 같아야 한다.
-// 서로 다른 타겟이라 파일을 공유하지 못하고 복사본을 둔다. 한쪽을 고치면 다른 쪽도 반드시 같이 고친다
-// (필드가 다르면 위젯이 상태를 못 읽는다).
+// 이 폴더(Shared)의 파일은 원본이고, targets/widget에는 scripts/sync-live-activity-shared.sh로 만든 복사본이 있다.
+// 서로 다른 Xcode 타겟이라 파일을 공유할 수 없어서다. 여기만 고치고 스크립트로 복사한다
+// (정의가 다르면 위젯이 상태를 못 읽는다).
 @available(iOS 16.2, *)
 struct WorkoutActivityAttributes: ActivityAttributes {
   enum Phase: String, Codable, Hashable {

@@ -95,6 +95,8 @@ type WorkoutSessionState = {
   // Live Activity는 "진행 중인 운동"에만 떠 있어야 해서, 요약 화면이 남아 있어도 이 값으로 먼저 끈다.
   isFinished: boolean;
   markFinished: () => void;
+  // 위젯 버튼이 바꾼 기록(세트·완료·유산소 시간)을 가져와 반영한다 — 앱이 꺼진 동안 일어난 일을 따라잡는다.
+  adoptPlanLogs: (logs: ExerciseLog[], expandedId: string | null) => void;
   markScheduledOrigin: (sessionId: string) => void;
   setXpResult: (xp: SessionXpResult | null) => void;
   startSession: (sessionId: string, logs: ExerciseLog[], isRealSession: boolean, sessionTitle?: string) => void;
@@ -136,6 +138,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>()(
       sessionTitle: "",
 
       markFinished: () => set({ isFinished: true }),
+
+      adoptPlanLogs: (logs, expandedId) => set({ logs, expandedId }),
 
       markScheduledOrigin: (sessionId) => {
         // 앱이 재시작돼도 판별이 유지되도록 별도로 영속 저장한다.

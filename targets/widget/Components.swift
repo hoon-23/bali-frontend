@@ -116,7 +116,7 @@ struct SegmentRing: View {
   }
 }
 
-// 버튼 모양. 지금은 탭하면 앱을 연다(Link). App Intent는 3단계에서 붙인다.
+// 버튼 모양. action이 있으면 App Intent로 앱을 열지 않고 동작하고, 없으면 탭하면 앱을 연다(Link).
 enum ActionStyle { case primary, secondary, danger }
 
 struct ActionButton: View {
@@ -125,18 +125,26 @@ struct ActionButton: View {
   var style: ActionStyle = .primary
   var fontSize: CGFloat = 16
   var height: CGFloat = 44
+  var action: String? = nil
 
   var body: some View {
-    Link(destination: Theme.appURL) {
-      HStack(spacing: 6) {
-        Image(systemName: symbol).font(.system(size: fontSize - 2, weight: .bold))
-        Text(title).font(.system(size: fontSize, weight: .semibold))
-      }
-      .foregroundStyle(foreground)
-      .frame(maxWidth: .infinity)
-      .frame(height: height)
-      .background(Capsule().fill(background))
+    if let action {
+      Button(intent: WorkoutActionIntent(action: action)) { label }
+        .buttonStyle(.plain)
+    } else {
+      Link(destination: Theme.appURL) { label }
     }
+  }
+
+  private var label: some View {
+    HStack(spacing: 6) {
+      Image(systemName: symbol).font(.system(size: fontSize - 2, weight: .bold))
+      Text(title).font(.system(size: fontSize, weight: .semibold))
+    }
+    .foregroundStyle(foreground)
+    .frame(maxWidth: .infinity)
+    .frame(height: height)
+    .background(Capsule().fill(background))
   }
 
   private var foreground: Color {
@@ -156,6 +164,7 @@ struct ActionButton: View {
 }
 
 // 현재 상태에 맞는 버튼 줄. 웨이트는 주 버튼 하나, 유산소는 일시정지/이어서 + 종료.
+// "운동 종료"는 난이도 선택·서버 제출을 앱에서 하므로 앱을 연다(action 없음).
 struct ActionRow: View {
   let state: LAState
   var fontSize: CGFloat = 16
@@ -165,20 +174,20 @@ struct ActionRow: View {
     case (.awaitingFinish, _):
       ActionButton(title: "운동 종료", symbol: "arrow.up.forward.app", fontSize: fontSize)
     case (.waiting, false):
-      ActionButton(title: "세트 시작", symbol: "play.fill", fontSize: fontSize)
+      ActionButton(title: "세트 시작", symbol: "play.fill", fontSize: fontSize, action: "startSet")
     case (.running, false):
-      ActionButton(title: "세트 완료", symbol: "checkmark", fontSize: fontSize)
+      ActionButton(title: "세트 완료", symbol: "checkmark", fontSize: fontSize, action: "completeSet")
     case (.waiting, true):
-      ActionButton(title: "측정 시작", symbol: "play.fill", fontSize: fontSize)
+      ActionButton(title: "측정 시작", symbol: "play.fill", fontSize: fontSize, action: "startCardio")
     case (.running, true):
       HStack(spacing: 8) {
-        ActionButton(title: "일시정지", symbol: "pause.fill", style: .secondary, fontSize: fontSize)
-        ActionButton(title: "종료", symbol: "stop.fill", style: .danger, fontSize: fontSize).frame(width: 96)
+        ActionButton(title: "일시정지", symbol: "pause.fill", style: .secondary, fontSize: fontSize, action: "pauseCardio")
+        ActionButton(title: "종료", symbol: "stop.fill", style: .danger, fontSize: fontSize, action: "finishCardio").frame(width: 96)
       }
     case (.paused, _):
       HStack(spacing: 8) {
-        ActionButton(title: "이어서 측정", symbol: "play.fill", fontSize: fontSize)
-        ActionButton(title: "종료", symbol: "stop.fill", style: .danger, fontSize: fontSize).frame(width: 96)
+        ActionButton(title: "이어서 측정", symbol: "play.fill", fontSize: fontSize, action: "resumeCardio")
+        ActionButton(title: "종료", symbol: "stop.fill", style: .danger, fontSize: fontSize, action: "finishCardio").frame(width: 96)
       }
     }
   }

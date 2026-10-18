@@ -1,95 +1,80 @@
 import ActivityKit
 import ExpoModulesCore
 
-internal final class LiveActivityUnavailableException: Exception, @unchecked Sendable {
-  override var reason: String {
-    "이 기기나 설정에서는 Live Activity를 쓸 수 없어요(iOS 16.2 이상, 설정에서 허용 필요)"
-  }
-}
-
-// JS에서 넘어오는 화면 상태. 시각은 epoch 밀리초로 받는다.
-struct LiveActivityStateRecord: Record {
-  @Field var phase: String = "waiting"
-  @Field var isCardio: Bool = false
-  @Field var exerciseName: String = ""
-  @Field var exerciseIndex: Int = 1
-  @Field var exerciseCount: Int = 1
-  @Field var setNumber: Int = 1
-  @Field var totalSets: Int = 1
-  @Field var completedSets: Int = 0
-  @Field var targetReps: Int = 0
-  @Field var targetWeight: Double = 0
-  @Field var targetMinutes: Int = 0
-  @Field var timerStartMs: Double?
-  @Field var pausedSeconds: Int = 0
-  @Field var totalCompletedSets: Int = 0
-  @Field var lastUpdatedMs: Double = 0
-}
-
-// 앱이 멈춰 있어도(종료·크래시) 이 시간이 지나면 OS가 stale로 표시해 위젯이 "앱을 열어 주세요"를 보여준다.
-private let staleAfterSeconds: TimeInterval = 3 * 60 * 60
-
+// JS ↔ Swift 연결부. 화면 상태 계산과 Live Activity 조작은 Shared/의 WorkoutActivityController가 맡고,
+// 여기는 JS가 보낸 plan을 App Group에 쓰고 컨트롤러를 부르는 얇은 층이다.
 public final class SwaytLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("SwaytLiveActivity")
+
+    Events("onPlanChanged")
+
+    OnCreate {
+      installEventBridge()
+    }
+
+    OnDestroy {
+      WorkoutPlanEvents.onChanged = nil
+    }
 
     Function("isSupported") { () -> Bool in
       guard #available(iOS 16.2, *) else { return false }
       return ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
-    // 새 Live Activity를 시작하고 id를 돌려준다.
-    AsyncFunction("start") { (sessionName: String, state: LiveActivityStateRecord) -> String in
-      guard #available(iOS 16.2, *), ActivityAuthorizationInfo().areActivitiesEnabled else {
-        throw LiveActivityUnavailableException()
+    // 진행 중 운동의 plan(JSON)을 App Group에 쓰고 Live Activity를 맞춘다. null이면 진행 중인 운동이 없다는 뜻.
+    // 앱이 앞에 있을 때만 호출되므로 새 Live Activity를 시작해도 된다.
+    AsyncFunction("syncPlan") { (planJson: String?) in
+      var plan: [String: Any]?
+      if let planJson, let data = planJson.data(using: .utf8) {
+        plan = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        if plan == nil { WorkoutPlanStore.log("syncPlan: JSON 해석 실패") }
       }
-      let activity = try Activity<WorkoutActivityAttributes>.request(
-        attributes: WorkoutActivityAttributes(sessionName: sessionName),
-        content: Self.makeContent(state)
-      )
-      return activity.id
+      if let plan {
+        WorkoutPlanStore.write(plan, by: "app")
+      } else {
+        WorkoutPlanStore.clear()
+      }
+      guard #available(iOS 16.2, *) else { return }
+      await WorkoutActivityController.sync(plan: plan, allowStart: true)
     }
 
-    AsyncFunction("update") { (id: String, state: LiveActivityStateRecord) in
-      guard #available(iOS 16.2, *) else { return }
-      guard let activity = Activity<WorkoutActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
-      await activity.update(Self.makeContent(state))
-    }
-
-    // id를 주면 그 Activity만, 비우면(null) 남아 있는 것을 모두 종료한다(앱 재시작 후 유령 정리용).
-    AsyncFunction("end") { (id: String?) in
-      guard #available(iOS 16.2, *) else { return }
-      for activity in Activity<WorkoutActivityAttributes>.activities where id == nil || activity.id == id {
-        await activity.end(nil, dismissalPolicy: .immediate)
-      }
+    // App Group의 plan(JSON 문자열, rev·updatedBy 포함). 위젯 버튼이 바꾼 내용을 JS가 가져갈 때 쓴다.
+    Function("readPlan") { () -> String? in
+      guard let plan = WorkoutPlanStore.read(),
+            let data = try? JSONSerialization.data(withJSONObject: plan) else { return nil }
+      return String(data: data, encoding: .utf8)
     }
 
     Function("activeIds") { () -> [String] in
       guard #available(iOS 16.2, *) else { return [] }
       return Activity<WorkoutActivityAttributes>.activities.map { $0.id }
     }
+
+    // 진단: 버튼 탭이 어디까지 갔는지 남긴 로그(앱 안 진단 화면에서 읽는다).
+    Function("readDebugLog") { () -> [String] in
+      WorkoutPlanStore.readLog()
+    }
+
+    Function("clearDebugLog") {
+      WorkoutPlanStore.clearLog()
+    }
+
+    // 진단 화면의 "동작 시험": 버튼 탭이 실행하는 것과 같은 코드를 앱 안에서 직접 부른다.
+    AsyncFunction("debugPerform") { (action: String) in
+      guard #available(iOS 16.2, *) else { return }
+      await WorkoutActionRunner.run(action: action)
+    }
+
+    Function("appendDebugLog") { (message: String) in
+      WorkoutPlanStore.log("[js] \(message)")
+    }
   }
 
-  @available(iOS 16.2, *)
-  private static func makeContent(_ r: LiveActivityStateRecord) -> ActivityContent<WorkoutActivityAttributes.ContentState> {
-    let updated = r.lastUpdatedMs > 0 ? Date(timeIntervalSince1970: r.lastUpdatedMs / 1000) : Date()
-    let state = WorkoutActivityAttributes.ContentState(
-      phase: WorkoutActivityAttributes.Phase(rawValue: r.phase) ?? .waiting,
-      isCardio: r.isCardio,
-      exerciseName: r.exerciseName,
-      exerciseIndex: r.exerciseIndex,
-      exerciseCount: r.exerciseCount,
-      setNumber: r.setNumber,
-      totalSets: r.totalSets,
-      completedSets: r.completedSets,
-      targetReps: r.targetReps,
-      targetWeight: r.targetWeight,
-      targetMinutes: r.targetMinutes,
-      timerStart: r.timerStartMs.map { Date(timeIntervalSince1970: $0 / 1000) },
-      pausedSeconds: r.pausedSeconds,
-      totalCompletedSets: r.totalCompletedSets,
-      lastUpdated: updated
-    )
-    return ActivityContent(state: state, staleDate: updated.addingTimeInterval(staleAfterSeconds))
+  // 앱 프로세스에서 버튼 인텐트가 plan을 바꾸면 JS에 알린다(JS가 살아 있을 때).
+  private func installEventBridge() {
+    WorkoutPlanEvents.onChanged = { [weak self] in
+      self?.sendEvent("onPlanChanged", [:])
+    }
   }
 }

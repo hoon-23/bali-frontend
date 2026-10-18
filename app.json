@@ -22,6 +22,11 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.younghoon.swayt"
+        ]
       }
     },
     "android": {
