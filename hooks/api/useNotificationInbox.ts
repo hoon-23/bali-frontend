@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
 import { setAppIconBadgeCount } from "../../lib/notifications";
 
@@ -31,16 +31,34 @@ export type InboxPage = {
   hasNext: boolean;
 };
 
-export function useNotificationInbox() {
-  return useQuery({
-    queryKey: INBOX_KEY,
-    queryFn: async () => {
-      const { data } = await apiClient.get<InboxPage>("/api/v1/notifications", {
-        params: { page: 0, size: INBOX_PAGE_SIZE },
-      });
-      return data.items;
-    },
+async function fetchInbox(): Promise<InboxNotification[]> {
+  const { data } = await apiClient.get<InboxPage>("/api/v1/notifications", {
+    params: { page: 0, size: INBOX_PAGE_SIZE },
   });
+  return data.items;
+}
+
+export function useNotificationInbox() {
+  return useQuery({ queryKey: INBOX_KEY, queryFn: fetchInbox });
+}
+
+// 푸시(잠금화면 알림)를 탭했을 때 같은 알림을 읽음 처리한다. 푸시 data에는 알림 id가 없어서
+// 알림함 목록에서 type과 referenceId가 같은 안 읽은 알림을 찾는다(목록이 최신순이라 가장 최근 것이 대상).
+// 실패해도 화면 이동을 막지 않는다 — 읽음은 알림함에서 다시 처리할 수 있다.
+export async function markPushTapAsRead(
+  queryClient: QueryClient,
+  tap: { type: string; referenceId: string }
+): Promise<void> {
+  try {
+    const items = await queryClient.fetchQuery({ queryKey: INBOX_KEY, queryFn: fetchInbox, staleTime: 0 });
+    const target = items.find((item) => !item.read && item.type === tap.type && (item.referenceId ?? "") === tap.referenceId);
+    if (target) await apiClient.patch(`/api/v1/notifications/${target.id}/read`);
+  } catch {
+    // 무시
+  } finally {
+    queryClient.invalidateQueries({ queryKey: INBOX_KEY });
+    queryClient.invalidateQueries({ queryKey: UNREAD_KEY });
+  }
 }
 
 // 안 읽은 알림 개수 — 앱이 포그라운드로 돌아올 때마다 다시 가져온다(푸시가 앱 밖에서 도착하므로).

@@ -145,14 +145,22 @@ export function openPushTapRoute(router: Pick<Router, "push" | "dismissTo">, rou
   }
 }
 
-type NotificationTap = { identifier: string; route: string };
+// type/referenceId: 푸시 data 그대로 — 알림함에서 같은 알림을 찾아 읽음 처리하는 데 쓴다(푸시 data에는 알림 id가 없다).
+export type NotificationTap = { identifier: string; route: string; type: string; referenceId: string };
 
 function toNotificationTap(
   response: import("expo-notifications").NotificationResponse | null | undefined
 ): NotificationTap | null {
   if (!response) return null;
-  const route = getPushTapRoute(response.notification.request.content.data);
-  return route ? { identifier: response.notification.request.identifier, route } : null;
+  const data = response.notification.request.content.data;
+  const route = getPushTapRoute(data);
+  if (!route) return null;
+  return {
+    identifier: response.notification.request.identifier,
+    route,
+    type: typeof data?.type === "string" ? data.type : "",
+    referenceId: typeof data?.referenceId === "string" ? data.referenceId : "",
+  };
 }
 
 // 푸시를 탭한 순간(앱이 켜져 있거나 백그라운드)의 이동 요청을 구독한다. 해제 함수를 돌려준다.

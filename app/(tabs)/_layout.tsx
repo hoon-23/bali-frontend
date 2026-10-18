@@ -7,6 +7,7 @@ import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { usePushTapNavigation } from "../../hooks/usePushTapNavigation";
 import { usePushTokenRegistration } from "../../hooks/usePushTokenRegistration";
+import { useQueryFocusSync } from "../../hooks/useForegroundRefresh";
 import { useLiveActivitySync } from "../../hooks/useLiveActivitySync";
 import { useRestoredSessionGuard } from "../../hooks/useRestoredSessionGuard";
 import { recordsTabBarCollapse } from "../../lib/recordsScroll";
@@ -29,6 +30,7 @@ export default function TabsLayout() {
   usePushTapNavigation();
   useRestoredSessionGuard();
   useLiveActivitySync();
+  useQueryFocusSync();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const segments = useSegments();

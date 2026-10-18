@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
 import { ApiSession } from "../../lib/session/sessionDisplay";
+import { useForegroundTick } from "../useForegroundRefresh";
 
 function toISODate(date: Date): string {
   const year = date.getFullYear();
@@ -24,6 +25,8 @@ export function getTodayKstISODate(): string {
 }
 
 export function useUpcomingSessions() {
+  // 앱이 앞으로 돌아올 때 다시 그려서 아래 날짜 범위(조회 키)와 호출부의 "오늘" 판정을 새 날짜로 맞춘다.
+  useForegroundTick();
   const today = new Date();
   const future = new Date(today);
   future.setDate(future.getDate() + 30);

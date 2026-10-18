@@ -1,6 +1,6 @@
 import { ChevronLeft, Plus } from "lucide-react-native";
-import { useRouter } from "expo-router";
-import { useMemo } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -10,6 +10,7 @@ import { CARD_SHADOW } from "../../constants/shadow";
 import { CATEGORY_LABELS } from "../../store/templatesStore";
 import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiTemplate, useTemplates } from "../../hooks/api/useTemplates";
+import { CreatedAtMap, loadCreatedAt } from "../../lib/routines/createdOrder";
 import { AppText } from "../../components/AppText";
 
 function getMuscleGroupChips(template: ApiTemplate, exerciseMap: Map<string, ApiExercise>): string[] {
@@ -23,8 +24,16 @@ function getMuscleGroupChips(template: ApiTemplate, exerciseMap: Map<string, Api
 
 // 최근에 실행한 루틴이 위로 — lastUsedAt 내림차순, 실행 이력이 없는(null) 루틴은 맨 아래.
 // 같은 날 실행한 루틴끼리(날짜만 있어 동률)와 이력 없는 루틴끼리는 이름순으로 고정해 순서가 흔들리지 않게 한다.
-function sortByRecentlyUsed(templates: ApiTemplate[]): ApiTemplate[] {
+// 예외: 이 기기에서 새로 만든 루틴은 처음 실행하기 전까지 맨 위(가장 최근에 만든 것이 먼저).
+function sortByRecentlyUsed(templates: ApiTemplate[], createdAt: CreatedAtMap): ApiTemplate[] {
   return [...templates].sort((a, b) => {
+    const aNew = !a.lastUsedAt ? createdAt[a.id] : undefined;
+    const bNew = !b.lastUsedAt ? createdAt[b.id] : undefined;
+    if (aNew !== undefined || bNew !== undefined) {
+      if (aNew === undefined) return 1;
+      if (bNew === undefined) return -1;
+      return bNew - aNew;
+    }
     // 구버전 응답(필드 없음, undefined)과 null을 같은 "이력 없음"으로 취급한다.
     const aUsed = a.lastUsedAt ?? null;
     const bUsed = b.lastUsedAt ?? null;
@@ -40,7 +49,14 @@ function sortByRecentlyUsed(templates: ApiTemplate[]): ApiTemplate[] {
 export default function RoutinesScreen() {
   const router = useRouter();
   const { data: rawTemplates = [] } = useTemplates();
-  const templates = useMemo(() => sortByRecentlyUsed(rawTemplates), [rawTemplates]);
+  const [createdAt, setCreatedAt] = useState<CreatedAtMap>({});
+  // 화면이 포커스될 때마다 읽는다 — 루틴 만들기 화면에서 돌아오면 방금 만든 루틴이 바로 반영된다.
+  useFocusEffect(
+    useCallback(() => {
+      loadCreatedAt().then(setCreatedAt);
+    }, [])
+  );
+  const templates = useMemo(() => sortByRecentlyUsed(rawTemplates, createdAt), [rawTemplates, createdAt]);
   const exerciseMap = useExerciseMap();
 
   return (

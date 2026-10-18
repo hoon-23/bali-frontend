@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
+import { rememberCreated } from "../../lib/routines/createdOrder";
 import { TemplateCategory, TemplateItem } from "../../store/templatesStore";
 
 export type ApiTemplate = {
@@ -44,7 +45,9 @@ export function useCreateTemplate() {
   return useMutation({
     mutationFn: async (payload: CreateTemplatePayload) =>
       (await apiClient.post<ApiTemplate>("/api/v1/templates", payload)).data,
-    onSuccess: () => {
+    onSuccess: async (created) => {
+      // 목록을 다시 그리기 전에 먼저 저장해서, 새 루틴이 첫 렌더부터 맨 위에 오게 한다.
+      await rememberCreated(created.id);
       queryClient.invalidateQueries({ queryKey: ["templates"] });
     },
   });
