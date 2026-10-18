@@ -10,7 +10,7 @@ struct WorkoutLiveActivity: Widget {
         state: context.state,
         isStale: context.isStale
       )
-      .activityBackgroundTint(Theme.bg)
+      .activityBackgroundTint(Theme.card)
       .activitySystemActionForegroundColor(Theme.text)
     } dynamicIsland: { context in
       DynamicIsland {
@@ -58,7 +58,6 @@ struct LockScreenView: View {
     .padding(.vertical, 12)
     .padding(.horizontal, 16)
     .frame(height: 156)
-    .background(Theme.bg)
     .overlay {
       if isStale {
         RoundedRectangle(cornerRadius: 22).strokeBorder(Theme.track, lineWidth: 1)

@@ -2,7 +2,10 @@ import SwiftUI
 
 // 디자인 시안(docs/specs/2026-10-18-live-activity-디자인-수치.md)의 색상 토큰.
 enum Theme {
-  static let bg = Color(hex: 0x0B0B0F)        // 잠금 카드 배경
+  static let bg = Color(hex: 0x0B0B0F)        // 앱 배경(참고용)
+  // 잠금 카드 배경: 검정에 알파 0.65. 0.55~0.70 범위를 비교해 정했다(밝은 배경에서도 회색 글자가 읽히는 선).
+  // Dynamic Island 배경은 시스템이 순수 검정으로 고정해서 바꿀 수 없다.
+  static let card = Color.black.opacity(0.65)
   static let surface = Color(hex: 0x1C1C25)   // 보조 버튼, 아이콘 원
   static let track = Color(hex: 0x2E2E3A)     // 남은 세트, 만료 카드 테두리
   static let accent = Color(hex: 0x2DD4BF)    // 진행 시간, 완료 세트, 주 버튼
