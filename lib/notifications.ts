@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import type { Router } from "expo-router";
+import { useReportTargetStore } from "../store/reportTargetStore";
 import { Platform } from "react-native";
 import type { DevicePlatform } from "../hooks/api/useNotifications";
 
@@ -124,9 +125,11 @@ export function getPushTapRoute(data: Record<string, unknown> | undefined): stri
   switch (type) {
     case "ROUTINE_REMINDER":
       return referenceId ? `/upcoming/${referenceId}` : "/home";
+    // 요약 인사이트는 지난 기간(지난주/지난달)에 대한 것이라 리포트를 그 기간으로 연다 — 이번 주/달은 비어 있기 쉽다.
     case "WEEKLY_SUMMARY":
+      return "/stats?view=weekly&past=1";
     case "MONTHLY_SUMMARY":
-      return "/stats";
+      return "/stats?view=monthly&past=1";
     case "INACTIVITY_ALERT":
       return "/home";
     default:
@@ -135,13 +138,26 @@ export function getPushTapRoute(data: Record<string, unknown> | undefined): stri
 }
 
 // getPushTapRoute가 돌려준 경로로 이동한다.
-// 탭 경로(/home, /stats)를 스택 화면(알림함 등)에서 push하면 루트 Stack에 (tabs)가 하나 더 쌓여
-// 애니메이션 없이 화면이 뚝 바뀐다 — 기존 (tabs)까지 되돌아가며 탭만 바꾸도록 dismissTo를 쓴다.
-export function openPushTapRoute(router: Pick<Router, "push" | "dismissTo">, route: string): void {
-  if (route === "/home" || route === "/stats") {
-    router.dismissTo(route);
-  } else {
+// 탭 경로(/home, /stats)를 스택 화면(알림함 등)에서 push하거나 navigate하면 루트 Stack에 (tabs)가 하나 더 쌓여
+// 뒤로 가기에 이전 화면이 다시 나온다 — 기존 (tabs)까지 되돌아가며 탭만 바꾸도록 dismissTo를 쓴다.
+// 콜드 스타트(cold)에서는 dismissTo가 탭 전환 없이 무시되어 홈에 남으므로 navigate를 쓴다(쌓일 스택이 없다).
+// 리포트의 "?view=...&past=1"은 라우트 파라미터로 넘기지 않고 reportTargetStore로 전달한다.
+export function openPushTapRoute(
+  router: Pick<Router, "push" | "dismissTo" | "navigate">,
+  route: string,
+  options: { cold?: boolean } = {}
+): void {
+  const [path, query] = route.split("?");
+  if (path === "/stats" && query) {
+    const view = new URLSearchParams(query).get("view");
+    if (view === "weekly" || view === "monthly") useReportTargetStore.getState().request(view);
+  }
+  if (path !== "/home" && path !== "/stats") {
     router.push(route as never);
+  } else if (options.cold) {
+    router.navigate(path as never);
+  } else {
+    router.dismissTo(path as never);
   }
 }
 

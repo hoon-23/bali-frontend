@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useReportTargetStore } from "../../store/reportTargetStore";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedBar, AnimatedCell } from "../../components/AnimatedBar";
@@ -225,6 +226,28 @@ export default function StatsScreen() {
     }
   }, [params.view]);
 
+  // 인사이트 푸시/알림으로 들어오면 그 인사이트가 다루는 지난 주·지난 달로 연다(이번 주·달은 비어 있기 쉽다).
+  const reportTarget = useReportTargetStore((state) => state.target);
+  useEffect(() => {
+    if (!reportTarget) return;
+    setView(reportTarget);
+    if (reportTarget === "monthly") setMonthOffset(-1);
+    else setWeekOffset(-1);
+    useReportTargetStore.getState().consume();
+  }, [reportTarget]);
+
+  // 탭을 벗어나면 주·월을 이번 주/이번 달로 되돌린다 — 인사이트 알림으로 지난 기간을 연 뒤 다른 탭에 갔다 와도
+  // 지난 기간이 그대로 남아 있지 않게 한다. 알림 진입은 그 뒤에 store로 다시 지난 기간을 지정한다.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setWeekOffset(0);
+        setMonthOffset(0);
+      },
+      [],
+    ),
+  );
+
   const { data: me, isPending: mePending } = useMe();
 
   const weekOf = useMemo(() => getMondayISODate(weekOffset), [weekOffset]);
@@ -259,7 +282,7 @@ export default function StatsScreen() {
   // 월간 인사이트가 무료 플랜 한도로 잠긴 경우(403 MONTHLY_INSIGHTS) — 에러 대신 잠금 UI를 보여준다.
   const monthLocked = isLimitExceededError(monthOffset === 0 ? monthlyCurrent.error : monthlyPast.error);
   const topMuscleGroupsMonth = useMemo(
-    () => computeTopMuscleGroups(monthSummary),
+    () => computeTopMuscleGroups(monthSummary, Infinity),
     [monthSummary],
   );
 
@@ -275,7 +298,7 @@ export default function StatsScreen() {
   const monthCardioMinutes =
     (monthOffset === 0 ? monthlyCurrent.data?.cardioMinutes : monthlyPast.data?.summary?.cardioTotalMinutes) ?? 0;
 
-  const topMuscleGroups = useMemo(() => computeTopMuscleGroups(weekSummary), [weekSummary]);
+  const topMuscleGroups = useMemo(() => computeTopMuscleGroups(weekSummary, Infinity), [weekSummary]);
 
   // 최초 로딩(캐시에 데이터가 아직 없음) 여부 — isPending은 에러이거나 이미 데이터가 있으면 false라서
   // 백그라운드 재조회 때 스켈레톤으로 되돌아가지 않는다. 월간 403(잠금)도 에러라 false가 된다.
