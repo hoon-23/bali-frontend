@@ -95,7 +95,9 @@ struct SegmentRing: View {
       ForEach(0..<total, id: \.self) { i in
         let start = Double(i) / Double(total) + gap / 2
         let end = Double(i + 1) / Double(total) - gap / 2
+        // 선이 경로 중심 기준이라 프레임 밖으로 lineWidth/2 튀어나와 알약 가장자리에 잘린다 — 안쪽으로 인셋한다.
         Circle()
+          .inset(by: lineWidth / 2)
           .trim(from: start, to: end)
           .stroke(color(for: i + 1), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
           .rotationEffect(.degrees(-90))

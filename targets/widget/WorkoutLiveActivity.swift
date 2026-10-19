@@ -344,7 +344,8 @@ struct CompactLeading: View {
       let (symbol, color) = symbolName(state, isStale: isStale)
       Image(systemName: symbol).font(.system(size: 13, weight: .bold)).foregroundStyle(color)
     } else {
-      SegmentRing(state: state, diameter: 18, lineWidth: 2.5)
+      // 왼쪽 둥근 모서리에 링이 걸리지 않도록 여백을 둔다.
+      SegmentRing(state: state, diameter: 18, lineWidth: 2.5).padding(.leading, 4)
     }
   }
 }
