@@ -2,7 +2,7 @@
   "expo": {
     "name": "Swayt",
     "slug": "bali-frontend",
-    "version": "1.5.4",
+    "version": "1.5.5",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -17,7 +17,7 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0B0F",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.younghoon.swayt",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
