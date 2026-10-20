@@ -153,10 +153,7 @@ export default function ProfileScreen() {
               </>
             ) : (
               <>
-                {/* 닉네임을 길게 누르면 Live Activity 진단 화면이 열린다(일반 사용자에게 보이는 메뉴는 아니다). */}
-                <Pressable delayLongPress={1200} onLongPress={() => router.push("/diagnostics/live-activity")}>
-                  <Text style={styles.name}>{me?.nickname ?? "—"} 님</Text>
-                </Pressable>
+                <Text style={styles.name}>{me?.nickname ?? "—"} 님</Text>
                 {me?.email && !isPlaceholderEmail(me.email) && (
                   <Text style={styles.email}>{me.email}</Text>
                 )}
