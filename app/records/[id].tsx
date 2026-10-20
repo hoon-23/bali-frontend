@@ -190,6 +190,8 @@ function ExerciseAccordion({ log, exerciseName, isBodyweight, isCardio, expanded
   // 유산소는 시간(초)·페이스 기준으로 표기하고, 근력은 기존 세트×회×kg 표기를 그대로 쓴다.
   const targetMinutes = Math.round((log.targetDurationSeconds ?? 0) / 60);
   const actualSeconds = log.actualDurationSeconds ?? 0;
+  // 목표가 전부 null(목표 없이 기록한 세션)이면 "목표 0세트 × 0회"로 보이지 않게 목표 줄을 숨긴다.
+  const hasStrengthTarget = log.targetSets != null || log.targetReps != null || log.targetWeight != null;
   const hasCardioActual = actualSeconds > 0 || !!log.actualPace;
   const hasActual = hasLogRecord(log, false);
 
@@ -200,12 +202,12 @@ function ExerciseAccordion({ log, exerciseName, isBodyweight, isCardio, expanded
           <Text style={styles.exerciseName}>{exerciseName}</Text>
           {isCardio ? (
             targetMinutes > 0 ? <Text style={styles.exerciseTarget}>목표 {targetMinutes}분</Text> : null
-          ) : (
+          ) : hasStrengthTarget ? (
             <Text style={styles.exerciseTarget}>
               목표 {log.targetSets ?? 0}세트 × {log.targetReps ?? 0}회
               {isBodyweight ? "" : ` × ${log.targetWeight ?? 0}kg`}
             </Text>
-          )}
+          ) : null}
         </View>
         <View style={styles.exerciseHeaderRight}>
           <View style={[styles.completeBadge, log.completed && styles.completeBadgeActive]}>
