@@ -40,9 +40,14 @@ export default function LoginScreen() {
     });
   }, []);
 
-  const finishLogin = async (provider: SocialProvider["id"], token: string) => {
+  const finishLogin = async (provider: SocialProvider["id"], token: string, authorizationCode?: string) => {
     // 백엔드 AuthProvider enum(GOOGLE/APPLE/...)은 대문자 고정이라 맞춰서 보낸다.
-    const { data } = await apiClient.post("/api/v1/auth/login", { provider: provider.toUpperCase(), token });
+    // authorizationCode는 Apple 전용(탈퇴 시 토큰 revoke용)이고 1회용·약 5분 유효라 로그인 요청에 바로 실어 보낸다.
+    const { data } = await apiClient.post("/api/v1/auth/login", {
+      provider: provider.toUpperCase(),
+      token,
+      ...(authorizationCode ? { authorizationCode } : {}),
+    });
     setAccessToken(data.accessToken);
     await setRefreshToken(data.refreshToken);
     await AsyncStorage.setItem(LAST_LOGIN_PROVIDER_KEY, provider);
@@ -88,7 +93,7 @@ export default function LoginScreen() {
         ],
       });
       if (!credential.identityToken) throw new Error("Apple 로그인에서 identityToken을 받지 못했습니다.");
-      await finishLogin("apple", credential.identityToken);
+      await finishLogin("apple", credential.identityToken, credential.authorizationCode ?? undefined);
     } catch (error: any) {
       console.error("[apple-login]", error?.code, error?.message, error?.response?.status, error?.response?.data);
       if (error?.code !== "ERR_REQUEST_CANCELED") {
