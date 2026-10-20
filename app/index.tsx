@@ -32,6 +32,17 @@ export default function LoginScreen() {
   const setAccessToken = useAuthStore((state) => state.setAccessToken);
   const [loggingIn, setLoggingIn] = useState(false);
 
+  // 이미 로그인된 상태로 이 화면이 뜨는 경우(Live Activity "운동 종료" 버튼이 앱 루트 주소를 열 때)는
+  // 로그인 화면을 보여주지 않고 원래 화면으로 되돌린다. 콜드 스타트는 마운트 시점에 아직
+  // 미인증이라 여기 걸리지 않고, 부트스트랩 리다이렉트(_layout)가 그대로 처리한다.
+  useEffect(() => {
+    if (!useAuthStore.getState().isAuthenticated) return;
+    if (router.canGoBack()) router.back();
+    else router.replace("/home");
+    // 마운트 시점 한 번만 판단한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     AsyncStorage.getItem(LAST_LOGIN_PROVIDER_KEY).then((storedId) => {
       if (storedId && SOCIAL_PROVIDERS.some((provider) => provider.id === storedId)) {
