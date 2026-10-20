@@ -117,7 +117,8 @@
           "color": "#2DD4BF"
         }
       ],
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-font"
     ],
     "extra": {
       "router": {},
