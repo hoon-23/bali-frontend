@@ -1,5 +1,6 @@
 import { ChevronLeft, CircleMinus, CirclePlus } from "lucide-react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,6 +11,7 @@ import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
+import { LAST_LOGIN_PROVIDER_KEY } from "../../lib/auth/lastLoginProvider";
 import { useAuthStore } from "../../store/authStore";
 import { isPlaceholderEmail, useMe, useUpdateProfile, useWithdraw } from "../../hooks/api/useMe";
 import { clearCachedPushToken, getCachedPushToken } from "../../lib/notifications";
@@ -54,6 +56,18 @@ export default function AccountScreen() {
     }
   };
 
+  // 네이버 SDK는 자체 토큰과 동의 상태를 기기에 남겨서, 탈퇴 후에도 로그인 버튼이 재인증 없이 바로 통과한다.
+  // 탈퇴가 끝난 뒤 연동을 해제해 다음 로그인 때 네이버 로그인·동의 화면이 다시 뜨게 한다(실패해도 탈퇴는 이미 끝났다).
+  const unlinkNaverIfNeeded = async () => {
+    try {
+      if ((await AsyncStorage.getItem(LAST_LOGIN_PROVIDER_KEY)) !== "naver") return;
+      const NaverLogin = require("@react-native-seoul/naver-login").default;
+      await NaverLogin.deleteToken();
+    } catch (error) {
+      console.warn("네이버 연동 해제 실패", error);
+    }
+  };
+
   const handleWithdraw = () => {
     appAlert(
       "정말 탈퇴하시겠어요?",
@@ -75,6 +89,7 @@ export default function AccountScreen() {
                 await clearCachedPushToken();
               }
               await withdraw.mutateAsync();
+              await unlinkNaverIfNeeded();
               useAuthStore.getState().logout();
               router.replace("/");
             } catch {

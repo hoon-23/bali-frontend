@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { login as kakaoLogin } from "@react-native-seoul/kakao-login";
 import NaverLogin from "@react-native-seoul/naver-login";
 import { apiClient } from "../lib/api/client";
+import { LAST_LOGIN_PROVIDER_KEY } from "../lib/auth/lastLoginProvider";
 import { useAuthStore } from "../store/authStore";
 import { setRefreshToken } from "../lib/auth/tokenStorage";
 import { appAlert } from "../lib/alert";
@@ -24,7 +25,6 @@ const SOCIAL_PROVIDERS: SocialProvider[] = [
   { id: "google", label: "Google로 계속하기", backgroundColor: "#4285F4", textColor: "#FFFFFF" },
 ];
 
-const LAST_LOGIN_PROVIDER_KEY = "swayt:last-login-provider";
 
 export default function LoginScreen() {
   const router = useRouter();
