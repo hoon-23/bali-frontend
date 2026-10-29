@@ -179,7 +179,7 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <View style={styles.titleBlock}>
           <Image source={require("../assets/images/splash/swayt-logo.png")} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.tagline}>세트마다 기록하고, 꾸준히 성장하세요</Text>
+          <Text style={styles.tagline}>세트별 기록, 주간·월간 리포트</Text>
         </View>
 
         <View style={styles.buttonGroup}>
