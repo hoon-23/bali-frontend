@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AnimatedBar } from "../../components/AnimatedBar";
 import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +17,7 @@ import { SUBSCRIPTION_UI_ENABLED } from "../../constants/features";
 import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
+import { LAST_LOGIN_PROVIDER_KEY } from "../../lib/auth/lastLoginProvider";
 import { getRefreshToken } from "../../lib/auth/tokenStorage";
 import { formatThousands } from "../../lib/format/number";
 import { useAuthStore } from "../../store/authStore";
@@ -87,8 +89,22 @@ export default function ProfileScreen() {
       }
       await clearCachedPushToken();
     }
-    // 소셜 로그인이 가입/로그인을 겸하는 구조라, 구글 SDK 세션(GoogleSignin.signOut())까지
-    // 지우지 않는다 — 앱 로그아웃은 우리 쪽 토큰만 지우고, 다음 로그인은 다시 빠르게 되게 둔다.
+    // 구글 SDK 세션(GoogleSignin.signOut())은 지우지 않는다 — 구글은 로그인 때 계정 선택 창이 다시 뜬다.
+    // 네이버 SDK는 토큰을 기기에 남겨 두고 다음 로그인을 재인증 없이 통과시켜서, 다른 계정으로 바꿔 로그인할 수 없다.
+    // 그래서 네이버로 로그인했다면 연동을 해제해 다음 로그인 때 네이버 로그인 화면이 다시 뜨게 한다.
+    try {
+      if ((await AsyncStorage.getItem(LAST_LOGIN_PROVIDER_KEY)) === "naver") {
+        const NaverLogin = require("@react-native-seoul/naver-login").default;
+        try {
+          await NaverLogin.deleteToken();
+        } catch {
+          // 서버 연동 해제가 실패하면 최소한 기기에 남은 토큰이라도 지운다
+          await NaverLogin.logout();
+        }
+      }
+    } catch {
+      // 네이버 정리 실패해도 로컬 로그아웃은 계속 진행
+    }
     useAuthStore.getState().logout();
     router.replace("/");
   };
