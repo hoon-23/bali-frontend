@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { login as kakaoLogin } from "@react-native-seoul/kakao-login";
 import NaverLogin from "@react-native-seoul/naver-login";
 import { apiClient } from "../lib/api/client";
@@ -178,7 +178,7 @@ export default function LoginScreen() {
       />
       <View style={styles.content}>
         <View style={styles.titleBlock}>
-          <Text style={styles.wordmark}>Swayt</Text>
+          <Image source={require("../assets/images/splash/swayt-logo.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.tagline}>강력한 근력 운동 추적</Text>
         </View>
 
@@ -243,10 +243,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 40,
   },
-  wordmark: {
-    color: "#2DD4BF",
-    fontSize: 36,
-    fontWeight: "700",
+  // 원본 비율(992x492)을 유지한다
+  logo: {
+    width: 200,
+    height: 99,
   },
   tagline: {
     color: "#A0A0A0",
