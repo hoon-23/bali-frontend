@@ -14,6 +14,10 @@ function resolveApiBaseUrl(): string {
   if (process.env.EXPO_PUBLIC_API_BASE_URL) {
     return process.env.EXPO_PUBLIC_API_BASE_URL;
   }
+  // Release에서 env가 빠지면 평문 http로 조용히 떨어지지 않도록 즉시 실패시킨다.
+  if (!__DEV__) {
+    throw new Error("EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.");
+  }
   const scriptURL: string | undefined = NativeModules.SourceCode?.getConstants?.()?.scriptURL;
   const host = scriptURL?.match(/^https?:\/\/([^:/]+)/)?.[1];
   return host ? `http://${host}:8080` : "http://localhost:8080";
@@ -50,11 +54,14 @@ apiClient.interceptors.response.use(
   async (error) => {
     // 한도 초과(403 LIMIT_EXCEEDED)는 앱이 시트로 안내하는 정상 업무 응답이라 error 레벨(빨간 LogBox)로 찍지 않는다.
     const logLevel = isLimitExceededError(error) ? console.log : console.error;
-    logLevel(
-      `[API] ${error.config?.method?.toUpperCase()} ${error.config?.url} ->`,
-      error.response?.status,
-      error.response?.data ?? error.message
-    );
+    // 응답 본문에 민감 정보가 있을 수 있어 개발 빌드에서만 찍는다.
+    if (__DEV__) {
+      logLevel(
+        `[API] ${error.config?.method?.toUpperCase()} ${error.config?.url} ->`,
+        error.response?.status,
+        error.response?.data ?? error.message
+      );
+    }
     const originalRequest = error.config;
     const isAuthEndpoint = typeof originalRequest?.url === "string" && originalRequest.url.startsWith("/api/v1/auth/");
     if (isAuthEndpoint || error.response?.status !== 401 || originalRequest._retry) {
