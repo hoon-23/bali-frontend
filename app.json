@@ -21,6 +21,8 @@
       "bundleIdentifier": "com.younghoon.swayt",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "ko",
+        "CFBundleLocalizations": ["ko"],
         "NSSupportsLiveActivities": true
       },
       "entitlements": {
