@@ -40,7 +40,10 @@
   },
   "devDependencies": {
     "@bacons/apple-targets": "^5.0.0",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.1.10",
+    "jest": "~29.7.0",
+    "jest-expo": "~54.0.18",
     "typescript": "~5.9.2"
   },
   "scripts": {
@@ -50,7 +53,19 @@
     "ios": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && expo start --ios'",
     "web": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && expo start --web'",
     "update:production": "bash -c 'unset npm_config_prefix; source ~/.nvm/nvm.sh && nvm use && EXPO_PUBLIC_API_BASE_URL=https://d2x91gr9oekfgj.cloudfront.net npx -y eas-cli update --channel production --environment production \"$@\"' _",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "<rootDir>/lib/**/*.test.ts"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/dist/",
+      "<rootDir>/ios/",
+      "<rootDir>/android/"
+    ]
   },
   "private": true
 }
