@@ -1,7 +1,7 @@
 import { Plus, Search, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { AppTextInput } from "../../components/AppTextInput";
@@ -31,7 +31,7 @@ import { TemplateCategory } from "../../store/templatesStore";
 import { ApiExercise, formatExerciseName, isCardioExercise, useExercises } from "../../hooks/api/useExercises";
 import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
 import { apiClient } from "../../lib/api/client";
-import { type LastRecord, resolveTargets } from "../../lib/routines/targets";
+import { type LastRecord, deriveRoutineCategory, resolveTargets } from "../../lib/routines/targets";
 import { useSession, usePatchSession } from "../../hooks/api/useSessions";
 
 // 운동 종류(유산소/기능성/근력)에 따라 세션·템플릿에 addItems로 보낼 목표값 필드가
@@ -99,11 +99,9 @@ export default function ExercisePickerScreen() {
   const routineCategory = useRoutineBuilderStore((state) => state.category);
   // 이미 루틴 "분류"에서 선택된 값을 운동 추가 화면이 그대로 활용한다 —
   // 세션 중 즉흥 추가(sessionId)는 분류 개념이 없어서 대상에서 뺀다.
-  const effectiveCategory: TemplateCategory | undefined = sessionId
-    ? undefined
-    : templateId
-      ? template?.category
-      : routineCategory;
+  // 기존 루틴에 추가할 때는 분류로 목록을 좁히지 않는다 — 분류는 이제 사용자가 고르지 않는 값이라,
+  // 유산소로 만든 루틴에서 근력 종목을 고를 수 없게 되는 막다른 길이 생긴다.
+  const effectiveCategory: TemplateCategory | undefined = sessionId || templateId ? undefined : routineCategory;
   const isCardioCategory = effectiveCategory === "CARDIO";
   const [query, setQuery] = useState("");
   // 필터 칩은 화면을 다시 열어도 유지되게 스토어에 둔다(연달아 운동을 추가할 때 매번 초기화되던 문제).
@@ -215,7 +213,11 @@ export default function ExercisePickerScreen() {
           id: template.id,
           payload: {
             name: template.name,
-            category: template.category,
+            // 종목이 바뀌었으니 분류도 합쳐진 구성으로 다시 계산한다.
+            category: deriveRoutineCategory([
+              ...template.items.map((item) => isCardioExercise(exerciseById.get(item.exerciseId))),
+              ...selected.map((exercise) => isCardioExercise(exercise)),
+            ]),
             items: [
               ...toItemsPayload(template.items),
               ...selected.map((exercise, index) => ({
@@ -248,7 +250,7 @@ export default function ExercisePickerScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8} disabled={submitting}>
             <X size={20} color={colors.text} />
           </PressableScale>
           <Text style={styles.headerTitle}>운동 추가하기</Text>

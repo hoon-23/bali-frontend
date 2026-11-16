@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   sheet: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "88%",
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   input: {
     color: colors.text,
     fontSize: 15,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.bg,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -352,11 +352,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.bg,
   },
   chipActive: {
     backgroundColor: colors.accent,
-    borderColor: colors.text2,
   },
   chipText: {
     color: colors.text2,

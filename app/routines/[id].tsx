@@ -19,6 +19,7 @@ import { CATEGORY_LABELS, TemplateItem } from "../../store/templatesStore";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiTemplate, toItemsPayload, useDeleteTemplate, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
+import { deriveRoutineCategory } from "../../lib/routines/targets";
 import { useCreateSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 
@@ -117,7 +118,12 @@ export default function RoutineDetailScreen() {
       id: currentTemplate.id,
       payload: {
         name: currentTemplate.name,
-        category: currentTemplate.category,
+        // 종목이 바뀌었으니 분류도 남은 구성으로 다시 계산한다(근력을 지워 유산소만 남으면 유산소).
+        category: deriveRoutineCategory(
+          currentTemplate.items
+            .filter((item) => item.id !== itemId)
+            .map((item) => isCardioExercise(exerciseMap.get(item.exerciseId)))
+        ),
         items: toItemsPayload(currentTemplate.items.filter((item) => item.id !== itemId)),
       },
     });
@@ -499,6 +505,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     gap: 4,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   itemCardDragging: {
     borderColor: colors.text2,
