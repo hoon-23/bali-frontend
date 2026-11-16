@@ -97,21 +97,21 @@ export default function NotificationSettingsScreen() {
           {permissionDenied && (
             <PressableScale style={styles.warningCard} onPress={() => Linking.openSettings()}>
               <BellOff size={18} color={colors.warn} />
-              <Text style={styles.warningText}>
+              <AppText style={styles.warningText}>
                 기기 알림 권한이 꺼져 있어요. 눌러서 설정에서 켜주세요.
-              </Text>
+              </AppText>
             </PressableScale>
           )}
 
           {settingsLoadFailed && (
             <PressableScale style={styles.warningCard} onPress={() => refetch()}>
               <BellOff size={18} color={colors.warn} />
-              <Text style={styles.warningText}>설정을 불러오지 못했어요. 눌러서 다시 시도해주세요.</Text>
+              <AppText style={styles.warningText}>설정을 불러오지 못했어요. 눌러서 다시 시도해주세요.</AppText>
             </PressableScale>
           )}
 
           {updateSettings.isError && (
-            <Text style={styles.warningText}>변경을 저장하지 못했어요. 잠시 후 다시 시도해주세요.</Text>
+            <AppText style={styles.warningText}>변경을 저장하지 못했어요. 잠시 후 다시 시도해주세요.</AppText>
           )}
 
           <View style={styles.card}>

@@ -1,4 +1,5 @@
 import { ChevronLeft } from "lucide-react-native";
+import { AppText } from "../../components/AppText";
 import { colors } from "../../constants/theme";
 import { PressableScale } from "../../components/ui/PressableScale";
 import { useRouter } from "expo-router";
@@ -33,9 +34,9 @@ export default function PrivacyPolicyScreen() {
 
         {isError && !isLoading && (
           <View style={styles.centerBox}>
-            <Text style={styles.errorText}>
+            <AppText style={styles.errorText}>
               개인정보처리방침을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.
-            </Text>
+            </AppText>
             <PressableScale style={styles.retryButton} onPress={() => refetch()} disabled={isRefetching}>
               <Text style={styles.retryButtonText}>{isRefetching ? "다시 시도 중..." : "다시 시도"}</Text>
             </PressableScale>

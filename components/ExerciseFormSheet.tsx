@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AppText } from "./AppText";
 import { colors } from "../constants/theme";
 import { PressableScale } from "./ui/PressableScale";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -261,7 +262,7 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
             </View>
           </ScrollView>
 
-          <Text style={styles.message} lineBreakStrategyIOS="hangul-word">{message}</Text>
+          <AppText style={styles.message}>{message}</AppText>
           <PressableScale
             style={[styles.saveButton, !isValid && styles.saveButtonToneDown]}
             onPress={() => {

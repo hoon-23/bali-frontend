@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppText } from "../../components/AppText";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { AppTextInput } from "../../components/AppTextInput";
 import { ExerciseFormSheet } from "../../components/ExerciseFormSheet";
@@ -419,7 +420,7 @@ export default function ExercisePickerScreen() {
             </View>
           ) : (
             <PressableScale style={styles.footerLink} onPress={dismissThen(() => setShowCreateSheet(true))} hitSlop={8}>
-              <Text style={styles.footerLinkText}>찾는 운동이 없나요? 직접 추가</Text>
+              <AppText style={styles.footerLinkText}>찾는 운동이 없나요? 직접 추가</AppText>
             </PressableScale>
           )}
         </ScrollView>
@@ -553,6 +554,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   footerLinkText: {
+    textAlign: "center",
     color: colors.text2,
     fontSize: 13,
     textDecorationLine: "underline",

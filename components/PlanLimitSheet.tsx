@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react-native";
+import { AppText } from "./AppText";
 import { colors } from "../constants/theme";
 import { PressableScale } from "./ui/PressableScale";
 import { useRouter } from "expo-router";
@@ -70,7 +71,7 @@ export function PlanLimitSheet({ limit, onClose }: Props) {
           <Lock size={22} color={colors.text} />
         </View>
         <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.description} lineBreakStrategyIOS="hangul-word">{copy.description}</Text>
+        <AppText style={styles.description}>{copy.description}</AppText>
         {SUBSCRIPTION_UI_ENABLED && (
           <PressableScale
             style={styles.primaryButton}
@@ -100,7 +101,7 @@ export function PlanLockCard({ limit }: { limit: PlanLimit }) {
         <Lock size={22} color={colors.text} />
       </View>
       <Text style={styles.title}>{copy.title}</Text>
-      <Text style={styles.description} lineBreakStrategyIOS="hangul-word">{copy.description}</Text>
+      <AppText style={styles.description}>{copy.description}</AppText>
       {SUBSCRIPTION_UI_ENABLED && (
         <PressableScale style={styles.primaryButton} onPress={goToSubscription}>
           <Text style={styles.primaryButtonText}>PRO 알아보기</Text>
