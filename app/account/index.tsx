@@ -148,7 +148,7 @@ export default function AccountScreen() {
               >
                 <CircleMinus
                   size={28}
-                  color={weeklyGoal <= WEEKLY_GOAL_MIN ? "#3A3A42" : "#2DD4BF"}
+                  color={weeklyGoal <= WEEKLY_GOAL_MIN ? colors.track : colors.text}
                 />
               </PressableScale>
               <Text style={styles.stepperValue}>주 {weeklyGoal}회</Text>
@@ -160,7 +160,7 @@ export default function AccountScreen() {
               >
                 <CirclePlus
                   size={28}
-                  color={weeklyGoal >= WEEKLY_GOAL_MAX ? "#3A3A42" : "#2DD4BF"}
+                  color={weeklyGoal >= WEEKLY_GOAL_MAX ? colors.track : colors.text}
                 />
               </PressableScale>
             </View>
