@@ -1,8 +1,8 @@
-import { CirclePlus, Search, X } from "lucide-react-native";
+import { Plus, Search, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { AppTextInput } from "../../components/AppTextInput";
 import { ExerciseFormSheet } from "../../components/ExerciseFormSheet";
@@ -11,6 +11,7 @@ import { PlanLimit } from "../../lib/api/planLimit";
 import { dismissThen, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { PressableScale } from "../../components/ui/PressableScale";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { colors, radius, space } from "../../constants/theme";
 import { useExercisePickerFilterStore } from "../../store/exercisePickerFilterStore";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -41,7 +42,7 @@ function buildTargetFields(exercise: ApiExercise) {
     return { targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS };
   }
   // 맨몸 종목은 무게 개념이 없어 weight=0
-  return { targetSets: 3, targetReps: 10, targetWeight: isBodyweightExercise(exercise) ? 0 : 20 };
+  return { targetSets: 3, targetReps: 15, targetWeight: isBodyweightExercise(exercise) ? 0 : 20 };
 }
 
 // CARDIO는 별도 분류(전체 필터 숨김 + 직행 목록)로 처리하므로 근력 운동용 근육군
@@ -62,7 +63,8 @@ const EQUIPMENTS: ExerciseEquipment[] = ["FREE_WEIGHT", "MACHINE", "CABLE", "SMI
 export default function ExercisePickerScreen() {
   const { templateId, sessionId } = useLocalSearchParams<{ templateId?: string; sessionId?: string }>();
   const router = useRouter();
-  const addItem = useRoutineBuilderStore((state) => state.addItem);
+  const insets = useSafeAreaInsets();
+  const addItems = useRoutineBuilderStore((state) => state.addItems);
   const { data: template } = useTemplate(templateId);
   const updateTemplate = useUpdateTemplate();
   const { data: session } = useSession(sessionId);
@@ -153,47 +155,38 @@ export default function ExercisePickerScreen() {
     if (!isCardioCategory) setQuery(name);
   };
 
-  // 종목을 빠르게 두 번 누르면 같은 운동이 두 번 추가되고 화면이 두 번 닫히던 문제를 막는다.
-  // 한 번 고르면 이 화면은 닫히므로, 실패했을 때만 다시 고를 수 있게 풀어 준다.
-  const selectingRef = useRef(false);
-  const handleSelect = async (exercise: ApiExercise) => {
-    if (selectingRef.current) return;
-    selectingRef.current = true;
-    try {
-      await selectExercise(exercise);
-    } catch {
-      selectingRef.current = false;
-    }
-  };
+  // 여러 운동을 고른 뒤 한 번에 추가한다 — 하나 고를 때마다 창이 닫히면 5종목 루틴에 창을 5번 열어야 한다.
+  // 고른 순서가 루틴의 순서가 되도록 id를 배열로 둔다. 필터나 검색어를 바꿔도 고른 것은 유지된다.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const toggleSelect = (exerciseId: string) =>
+    setSelectedIds((ids) => (ids.includes(exerciseId) ? ids.filter((id) => id !== exerciseId) : [...ids, exerciseId]));
 
-  const selectExercise = async (exercise: ApiExercise) => {
-    // sessionId가 있으면 진행 중인 운동 세션에 종목을 즉흥 추가하는 경로 —
-    // PATCH /api/v1/sessions/{id}의 addItems로 바로 반영한다.
-    if (sessionId && session) {
-      try {
+  // "N개 추가"를 빠르게 두 번 누르면 같은 운동이 두 번 추가되고 화면이 두 번 닫히던 문제를 막는다.
+  // 성공하면 이 화면은 닫히므로, 실패했을 때만 다시 누를 수 있게 풀어 준다.
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
+  const handleAddSelected = async () => {
+    if (submittingRef.current) return;
+    const exerciseById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
+    const selected = selectedIds
+      .map((id) => exerciseById.get(id))
+      .filter((exercise): exercise is ApiExercise => exercise != null);
+    if (selected.length === 0) return;
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      if (sessionId && session) {
         await patchSession.mutateAsync({
           sessionId,
-          addItems: [
-            {
-              exerciseId: exercise.id,
-              sortOrder: session.logs.length,
-              ...buildTargetFields(exercise),
-            },
-          ],
+          addItems: selected.map((exercise, index) => ({
+            exerciseId: exercise.id,
+            sortOrder: session.logs.length + index,
+            ...buildTargetFields(exercise),
+          })),
         });
-        router.back();
-      } catch {
-        // 실패하면 화면이 닫히지 않으므로 다시 고를 수 있게 잠금을 푼다.
-        selectingRef.current = false;
-        appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
-      }
-      return;
-    }
-
-    // templateId가 있으면 "루틴 상세"에서 기존 루틴에 운동을 추가하는 경로 —
-    // 빌더 스토어를 안 거치고 템플릿을 바로 PUT으로 갱신한다.
-    if (templateId && template) {
-      try {
+      } else if (templateId && template) {
         await updateTemplate.mutateAsync({
           id: template.id,
           payload: {
@@ -201,27 +194,29 @@ export default function ExercisePickerScreen() {
             category: template.category,
             items: [
               ...toItemsPayload(template.items),
-              {
+              ...selected.map((exercise, index) => ({
                 exerciseId: exercise.id,
-                sortOrder: template.items.length,
+                sortOrder: template.items.length + index,
                 ...buildTargetFields(exercise),
-              },
+              })),
             ],
           },
         });
-        router.back();
-      } catch {
-        // 실패하면 화면이 닫히지 않으므로 다시 고를 수 있게 잠금을 푼다.
-        selectingRef.current = false;
-        appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
+      } else {
+        addItems(
+          selected.map((exercise) => ({
+            exerciseId: exercise.id,
+            kind: isCardioExercise(exercise) ? ("CARDIO" as const) : ("STRENGTH" as const),
+          }))
+        );
       }
-      return;
+      router.back();
+    } catch {
+      // 실패하면 화면이 닫히지 않으므로 고른 것은 그대로 두고 다시 누를 수 있게 한다.
+      submittingRef.current = false;
+      setSubmitting(false);
+      appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
     }
-    addItem(
-      exercise.id,
-      isCardioExercise(exercise) ? "CARDIO" : "STRENGTH"
-    );
-    router.back();
   };
 
   return (
@@ -347,11 +342,16 @@ export default function ExercisePickerScreen() {
           showsVerticalScrollIndicator={false}
           {...keyboardScrollProps}
         >
-          {(isCardioCategory ? cardioExercises : results).map((exercise) => (
+          {(isCardioCategory ? cardioExercises : results).map((exercise) => {
+            const selectedIndex = selectedIds.indexOf(exercise.id);
+            const isSelected = selectedIndex !== -1;
+            return (
             <PressableScale
               key={exercise.id}
               style={styles.exerciseRow}
-              onPress={() => handleSelect(exercise)}
+              onPress={() => toggleSelect(exercise.id)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: isSelected }}
             >
               <View style={styles.exerciseInfo}>
                 <View style={styles.exerciseNameRow}>
@@ -370,11 +370,17 @@ export default function ExercisePickerScreen() {
                     : MUSCLE_GROUP_KOREAN[exercise.muscleGroup]}
                 </Text>
               </View>
-              <View style={styles.rowActions}>
-                <CirclePlus size={22} color={colors.text} />
+              {/* 고르면 흰 원에 고른 순서가 적힌다 — 이 순서대로 루틴에 들어간다. */}
+              <View style={[styles.selectMark, isSelected && styles.selectMarkOn]}>
+                {isSelected ? (
+                  <Text style={styles.selectMarkText}>{selectedIndex + 1}</Text>
+                ) : (
+                  <Plus size={16} color={colors.text2} />
+                )}
               </View>
             </PressableScale>
-          ))}
+            );
+          })}
           {(isCardioCategory ? cardioExercises : results).length === 0 ? (
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyText}>검색 결과가 없어요.</Text>
@@ -390,6 +396,17 @@ export default function ExercisePickerScreen() {
             </PressableScale>
           )}
         </ScrollView>
+        {/* 하나라도 고르면 아래에 뜨는 추가 버튼. 목록 위에 겹쳐 놓아서 나타나도 목록이 밀리지 않는다
+            (가려지는 만큼은 listContent의 아래 여백으로 미리 비워 두었다). */}
+        {selectedIds.length > 0 && (
+          <View style={[styles.addBar, { paddingBottom: insets.bottom + space.s12 }]}>
+            <PrimaryButton
+              title={submitting ? "추가하는 중" : `${selectedIds.length}개 추가`}
+              onPress={handleAddSelected}
+              disabled={submitting}
+            />
+          </View>
+        )}
       </SafeAreaView>
       {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
           AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
@@ -476,7 +493,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingBottom: space.s40,
+    // 아래에 겹쳐 뜨는 "N개 추가" 버튼(높이 52 + 여백)에 마지막 운동이 가려지지 않게 비워 둔다.
+    paddingBottom: 140,
   },
   exerciseRow: {
     flexDirection: "row",
@@ -528,6 +546,31 @@ const styles = StyleSheet.create({
     color: colors.text3,
     fontSize: 10,
     fontWeight: "600",
+  },
+  selectMark: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectMarkOn: {
+    backgroundColor: colors.text,
+  },
+  selectMarkText: {
+    color: colors.onAccent,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  addBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
+    paddingTop: space.s12,
+    backgroundColor: colors.bg,
   },
   rowActions: {
     flexDirection: "row",
