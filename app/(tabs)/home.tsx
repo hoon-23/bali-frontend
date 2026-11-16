@@ -37,14 +37,9 @@ import {
 import { minutesToDurationText } from "../../lib/format/duration";
 import { formatThousands } from "../../lib/format/number";
 
-// 이번 주 근육군별 집중도에 아직 데이터가 없을 때 보여줄 디폴트 바 3줄 — 실제 집계는
-// 아니지만 흔히 많이 하는 부위 3개를 자리에 채워 넣고, 길이도 서로 다르게 줘서
-// "데이터 없음" 대신 "곧 이런 모양으로 채워질 것"처럼 보이게 한다.
-const MUSCLE_BAR_PLACEHOLDERS = [
-  { label: "가슴", percent: 45 },
-  { label: "등", percent: 30 },
-  { label: "하체", percent: 20 },
-];
+
+// 기록이 없을 때 보여줄 흐린 막대 3줄의 길이 — 실제 수치가 아니라 모양만 잡는 값이다.
+const GHOST_BAR_WIDTHS = ["45%", "30%", "18%"] as const;
 
 function toDDayLabel(dateStr: string): string {
   const diffDays = Math.round(
@@ -179,7 +174,7 @@ export default function HomeScreen() {
                 hitSlop={8}
                 onPress={() => router.push("/notifications")}
                 accessibilityRole="button"
-                accessibilityLabel="알림"
+                accessibilityLabel={unreadCount > 0 ? `알림, ${unreadCount}개 안 읽음` : "알림"}
               >
                 <Bell size={20} color={colors.text2} />
                 {unreadCount > 0 && (
@@ -210,12 +205,16 @@ export default function HomeScreen() {
           <Section label="오늘의 운동" style={styles.todaySection}>
             {sessionsError ? (
               <View style={styles.todayBody}>
-                <AppText style={styles.todayEmptyTitle}>불러오지 못했어요</AppText>
+                <View style={styles.todayEmptyTitleWrap}>
+                  <AppText style={styles.todayEmptyTitle}>불러오지 못했어요</AppText>
+                </View>
                 <QuietButton title="다시 시도" onPress={() => refetchSessions()} />
               </View>
             ) : cardState?.kind === "EMPTY" ? (
               <View style={styles.todayBody}>
-                <AppText style={styles.todayEmptyTitle}>예정된 운동이 없어요</AppText>
+                <View style={styles.todayEmptyTitleWrap}>
+                  <AppText style={styles.todayEmptyTitle}>예정된 운동이 없어요</AppText>
+                </View>
                 <PrimaryButton title="루틴 시작하기" onPress={() => router.push("/routines")} />
               </View>
             ) : cardState?.kind === "TODAY" ? (
@@ -227,7 +226,8 @@ export default function HomeScreen() {
                       <SessionRow
                         key={session.id}
                         title={session.title}
-                        meta={sessionCardMeta(session).metaLabel}
+                        // 누르면 바로 시작/이어하기가 되므로 무엇이 일어나는지 행에 적어 둔다.
+                        meta={`${sessionCardMeta(session).metaLabel} · ${sessionCardMeta(session).actionLabel}`}
                         onPress={() => handleSessionAction(session)}
                       />
                     ))}
@@ -282,7 +282,7 @@ export default function HomeScreen() {
               ) : (
                 <>
                   <AppText style={styles.lifetimeText}>
-                    누적 {lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
+                    쌓은 날 {lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
                   </AppText>
                   <AppText style={styles.lifetimeText}>
                     {lifetime ? minutesToDurationText(lifetime.totalWorkoutMinutes) : "—"}
@@ -293,43 +293,48 @@ export default function HomeScreen() {
           </View>
 
           <Section label="이번 주 근육군별 집중도">
-            {topMuscleGroupsWeek.length === 0 &&
-              (weeklyPending ? (
-                // 로딩 중에 "기록이 없어요"가 잘못 보이지 않게 같은 높이의 막대로 자리만 잡는다.
-                <Skeleton width={150} height={12} style={styles.muscleSubcopySkeleton} />
-              ) : (
-                <AppText style={styles.muscleSubcopy}>이번 주 운동 기록이 아직 없어요</AppText>
-              ))}
-            <View style={styles.muscleBars}>
-              {topMuscleGroupsWeek.length > 0
-                ? topMuscleGroupsWeek.map((item, index) => (
-                    // 1위만 흰색으로 또렷하게, 나머지는 회색 — 색이 아니라 밝기 차이로 순위를 보여준다.
-                    <View key={item.label}>
-                      <View style={styles.muscleBarHeader}>
-                        <AppText style={[styles.muscleBarLabel, index === 0 && styles.muscleBarLabelTop]}>
-                          {item.label}
-                        </AppText>
-                        <AppText style={styles.muscleBarPercent}>{item.percent}%</AppText>
-                      </View>
-                      <View style={styles.muscleBarTrack}>
-                        <AnimatedBar
-                          progress={item.percent / 100}
-                          style={[styles.muscleBarFill, index === 0 && styles.muscleBarFillTop]}
-                        />
-                      </View>
+            {topMuscleGroupsWeek.length > 0 ? (
+              <View style={styles.muscleBars}>
+                {topMuscleGroupsWeek.map((item, index) => (
+                  // 1위만 흰색으로 또렷하게, 나머지는 회색 — 색이 아니라 밝기 차이로 순위를 보여준다.
+                  <View key={item.label}>
+                    <View style={styles.muscleBarHeader}>
+                      <AppText style={[styles.muscleBarLabel, index === 0 && styles.muscleBarLabelTop]}>
+                        {item.label}
+                      </AppText>
+                      <AppText style={styles.muscleBarPercent}>{item.percent}%</AppText>
                     </View>
-                  ))
-                : MUSCLE_BAR_PLACEHOLDERS.map((item) => (
-                    <View key={item.label}>
-                      <View style={styles.muscleBarHeader}>
-                        <AppText style={styles.muscleBarLabelMuted}>{item.label}</AppText>
-                      </View>
-                      <View style={styles.muscleBarTrack}>
-                        <AnimatedBar progress={item.percent / 100} style={styles.muscleBarFillEmpty} />
-                      </View>
+                    <View style={styles.muscleBarTrack}>
+                      <AnimatedBar
+                        progress={item.percent / 100}
+                        style={[styles.muscleBarFill, index === 0 && styles.muscleBarFillTop]}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : weeklyPending ? (
+              // 로딩 중에 "기록이 없어요"가 잘못 보이지 않게 막대 모양으로 자리만 잡는다.
+              <View style={styles.muscleBars}>
+                <Skeleton width="100%" height={26} />
+                <Skeleton width="100%" height={26} />
+                <Skeleton width="100%" height={26} />
+              </View>
+            ) : (
+              // 기록이 없을 때는 가짜 막대를 그리지 않는다 — 실제 집계처럼 읽혀서 헷갈린다.
+              // 기록이 없을 때는 이름 없는 흐린 막대만 둔다 — "이런 그래프가 생긴다"는 모양은 예고하되,
+              // 부위 이름과 수치를 붙이면 실제 집계처럼 읽혀서 뺐다.
+              <>
+                <AppText style={styles.muscleEmpty}>운동을 기록하면 부위별 비중이 여기에 나와요</AppText>
+                <View style={styles.ghostBars} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                  {GHOST_BAR_WIDTHS.map((width) => (
+                    <View key={width} style={styles.muscleBarTrack}>
+                      <View style={[styles.ghostBarFill, { width }]} />
                     </View>
                   ))}
-            </View>
+                </View>
+              </>
+            )}
           </Section>
         </ScrollView>
       </SafeAreaView>
@@ -480,10 +485,14 @@ const styles = StyleSheet.create({
     color: colors.text2,
     marginTop: space.s4,
   },
+  // 로딩·오늘 운동 있음과 같은 높이(제목 40 + 메타 22)를 잡아, 데이터가 와도 아래가 밀리지 않는다.
+  todayEmptyTitleWrap: {
+    height: 62,
+    justifyContent: "center",
+  },
   todayEmptyTitle: {
     ...type.heading,
     color: colors.text,
-    lineHeight: 40,
   },
   // 제목(40) + 메타(4 + 18) 높이에 맞춘 로딩 자리.
   todaySkeletonLines: {
@@ -537,13 +546,19 @@ const styles = StyleSheet.create({
     color: colors.text3,
     fontVariant: ["tabular-nums"],
   },
-  muscleSubcopy: {
-    ...type.meta,
-    color: colors.text3,
+  muscleEmpty: {
+    ...type.body,
+    color: colors.text2,
+    marginTop: space.s4,
   },
-  // 12pt 한 줄 높이(약 14px)에 맞춘다.
-  muscleSubcopySkeleton: {
-    marginVertical: 1,
+  ghostBars: {
+    gap: space.s20,
+    marginTop: space.s12,
+  },
+  ghostBarFill: {
+    height: "100%",
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
   },
   muscleBars: {
     gap: space.s12,
@@ -562,11 +577,6 @@ const styles = StyleSheet.create({
   muscleBarLabelTop: {
     color: colors.text,
     fontWeight: "600",
-  },
-  muscleBarLabelMuted: {
-    ...type.label,
-    fontWeight: "400",
-    color: colors.text3,
   },
   muscleBarPercent: {
     ...type.label,
@@ -588,10 +598,5 @@ const styles = StyleSheet.create({
   },
   muscleBarFillTop: {
     backgroundColor: colors.text,
-  },
-  muscleBarFillEmpty: {
-    height: "100%",
-    borderRadius: radius.pill,
-    backgroundColor: colors.track,
   },
 });

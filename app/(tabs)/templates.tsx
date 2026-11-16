@@ -15,7 +15,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { SwayPalm } from "../../components/SwayPalm";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { colors, space, type } from "../../constants/theme";
 import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -263,7 +267,18 @@ export default function TemplatesScreen() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.emptyText}>지난 기록이 없어요.</Text>
+              // 기록이 아직 없는 사람에게 — 무엇을 하면 여기가 채워지는지와 그 버튼을 함께 보여준다.
+              // 야자수는 흐리게 둔다(아직 쌓인 것이 없다).
+              <View style={styles.historyEmpty}>
+                <SwayPalm height={84} tone="muted" />
+                <AppText style={styles.historyEmptyTitle}>오늘부터 하루씩 쌓아 보세요</AppText>
+                <AppText style={styles.historyEmptyBody}>운동을 끝내면 여기에 기록이 남아요</AppText>
+                <PrimaryButton
+                  title="첫 운동 시작"
+                  onPress={() => router.push("/routines")}
+                  style={styles.historyEmptyButton}
+                />
+              </View>
             )
           }
           ListFooterComponent={
@@ -415,6 +430,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  historyEmpty: {
+    alignItems: "center",
+    paddingTop: space.s32,
+    paddingBottom: space.s16,
+  },
+  historyEmptyTitle: {
+    ...type.heading,
+    color: colors.text,
+    marginTop: space.s20,
+  },
+  historyEmptyBody: {
+    ...type.body,
+    color: colors.text2,
+    marginTop: space.s8,
+  },
+  historyEmptyButton: {
+    alignSelf: "stretch",
+    marginTop: space.s24,
   },
   emptyText: {
     color: "#6B6B6B",

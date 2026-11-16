@@ -3,7 +3,7 @@ import { AnimatedBar } from "../../components/AnimatedBar";
 import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { Skeleton } from "../../components/Skeleton";
@@ -156,6 +156,13 @@ export default function ProfileScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {/* 앱 안에서 글자 로고가 보이는 유일한 자리 — 프로필이 이 앱의 "간판" 역할을 한다. */}
+          <Image
+            source={require("../../assets/images/logo/swayt-full.png")}
+            style={styles.wordmark}
+            resizeMode="contain"
+            accessibilityLabel="Swayt"
+          />
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
               {/* 로딩 중에는 "?" 대신 빈 원만 둔다 */}
@@ -282,6 +289,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingTop: 12,
     gap: 20,
+  },
+  // 원본 비율 2048×1012.
+  wordmark: {
+    height: 30,
+    width: 30 * (2048 / 1012),
   },
   profileHeader: {
     alignItems: "center",
