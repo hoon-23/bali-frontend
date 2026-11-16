@@ -1,12 +1,13 @@
 import { ChevronDown, ChevronLeft, ChevronUp, Pencil } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { isBodyweightExercise } from "../../constants/exercises";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
+import { colors, radius, space, type } from "../../constants/theme";
 import { appAlert } from "../../lib/alert";
 import { formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { formatSetSeconds0 } from "../../lib/format/duration";
@@ -101,19 +102,19 @@ export default function SessionRecordScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>세션 기록</Text>
           {isInProgress || isAbandoned ? (
-            <Pressable
+            <PressableScale
               style={styles.backButton}
               onPress={handleEditStatusPress}
               disabled={patchSession.isPending}
               hitSlop={8}
             >
-              <Pencil size={18} color="#FBBF24" />
-            </Pressable>
+              <Pencil size={18} color={colors.text2} />
+            </PressableScale>
           ) : (
             <View style={styles.headerSpacer} />
           )}
@@ -167,11 +168,11 @@ export default function SessionRecordScreen() {
           </View>
         </ScrollView>
 
-        <Pressable style={styles.deleteButton} onPress={handleDeletePress} disabled={deleting}>
+        <PressableScale style={styles.deleteButton} onPress={handleDeletePress} disabled={deleting}>
           <Text style={styles.deleteButtonText}>
             {deleting ? "삭제하는 중..." : "기록 삭제"}
           </Text>
-        </Pressable>
+        </PressableScale>
       </SafeAreaView>
     </ScreenBackground>
   );
@@ -197,7 +198,7 @@ function ExerciseAccordion({ log, exerciseName, isBodyweight, isCardio, expanded
 
   return (
     <View style={styles.card}>
-      <Pressable style={styles.exerciseHeader} onPress={onToggle}>
+      <PressableScale style={styles.exerciseHeader} onPress={onToggle}>
         <View>
           <Text style={styles.exerciseName}>{exerciseName}</Text>
           {isCardio ? (
@@ -216,12 +217,12 @@ function ExerciseAccordion({ log, exerciseName, isBodyweight, isCardio, expanded
             </Text>
           </View>
           {expanded ? (
-            <ChevronUp size={18} color="#6B6B6B" />
+            <ChevronUp size={18} color={colors.text3} />
           ) : (
-            <ChevronDown size={18} color="#6B6B6B" />
+            <ChevronDown size={18} color={colors.text3} />
           )}
         </View>
-      </Pressable>
+      </PressableScale>
 
       {expanded && (
         <View style={styles.detailBody}>
@@ -270,41 +271,36 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   headerSpacer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingBottom: 40,
-    gap: 16,
+    paddingBottom: space.s40,
+    gap: space.s16,
   },
   date: {
-    color: "#A0A0A0",
-    fontSize: 13,
+    color: colors.text3,
+    fontSize: 12,
   },
   card: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    gap: 4,
-    ...CARD_SHADOW,
+    paddingVertical: space.s12,
+    gap: space.s4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
   },
   summaryHeader: {
     flexDirection: "row",
@@ -312,45 +308,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   summaryTitle: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
+    ...type.title,
+    color: colors.text,
+    letterSpacing: -0.6,
+    flexShrink: 1,
   },
   statusBadge: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
   },
   statusBadgeActive: {
-    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    paddingVertical: 4,
   },
   statusBadgeText: {
-    color: "#2DD4BF",
+    color: colors.text3,
     fontSize: 12,
     fontWeight: "600",
   },
   statusBadgeTextActive: {
-    color: "#FBBF24",
+    color: colors.accent,
   },
   statusBadgeAbandoned: {
-    backgroundColor: "rgba(160, 160, 160, 0.15)",
+    paddingVertical: 4,
   },
   statusBadgeTextAbandoned: {
-    color: "#A0A0A0",
+    color: colors.text3,
   },
   sectionTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    ...type.meta,
+    color: colors.text3,
   },
   list: {
-    gap: 12,
+    gap: 0,
   },
   exerciseHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    minHeight: 44,
+    gap: space.s12,
   },
   exerciseHeaderRight: {
     flexDirection: "row",
@@ -358,59 +353,56 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   exerciseName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   exerciseTarget: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
     marginTop: 2,
   },
   completeBadge: {
     paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   completeBadgeActive: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    paddingVertical: 3,
   },
   completeBadgeText: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
     fontWeight: "600",
   },
   completeBadgeTextActive: {
-    color: "#2DD4BF",
+    color: colors.text,
   },
   detailBody: {
-    marginTop: 12,
-    gap: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
-    paddingTop: 10,
+    marginTop: space.s8,
+    gap: space.s8,
+    paddingBottom: space.s4,
   },
   detailLine: {
-    color: "#D0D0D0",
+    color: colors.text2,
     fontSize: 13,
   },
   timingRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: space.s8,
   },
   timingChip: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 12,
+    fontVariant: ["tabular-nums"],
   },
   deleteButton: {
     alignItems: "center",
-    paddingVertical: 12,
-    marginBottom: 4,
+    justifyContent: "center",
+    minHeight: 44,
+    marginBottom: space.s4,
   },
   deleteButtonText: {
-    color: "#F87171",
+    color: colors.danger,
     fontSize: 13,
     fontWeight: "600",
   },
