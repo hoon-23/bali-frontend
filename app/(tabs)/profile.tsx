@@ -3,9 +3,12 @@ import { AnimatedBar } from "../../components/AnimatedBar";
 import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { QuietButton } from "../../components/ui/QuietButton";
 import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -14,7 +17,7 @@ import {
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
 import { SUBSCRIPTION_UI_ENABLED } from "../../constants/features";
-import { CARD_SHADOW } from "../../constants/shadow";
+import { colors, radius, space, type } from "../../constants/theme";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { LAST_LOGIN_PROVIDER_KEY } from "../../lib/auth/lastLoginProvider";
@@ -145,13 +148,13 @@ export default function ProfileScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              // SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 마지막 카드가
+              // SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 마지막 항목이
               // 탭바와 겹쳐 보이던 문제 — 여기서 insets.bottom을 더해 맞춘다.
               paddingBottom:
                 insets.bottom +
                 TAB_BAR_BOTTOM_MARGIN +
                 TAB_BAR_HEIGHT +
-                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + 24 : 24),
+                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + space.s24 : space.s24),
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -163,44 +166,34 @@ export default function ProfileScreen() {
             resizeMode="contain"
             accessibilityLabel="Swayt"
           />
-          <View style={styles.profileHeader}>
-            <View style={styles.avatar}>
-              {/* 로딩 중에는 "?" 대신 빈 원만 둔다 */}
-              {!mePending && <Text style={styles.avatarText}>{me?.nickname?.[0] ?? "?"}</Text>}
-            </View>
+
+          <View>
             {mePending ? (
               <>
-                {/* 닉네임(20pt)·이메일(13pt) 한 줄 높이에 맞춘 막대 */}
-                <Skeleton width={110} height={20} style={styles.nameSkeleton} />
-                <Skeleton width={150} height={13} style={styles.emailSkeleton} />
+                {/* 닉네임(title)·이메일(body) 한 줄 높이에 맞춘 막대 */}
+                <Skeleton width={140} height={32} style={styles.nameSkeleton} />
+                <Skeleton width={170} height={15} style={styles.emailSkeleton} />
               </>
             ) : (
               <>
-                <Text style={styles.name}>{me?.nickname ?? "—"} 님</Text>
-                {me?.email && !isPlaceholderEmail(me.email) && (
-                  <Text style={styles.email}>{me.email}</Text>
-                )}
+                <AppText style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {me?.nickname ?? "—"} 님
+                </AppText>
+                {/* 이메일이 없어도 같은 높이를 잡아 아래가 밀리지 않게 한다. */}
+                <AppText style={styles.email} numberOfLines={1}>
+                  {me?.email && !isPlaceholderEmail(me.email) ? me.email : " "}
+                </AppText>
               </>
             )}
-          </View>
 
-          <View style={styles.card}>
             <View style={styles.levelRow}>
               {mePending ? (
-                <>
-                  {/* 레벨 배지(약 24px)·XP 문구(12pt) 크기에 맞춘 막대 */}
-                  <Skeleton width={52} height={24} radius={12} />
-                  <Skeleton width={96} height={12} />
-                </>
+                <Skeleton width={150} height={13} />
               ) : (
-                <>
-                  <View style={styles.levelBadge}>
-                    <Text style={styles.levelBadgeText}>Lv.{level?.level ?? "—"}</Text>
-                  </View>
-                  <Text style={styles.expText}>
-                    {level ? `${formatThousands(level.currentXp)} / ${formatThousands(level.xpForNextLevel)} XP` : " "}
-                  </Text>
-                </>
+                <AppText style={styles.levelText}>
+                  Lv.{level?.level ?? "—"}
+                  {level ? ` · ${formatThousands(level.currentXp)} / ${formatThousands(level.xpForNextLevel)} XP` : ""}
+                </AppText>
               )}
             </View>
             <View style={styles.progressTrack}>
@@ -210,69 +203,60 @@ export default function ProfileScreen() {
 
           {SUBSCRIPTION_UI_ENABLED && (
             <View
-              style={styles.card}
+              style={styles.subscription}
               onLayout={(event) => {
                 subscriptionY.current = event.nativeEvent.layout.y;
               }}
             >
-              <View style={styles.levelRow}>
-                <Text style={styles.settingLabel}>구독</Text>
+              <View style={styles.subscriptionHeader}>
+                <AppText style={styles.sectionLabel}>구독</AppText>
                 {mePending ? (
-                  // 플랜을 모르는 동안 "무료"로 잘못 보이지 않게 배지 자리만 잡아 둔다.
-                  <Skeleton width={52} height={24} radius={12} />
+                  // 플랜을 모르는 동안 "무료"로 잘못 보이지 않게 자리만 잡아 둔다.
+                  <Skeleton width={40} height={13} />
                 ) : (
-                  <View style={[styles.levelBadge, !isPro && styles.planBadgeFree]}>
-                    <Text style={[styles.levelBadgeText, !isPro && styles.planBadgeFreeText]}>
-                      {isPro ? "PRO" : "무료"}
-                    </Text>
-                  </View>
+                  <AppText style={styles.planName}>{isPro ? "PRO" : "무료"}</AppText>
                 )}
               </View>
               {mePending ? (
                 // 대부분인 무료 플랜 모양(설명 2줄 + 버튼)에 맞춘 자리표시 — 업그레이드 문구를 미리 보이지 않는다.
                 <>
                   <View>
-                    <Skeleton height={13} style={styles.planLineSkeleton} />
-                    <Skeleton width="60%" height={13} style={styles.planLineSkeleton} />
+                    <Skeleton height={15} style={styles.planLineSkeleton} />
+                    <Skeleton width="60%" height={15} style={styles.planLineSkeleton} />
                   </View>
-                  <Skeleton height={44} radius={12} />
+                  <Skeleton height={52} radius={radius.control} />
                 </>
               ) : isPro ? (
-                <Text style={styles.planDescription} lineBreakStrategyIOS="hangul-word">
+                <AppText style={styles.planDescription}>
                   {planExpiresLabel ? `${planExpiresLabel}까지 이용할 수 있어요` : "PRO를 이용 중이에요"}
-                </Text>
+                </AppText>
               ) : (
                 <>
-                  <Text style={styles.planDescription} lineBreakStrategyIOS="hangul-word">
+                  <AppText style={styles.planDescription}>
                     PRO에서는 루틴과 직접 만든 운동을 한도 없이 만들고, 월간 인사이트를 볼 수 있어요.
-                  </Text>
-                  <Pressable
-                    style={styles.proButton}
+                  </AppText>
+                  <QuietButton
+                    title="PRO 시작하기"
                     onPress={() => appAlert("곧 만나요", "PRO는 아직 준비 중이에요. 조금만 기다려주세요.")}
-                  >
-                    <Text style={styles.proButtonText}>PRO 시작하기</Text>
-                  </Pressable>
+                  />
                 </>
               )}
             </View>
           )}
 
-          <View style={styles.card}>
-            {SETTING_ITEMS.map((item, index) => (
-              <Pressable
+          {/* 설정 목록 — 상자 없이 얇은 선으로만 나눈다. */}
+          <View>
+            {SETTING_ITEMS.map((item) => (
+              <PressableScale
                 key={item.id}
-                style={[styles.settingRow, index > 0 && styles.settingRowDivider]}
+                style={styles.settingRow}
                 onPress={() => handleSettingPress(item)}
+                accessibilityRole="button"
               >
-                <item.icon
-                  size={20}
-                  color={item.danger ? "#F87171" : "#A0A0A0"}
-                />
-                <Text style={[styles.settingLabel, item.danger && styles.settingLabelDanger]}>
-                  {item.label}
-                </Text>
-                <ChevronRight size={16} color="#6B6B6B" />
-              </Pressable>
+                <item.icon size={20} color={item.danger ? colors.danger : colors.text2} />
+                <AppText style={[styles.settingLabel, item.danger && styles.settingLabelDanger]}>{item.label}</AppText>
+                <ChevronRight size={16} color={colors.text3} />
+              </PressableScale>
             ))}
           </View>
         </ScrollView>
@@ -287,135 +271,95 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingTop: 12,
-    gap: 20,
+    paddingTop: space.s12,
+    gap: space.s32,
   },
   // 원본 비율 2048×1012.
   wordmark: {
     height: 30,
     width: 30 * (2048 / 1012),
   },
-  profileHeader: {
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 12,
-  },
-  avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(45, 212, 191, 0.4)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  avatarText: {
-    color: "#2DD4BF",
-    fontSize: 28,
-    fontWeight: "700",
-  },
   name: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
+    ...type.title,
+    color: colors.text,
+    letterSpacing: -0.6,
+    lineHeight: 40,
+  },
+  // title 한 줄 높이(40)에 맞춘다.
+  nameSkeleton: {
+    marginVertical: 4,
   },
   email: {
-    color: "#A0A0A0",
-    fontSize: 13,
+    ...type.body,
+    color: colors.text2,
+    lineHeight: 20,
+    marginTop: space.s4,
   },
-  // 20pt 한 줄 높이(약 24px)에 맞추기 위한 위아래 여백.
-  nameSkeleton: {
-    marginVertical: 2,
-  },
-  // 13pt 한 줄 높이(약 16px)에 맞추기 위한 위아래 여백.
+  // 이메일 한 줄(20) + 위 여백(4)에 맞춘다.
   emailSkeleton: {
-    marginVertical: 1.5,
-  },
-  // planDescription의 lineHeight(19)에 맞추기 위한 위아래 여백.
-  planLineSkeleton: {
-    marginVertical: 3,
-  },
-  card: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    gap: 12,
-    ...CARD_SHADOW,
+    marginTop: 6.5,
+    marginBottom: 2.5,
   },
   levelRow: {
+    height: 18,
+    justifyContent: "center",
+    marginTop: space.s20,
+  },
+  levelText: {
+    ...type.label,
+    color: colors.text2,
+    fontVariant: ["tabular-nums"],
+  },
+  progressTrack: {
+    height: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
+    overflow: "hidden",
+    marginTop: space.s8,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
+  },
+  subscription: {
+    gap: space.s12,
+  },
+  subscriptionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  levelBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+  sectionLabel: {
+    ...type.meta,
+    color: colors.text3,
   },
-  levelBadgeText: {
-    color: "#2DD4BF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  expText: {
-    color: "#A0A0A0",
-    fontSize: 12,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-    backgroundColor: "#2DD4BF",
-  },
-  planBadgeFree: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  planBadgeFreeText: {
-    color: "#A0A0A0",
+  planName: {
+    ...type.label,
+    color: colors.text,
   },
   planDescription: {
-    color: "#A0A0A0",
-    fontSize: 13,
-    lineHeight: 19,
+    ...type.body,
+    color: colors.text2,
+    lineHeight: 21,
   },
-  proButton: {
-    backgroundColor: "#2DD4BF",
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  proButtonText: {
-    color: "#0B0B0F",
-    fontSize: 15,
-    fontWeight: "700",
+  planLineSkeleton: {
+    marginVertical: 3,
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-  },
-  settingRowDivider: {
+    gap: space.s12,
+    minHeight: 52,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    borderTopColor: "rgba(255, 255, 255, 0.16)",
   },
   settingLabel: {
+    ...type.body,
+    color: colors.text,
     flex: 1,
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
   },
   settingLabelDanger: {
-    color: "#F87171",
+    color: colors.danger,
   },
 });

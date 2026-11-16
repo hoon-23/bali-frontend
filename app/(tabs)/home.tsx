@@ -282,7 +282,7 @@ export default function HomeScreen() {
               ) : (
                 <>
                   <AppText style={styles.lifetimeText}>
-                    쌓은 날 {lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
+                    누적 {lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
                   </AppText>
                   <AppText style={styles.lifetimeText}>
                     {lifetime ? minutesToDurationText(lifetime.totalWorkoutMinutes) : "—"}

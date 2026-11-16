@@ -8,7 +8,6 @@ import {
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -19,7 +18,8 @@ import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SwayPalm } from "../../components/SwayPalm";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
-import { colors, space, type } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { colors, radius, space, type } from "../../constants/theme";
 import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -29,7 +29,6 @@ import {
 } from "../../constants/layout";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
 import { toDisplayMuscleGroup } from "../../constants/exercises";
-import { CARD_SHADOW } from "../../constants/shadow";
 import {
   ApiExercise,
   formatExerciseName,
@@ -196,7 +195,7 @@ export default function TemplatesScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#2DD4BF"
+              tintColor={colors.text2}
             />
           }
           ItemSeparatorComponent={() => <View style={styles.recordSeparator} />}
@@ -204,13 +203,13 @@ export default function TemplatesScreen() {
             <View style={styles.listHeader}>
               <View style={styles.titleRow}>
                 <Text style={styles.screenTitle}>기록</Text>
-                <Pressable
+                <PressableScale
                   style={styles.addButton}
                   onPress={() => router.push("/routines")}
                   hitSlop={8}
                 >
-                  <Plus size={22} color="#0B0B0F" />
-                </Pressable>
+                  <Plus size={22} color={colors.text} />
+                </PressableScale>
               </View>
 
               <View>
@@ -228,7 +227,7 @@ export default function TemplatesScreen() {
                     {upcoming.map((session) => {
                       const muscleGroup = firstExerciseThumbnail(session, exerciseMap);
                       return (
-                        <Pressable
+                        <PressableScale
                           key={session.id}
                           style={styles.upcomingRow}
                           onPress={() => router.push(`/upcoming/${session.id}`)}
@@ -248,8 +247,8 @@ export default function TemplatesScreen() {
                               {estimateSessionDurationMinutes(session.logs)}분
                             </Text>
                           </View>
-                          <ChevronRight size={18} color="#6B6B6B" />
-                        </Pressable>
+                          <ChevronRight size={18} color={colors.text3} />
+                        </PressableScale>
                       );
                     })}
                   </View>
@@ -268,10 +267,10 @@ export default function TemplatesScreen() {
               </View>
             ) : (
               // 기록이 아직 없는 사람에게 — 무엇을 하면 여기가 채워지는지와 그 버튼을 함께 보여준다.
-              // 야자수는 흐리게 둔다(아직 쌓인 것이 없다).
+              // 야자수는 흐리게 둔다(아직 기록이 없다).
               <View style={styles.historyEmpty}>
                 <SwayPalm height={84} tone="muted" />
-                <AppText style={styles.historyEmptyTitle}>오늘부터 하루씩 쌓아 보세요</AppText>
+                <AppText style={styles.historyEmptyTitle}>아직 운동 기록이 없어요</AppText>
                 <AppText style={styles.historyEmptyBody}>운동을 끝내면 여기에 기록이 남아요</AppText>
                 <PrimaryButton
                   title="첫 운동 시작"
@@ -283,7 +282,7 @@ export default function TemplatesScreen() {
           }
           ListFooterComponent={
             isFetchingNextPage ? (
-              <ActivityIndicator style={styles.footerLoading} color="#2DD4BF" />
+              <ActivityIndicator style={styles.footerLoading} color={colors.text2} />
             ) : null
           }
           renderItem={({ item: session }) => {
@@ -298,7 +297,7 @@ export default function TemplatesScreen() {
             const isInProgress = session.status === "IN_PROGRESS";
             const isAbandoned = session.status === "ABANDONED";
             return (
-              <Pressable
+              <PressableScale
                 style={styles.recordCard}
                 onPress={() => router.push(`/records/${session.id}`)}
               >
@@ -335,7 +334,7 @@ export default function TemplatesScreen() {
                     </Text>
                   )
                 )}
-              </Pressable>
+              </PressableScale>
             );
           }}
           contentContainerStyle={[
@@ -413,23 +412,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   screenTitle: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "700",
+    ...type.title,
+    color: colors.text,
+    letterSpacing: -0.6,
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#2DD4BF",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   sectionTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
+    ...type.meta,
+    color: colors.text3,
+    marginBottom: space.s12,
   },
   historyEmpty: {
     alignItems: "center",
@@ -451,14 +449,16 @@ const styles = StyleSheet.create({
     marginTop: space.s24,
   },
   emptyText: {
-    color: "#6B6B6B",
-    fontSize: 13,
+    ...type.body,
+    color: colors.text2,
   },
   list: {
-    gap: 12,
+    gap: space.s16,
   },
   recordSeparator: {
-    height: 12,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    marginVertical: space.s16,
   },
   footerLoading: {
     paddingVertical: 16,
@@ -466,46 +466,34 @@ const styles = StyleSheet.create({
   upcomingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 12,
-    ...CARD_SHADOW,
+    gap: space.s12,
   },
   thumbnail: {
     width: 52,
     height: 52,
-    borderRadius: 12,
+    borderRadius: radius.control,
   },
   upcomingInfo: {
     flex: 1,
   },
   upcomingDate: {
-    color: "#2DD4BF",
+    color: colors.text2,
     fontSize: 11,
     fontWeight: "600",
   },
   upcomingName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
     marginTop: 2,
   },
   upcomingMeta: {
-    color: "#A0A0A0",
+    color: colors.text3,
     fontSize: 12,
     marginTop: 2,
   },
   recordCard: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    gap: 8,
-    ...CARD_SHADOW,
+    gap: space.s8,
   },
   recordHeader: {
     flexDirection: "row",
@@ -513,40 +501,37 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   recordDate: {
-    color: "#A0A0A0",
+    color: colors.text3,
     fontSize: 12,
   },
   recordCategory: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     marginTop: 2,
   },
   statusBadge: {
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
   },
   statusBadgeActive: {
-    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    paddingVertical: 4,
   },
   statusBadgeText: {
-    color: "#2DD4BF",
+    color: colors.text3,
     fontSize: 12,
     fontWeight: "600",
   },
   statusBadgeTextActive: {
-    color: "#FBBF24",
+    color: colors.accent,
   },
   statusBadgeAbandoned: {
-    backgroundColor: "rgba(160, 160, 160, 0.15)",
+    paddingVertical: 4,
   },
   statusBadgeTextAbandoned: {
-    color: "#A0A0A0",
+    color: colors.text3,
   },
   recordExercises: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
   },
 });

@@ -53,11 +53,11 @@ export default function WorkoutSummaryScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* 기록이 있을 때만 야자수가 한 번 흔들린다 — "오늘 하루가 쌓였다"는 마무리.
-            아무것도 기록하지 않고 끝낸 경우에는 쌓인 것이 없으니 보여주지 않는다. */}
+        {/* 기록이 있을 때만 야자수가 한 번 흔들린다 — 운동을 해낸 순간의 마무리.
+            아무것도 기록하지 않고 끝낸 경우에는 보여주지 않는다. */}
         {hasAnyRecord && <SwayPalm height={112} sway={transitionDone} style={styles.palm} />}
         <AppText style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-          {hasAnyRecord ? "오늘도 하루 쌓였어요" : "운동이 종료되었어요."}
+          {hasAnyRecord ? "수고하셨어요" : "운동이 종료되었어요."}
         </AppText>
         <AppText style={styles.subtitle}>
           {logs.length}개 중 {completedCount}개 운동 완료

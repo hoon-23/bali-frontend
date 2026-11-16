@@ -2,12 +2,13 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useReportTargetStore } from "../../store/reportTargetStore";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedBar, AnimatedCell } from "../../components/AnimatedBar";
 import { PlanLockCard } from "../../components/PlanLimitSheet";
 import { isLimitExceededError } from "../../lib/api/planLimit";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -15,7 +16,7 @@ import {
   TAB_BAR_BOTTOM_MARGIN,
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
+import { colors, radius, space, type } from "../../constants/theme";
 import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
 import { secondsToKoreanDuration } from "../../lib/format/duration";
@@ -196,10 +197,11 @@ function getWeekRangeLabel(weekOf: string): string {
 }
 
 function getHeatColor(count: number): string {
-  if (count <= 0) return "rgba(45, 212, 191, 0.08)";
-  if (count <= 2) return "rgba(45, 212, 191, 0.3)";
-  if (count <= 5) return "rgba(45, 212, 191, 0.55)";
-  return "#2DD4BF";
+  // 민트는 "진행 중인 것"에만 쓰므로 히트맵은 흰색의 밝기 단계로 그린다.
+  if (count <= 0) return "rgba(255, 255, 255, 0.06)";
+  if (count <= 2) return "rgba(255, 255, 255, 0.28)";
+  if (count <= 5) return "rgba(255, 255, 255, 0.55)";
+  return colors.text;
 }
 
 function formatHours(totalMinutes: number): string {
@@ -335,13 +337,13 @@ export default function StatsScreen() {
         >
           <View style={styles.header}>
             <Text style={styles.screenTitle}>내 리포트</Text>
-            <Pressable
+            <PressableScale
               style={styles.viewToggle}
               onPress={() => setView((prev) => (prev === "weekly" ? "monthly" : "weekly"))}
             >
               <Text style={styles.viewToggleText}>{view === "weekly" ? "주간" : "월간"}</Text>
-              <ChevronDown size={14} color="#2DD4BF" />
-            </Pressable>
+              <ChevronDown size={14} color={colors.text2} />
+            </PressableScale>
           </View>
 
           <LatestInsightCard />
@@ -349,20 +351,20 @@ export default function StatsScreen() {
           {view === "weekly" ? (
             <>
               <View style={styles.dateNavRow}>
-                <Pressable onPress={() => setWeekOffset((offset) => offset - 1)} hitSlop={8}>
-                  <ChevronLeft size={18} color="#2DD4BF" />
-                </Pressable>
+                <PressableScale onPress={() => setWeekOffset((offset) => offset - 1)} hitSlop={8}>
+                  <ChevronLeft size={18} color={colors.text2} />
+                </PressableScale>
                 <Text style={styles.dateRangeText}>{weekRangeLabel}</Text>
-                <Pressable
+                <PressableScale
                   onPress={() => setWeekOffset((offset) => Math.min(0, offset + 1))}
                   hitSlop={8}
                   disabled={weekOffset >= 0}
                 >
                   <ChevronRight
                     size={18}
-                    color={weekOffset >= 0 ? "#3A3A42" : "#2DD4BF"}
+                    color={weekOffset >= 0 ? colors.track : colors.text2}
                   />
-                </Pressable>
+                </PressableScale>
               </View>
 
               <View style={styles.dayPillRow}>
@@ -404,7 +406,7 @@ export default function StatsScreen() {
                             styles.bar,
                             {
                               backgroundColor:
-                                index === todayIndex ? "#2DD4BF" : "rgba(45, 212, 191, 0.35)",
+                                index === todayIndex ? colors.text : "rgba(255, 255, 255, 0.35)",
                             },
                           ]}
                         />
@@ -501,19 +503,19 @@ export default function StatsScreen() {
                     {monthDisplayDate.getFullYear()}년 {monthDisplayDate.getMonth() + 1}월
                   </Text>
                   <View style={styles.calendarNav}>
-                    <Pressable onPress={() => setMonthOffset((offset) => offset - 1)} hitSlop={8}>
-                      <ChevronLeft size={18} color="#A0A0A0" />
-                    </Pressable>
-                    <Pressable
+                    <PressableScale onPress={() => setMonthOffset((offset) => offset - 1)} hitSlop={8}>
+                      <ChevronLeft size={18} color={colors.text2} />
+                    </PressableScale>
+                    <PressableScale
                       onPress={() => setMonthOffset((offset) => Math.min(0, offset + 1))}
                       hitSlop={8}
                       disabled={monthOffset >= 0}
                     >
                       <ChevronRight
                         size={18}
-                        color={monthOffset >= 0 ? "#3A3A42" : "#A0A0A0"}
+                        color={monthOffset >= 0 ? colors.track : colors.text2}
                       />
-                    </Pressable>
+                    </PressableScale>
                   </View>
                 </View>
 
@@ -610,8 +612,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingTop: 12,
-    gap: 20,
+    paddingTop: space.s12,
+    gap: space.s32,
   },
   header: {
     flexDirection: "row",
@@ -619,23 +621,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   screenTitle: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "700",
+    ...type.title,
+    color: colors.text,
+    letterSpacing: -0.6,
   },
   viewToggle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    borderRadius: 14,
-    paddingVertical: 8,
+    gap: space.s4,
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    paddingVertical: space.s8,
     paddingHorizontal: 14,
   },
   viewToggleText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600",
   },
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   dateRangeText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
   },
   dayPillRow: {
@@ -661,32 +661,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dayPillActive: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    backgroundColor: colors.surface,
   },
   dayPillText: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 13,
     fontWeight: "600",
   },
   dayPillTextActive: {
-    color: "#2DD4BF",
+    color: colors.text,
   },
   card: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    gap: 12,
-    ...CARD_SHADOW,
+    gap: space.s12,
   },
   cardTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   cardSubtitle: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
     marginTop: 2,
   },
@@ -699,13 +693,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   targetBadgeLabel: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
   },
   targetBadgeValue: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     marginTop: 2,
   },
   barChart: {
@@ -726,10 +720,10 @@ const styles = StyleSheet.create({
   bar: {
     width: 18,
     minHeight: 2,
-    borderRadius: 6,
+    borderRadius: radius.pill,
   },
   barLabel: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 10,
   },
   totalTimeRow: {
@@ -738,9 +732,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   totalTimeValue: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   // 18pt 한 줄 높이(약 22px)에 맞추기 위한 위아래 여백.
   totalTimeSkeleton: {
@@ -751,43 +745,40 @@ const styles = StyleSheet.create({
     marginVertical: 1,
   },
   progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    borderRadius: 3,
-    backgroundColor: "#2DD4BF",
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
   },
   sectionTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
+    ...type.meta,
+    color: colors.text3,
+    marginBottom: space.s12,
   },
   emptyStateText: {
-    color: "#6B6B6B",
+    color: colors.text2,
     fontSize: 13,
     textAlign: "center",
-    paddingVertical: 8,
+    paddingVertical: space.s8,
   },
   insightCard: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(45, 212, 191, 0.35)",
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    padding: space.s16,
     gap: 6,
   },
   insightLabel: {
-    color: "#2DD4BF",
+    color: colors.text3,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   insightText: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -801,12 +792,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   muscleLabel: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   muscleValue: {
-    color: "#2DD4BF",
+    color: colors.text2,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -816,23 +807,20 @@ const styles = StyleSheet.create({
   },
   summaryTile: {
     flex: 1,
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
     paddingVertical: 14,
     alignItems: "center",
-    gap: 4,
-    ...CARD_SHADOW,
+    gap: space.s4,
   },
   summaryLabel: {
-    color: "#A0A0A0",
+    color: colors.text3,
     fontSize: 12,
   },
   summaryValue: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   // 17pt 한 줄 높이(약 20px)에 맞추기 위한 위아래 여백.
   summaryValueSkeleton: {
@@ -854,14 +842,14 @@ const styles = StyleSheet.create({
   },
   weekdayText: {
     flex: 1,
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
     textAlign: "center",
   },
   dayCell: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   legendRow: {
     flexDirection: "row",
@@ -880,7 +868,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   legendText: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 10,
   },
 });
