@@ -1,8 +1,8 @@
-import { CircleCheck, CircleMinus, CirclePlus } from "lucide-react-native";
+import { CircleCheck, Minus, Plus } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   Animated,
   AppState,
@@ -16,7 +16,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { AppToast, AppToastData } from "../../components/AppToast";
-import { AppTextInput } from "../../components/AppTextInput";
+import { AppText } from "../../components/AppText";
+import { BigNumber } from "../../components/ui/BigNumber";
+import { NumberStepper } from "../../components/ui/NumberStepper";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { QuietButton } from "../../components/ui/QuietButton";
+import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
+import { colors, radius, space, type } from "../../constants/theme";
+import { stepReps, stepWeight } from "../../lib/format/stepper";
 import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { appAlert } from "../../lib/alert";
 import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
@@ -534,6 +542,7 @@ export default function WorkoutSessionScreen() {
   // 목록 표시 순서만 진행중 > 대기 > 완료로 정렬 — 완료된 운동은 맨 아래로 밀려난다.
   // (정렬은 sort()가 안정 정렬이라 같은 우선순위 안에서는 원래 순서 유지)
   const sortedLogs = [...logs].sort((a, b) => logListPriority(a) - logListPriority(b));
+  const anyTimerRunning = logs.some((log) => log.setStartedAt != null || log.durationStartedAt != null);
 
   return (
     // 이 화면은 presentation:"modal"로 뜨는 네이티브 모달 화면이다. app/_layout.tsx에 한 번만
@@ -548,21 +557,20 @@ export default function WorkoutSessionScreen() {
         onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
       >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>운동 진행 중</Text>
-          {(apiSession?.title ?? fallbackTemplate?.name) && (
-            <Text style={styles.subtitle}>{apiSession?.title ?? fallbackTemplate?.name}</Text>
-          )}
-        </View>
-        <Pressable onPress={handleClose}>
-          <Text style={styles.closeButtonText}>닫기</Text>
-        </Pressable>
+        <AppText style={styles.headerTitle} numberOfLines={1}>
+          {apiSession?.title ?? fallbackTemplate?.name ?? "운동 진행 중"}
+        </AppText>
+        <PressableScale accessibilityRole="button" onPress={handleClose} hitSlop={12}>
+          <AppText style={styles.closeButtonText}>닫기</AppText>
+        </PressableScale>
       </View>
 
       {activeLog && (
         <ActiveExercisePanel
           key={activeLog.id}
           log={activeLog}
+          position={logs.findIndex((log) => log.id === activeLog.id) + 1}
+          total={logs.length}
           isCardio={isCardioExercise(exerciseMap.get(activeLog.exerciseId))}
           isBodyweight={isBodyweightExercise(exerciseMap.get(activeLog.exerciseId))}
           onChangeField={(field, value) => updateField(activeLog.id, field, value)}
@@ -579,16 +587,17 @@ export default function WorkoutSessionScreen() {
 
       <ScrollView contentContainerStyle={styles.listContent} automaticallyAdjustKeyboardInsets {...keyboardScrollProps}>
         <View style={styles.listHeaderRow}>
-          <Text style={styles.sectionTitle}>운동 목록</Text>
+          <AppText style={styles.sectionTitle}>운동 목록</AppText>
           {isRealSession && (
-            <Pressable
+            <PressableScale
+              accessibilityRole="button"
               style={styles.addExerciseButton}
               onPress={handleAddExercisePress}
-              hitSlop={6}
+              hitSlop={10}
             >
-              <CirclePlus size={16} color="#2DD4BF" />
-              <Text style={styles.addExerciseButtonText}>운동 추가</Text>
-            </Pressable>
+              <Plus size={16} color={colors.text2} />
+              <AppText style={styles.addExerciseButtonText}>운동 추가</AppText>
+            </PressableScale>
           )}
         </View>
         {sortedLogs.map((log) => {
@@ -604,14 +613,12 @@ export default function WorkoutSessionScreen() {
               ? `${log.actualSets || 0}세트 완료`
               : `${log.actualSets || 0}/${log.targetSets} 세트`;
           return (
-            <Pressable
-              key={log.id}
-              style={[styles.listItem, active && styles.listItemActive]}
-              onPress={() => setExpandedId(log.id)}
-            >
-              <Text style={[styles.listItemName, active && styles.listItemNameActive]}>{log.name}</Text>
-              <Text style={[styles.listItemStatus, log.completed && styles.listItemStatusDone]}>{statusText}</Text>
-            </Pressable>
+            <PressableScale key={log.id} style={styles.listItem} onPress={() => setExpandedId(log.id)}>
+              <AppText style={[styles.listItemName, active && styles.listItemNameActive]} numberOfLines={1}>
+                {log.name}
+              </AppText>
+              <AppText style={styles.listItemStatus}>{statusText}</AppText>
+            </PressableScale>
           );
         })}
       </ScrollView>
@@ -621,12 +628,12 @@ export default function WorkoutSessionScreen() {
         style={{ transform: [{ scale: finishPulse }] }}
         onLayout={(e) => setFinishTop(e.nativeEvent.layout.y)}
       >
-        <Pressable
-          style={[styles.finishButton, !allCompleted && styles.finishButtonToneDown]}
-          onPress={handleFinishPress}
-        >
-          <Text style={[styles.finishButtonText, !allCompleted && styles.buttonTextToneDown]}>운동 종료</Text>
-        </Pressable>
+        {/* 민트 주 버튼은 화면에 하나만 — 세트/측정이 진행 중이면 그쪽 버튼이 주 버튼이라 여기는 조용하게 둔다. */}
+        {allCompleted && !anyTimerRunning ? (
+          <PrimaryButton title="운동 종료" onPress={handleFinishPress} style={styles.finishButton} />
+        ) : (
+          <QuietButton title="운동 종료" onPress={handleFinishPress} style={styles.finishButton} />
+        )}
       </Animated.View>
 
       {/* 토스트는 측정된 "운동 종료" 버튼 top 바로 위(간격 16)에 둔다. 같은 컨테이너 좌표계라 safe area가 자동 반영된다.
@@ -689,6 +696,9 @@ export default function WorkoutSessionScreen() {
 
 type ActiveExercisePanelProps = {
   log: ExerciseLog;
+  // "2 / 5 종목" 표시용 — 루틴에 적힌 순서 기준 위치(1부터)와 전체 종목 수.
+  position: number;
+  total: number;
   isCardio: boolean;
   isBodyweight: boolean;
   onChangeField: (field: ActualField, value: string) => void;
@@ -704,8 +714,11 @@ type ActiveExercisePanelProps = {
 
 // 화면 상단에 고정된, 지금 진행 중인 운동 하나만 보여주는 패널.
 // 목록의 다른 운동을 탭하면 이 패널의 대상이 바뀐다(각 운동마다 개별 타이머를 두지 않음).
+// 크기 순서는 "몇 세트째인가"가 가장 크고, 그다음이 지금 누를 버튼이다 — 운동 중에는 화면을 1~2초만 본다.
 function ActiveExercisePanel({
   log,
+  position,
+  total,
   isCardio,
   isBodyweight,
   onChangeField,
@@ -718,26 +731,43 @@ function ActiveExercisePanel({
   onComplete,
   onResume,
 }: ActiveExercisePanelProps) {
-  // 이 종목의 목표를 다 채우기 전엔 "완료로 표시"를 톤 다운(비활성화는 아님 — 일찍 끝낼 수 있어야 함)
+  // 이 종목의 목표를 다 채웠으면 "종목 완료로 표시"를 또렷하게 보여준다(그 전에도 누를 수는 있다 — 일찍 끝낼 수 있어야 함).
   const targetReached = isLogTargetReached(log, isCardio);
+  const completeButton = (
+    <PressableScale accessibilityRole="button" onPress={onComplete} hitSlop={10} style={styles.completeLink}>
+      <AppText style={[styles.completeLinkText, targetReached && styles.completeLinkTextReady]}>
+        종목 완료로 표시
+      </AppText>
+    </PressableScale>
+  );
+
   return (
-    <View style={styles.activeCard}>
-      <Text style={styles.activeName}>{log.name}</Text>
+    <View style={styles.activePanel}>
+      <View style={styles.activeNameRow}>
+        <AppText style={styles.activeName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {log.name}
+        </AppText>
+        <AppText style={styles.activePosition}>
+          {position} / {total} 종목
+        </AppText>
+      </View>
 
       {log.completed ? (
         <>
           <View style={styles.doneWrap}>
-            <CircleCheck size={20} color="#2DD4BF" />
-            <Text style={styles.doneText}>
+            <CircleCheck size={20} color={colors.text} />
+            <AppText style={styles.doneText}>
               {isCardio
                 ? `완료된 운동이에요 · ${formatSeconds(Number(log.actualDurationSeconds) || 0)}`
                 : `완료된 운동이에요 · ${log.actualSets || 0}세트`}
-            </Text>
+            </AppText>
           </View>
-          {!isCardio && <SetTimingHistory setTimings={log.setTimings} />}
-          <Pressable style={styles.resumeButton} onPress={onResume}>
-            <Text style={styles.resumeButtonText}>이어서 하기</Text>
-          </Pressable>
+          {!isCardio && log.setTimings.length > 0 && (
+            <View style={styles.secondaryRow}>
+              <SetTimingHistory setTimings={log.setTimings} />
+            </View>
+          )}
+          <QuietButton title="이어서 하기" onPress={onResume} />
         </>
       ) : isCardio ? (
         <>
@@ -748,15 +778,7 @@ function ActiveExercisePanel({
             onStart={onStartDuration}
             onStop={onStopDuration}
           />
-
-          <Pressable
-            style={[styles.completeButton, !targetReached && styles.completeButtonToneDown]}
-            onPress={onComplete}
-          >
-            <Text style={[styles.completeButtonText, !targetReached && styles.buttonTextToneDown]}>
-              완료로 표시
-            </Text>
-          </Pressable>
+          <View style={styles.secondaryRow}>{completeButton}</View>
         </>
       ) : (
         <>
@@ -766,72 +788,65 @@ function ActiveExercisePanel({
             startedAt={log.setStartedAt}
             onStart={onStartSet}
             onRecordSetTiming={onRecordSetTiming}
-          />
-
-          <View style={styles.targetSetsRow}>
-            <Text style={styles.targetSetsLabel}>목표 세트 수</Text>
-            <View style={styles.statStepperRow}>
-              <Pressable onPress={() => onAdjustTargetSets(-1)} hitSlop={6}>
-                <CircleMinus size={16} color="#6B6B6B" />
-              </Pressable>
-              <Text style={styles.targetSetsValue}>{log.targetSets}</Text>
-              <Pressable onPress={() => onAdjustTargetSets(1)} hitSlop={6}>
-                <CirclePlus size={16} color="#2DD4BF" />
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={styles.statRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statLabel}>세트</Text>
-              <View style={styles.statStepperRow}>
-                <Pressable onPress={() => onAdjustSets(-1)} hitSlop={6}>
-                  <CircleMinus size={18} color="#6B6B6B" />
-                </Pressable>
-                <Text style={styles.statValue}>
-                  {log.actualSets || 0}/{log.targetSets}
-                </Text>
-                <Pressable onPress={() => onAdjustSets(1)} hitSlop={6}>
-                  <CirclePlus size={18} color="#2DD4BF" />
-                </Pressable>
-              </View>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statLabel}>반복</Text>
-              <AppTextInput
-                style={styles.statValueInput}
+          >
+            <View style={styles.stepperRow}>
+              {!isBodyweight && (
+                <NumberStepper
+                  label="무게"
+                  unit="kg"
+                  value={log.actualWeight}
+                  onStep={(direction) => onChangeField("actualWeight", stepWeight(log.actualWeight, direction))}
+                  onChangeText={(value) => onChangeField("actualWeight", sanitizeWeightInput(value))}
+                />
+              )}
+              <NumberStepper
+                label="반복"
+                unit="회"
                 value={log.actualReps}
+                onStep={(direction) => onChangeField("actualReps", stepReps(log.actualReps, direction))}
                 onChangeText={(value) => onChangeField("actualReps", value)}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor="#6B6B6B"
               />
             </View>
-            {!isBodyweight && (
-              <View style={styles.statTile}>
-                <Text style={styles.statLabel}>무게(kg)</Text>
-                <AppTextInput
-                  style={styles.statValueInput}
-                  value={log.actualWeight}
-                  onChangeText={(value) => onChangeField("actualWeight", sanitizeWeightInput(value))}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#6B6B6B"
-                />
-              </View>
-            )}
-          </View>
+          </SetTimer>
 
-          <Pressable
-            style={[styles.completeButton, !targetReached && styles.completeButtonToneDown]}
-            onPress={onComplete}
-          >
-            <Text style={[styles.completeButtonText, !targetReached && styles.buttonTextToneDown]}>
-              완료로 표시
-            </Text>
-          </Pressable>
+          <View style={styles.inlineStepperRow}>
+            <InlineStepper label="목표 세트" value={log.targetSets} onStep={onAdjustTargetSets} />
+            <InlineStepper label="완료한 세트" value={Number(log.actualSets) || 0} onStep={onAdjustSets} />
+          </View>
+          <View style={styles.secondaryRow}>
+            <SetTimingHistory setTimings={log.setTimings} />
+            {completeButton}
+          </View>
         </>
       )}
+    </View>
+  );
+}
+
+// 자주 바꾸지 않는 값(목표 세트 수, 완료한 세트 수)용 작은 − 값 +. 버튼 하나가 44pt 높이를 갖는다.
+function InlineStepper({ label, value, onStep }: { label: string; value: number; onStep: (delta: number) => void }) {
+  return (
+    <View style={styles.inlineStepper}>
+      <AppText style={styles.inlineStepperLabel} numberOfLines={1}>
+        {label}
+      </AppText>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={`${label} 줄이기`}
+        onPress={() => onStep(-1)}
+        style={styles.inlineStepperButton}
+      >
+        <Minus size={16} color={colors.text2} />
+      </PressableScale>
+      <AppText style={styles.inlineStepperValue}>{value}</AppText>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={`${label} 늘리기`}
+        onPress={() => onStep(1)}
+        style={styles.inlineStepperButton}
+      >
+        <Plus size={16} color={colors.text} />
+      </PressableScale>
     </View>
   );
 }
@@ -843,6 +858,8 @@ type SetTimerProps = {
   startedAt: string | null;
   onStart: () => void;
   onRecordSetTiming: (timing: SetTiming) => void;
+  // 세트 칸과 주 버튼 사이에 들어갈 내용(무게·반복 조절).
+  children?: ReactNode;
 };
 
 // 타이머가 흐르는 동안 화면 갱신용으로 1초마다 현재 시각을 돌려준다.
@@ -866,11 +883,39 @@ function useNowTick(active: boolean): number {
   return now;
 }
 
-// 세트별 스톱워치. pause 없음 — "세트 시작" → "세트 완료" 한 번씩만 눌러
+// 세트 칸이 이보다 많으면 칸을 그리지 않는다 — 너무 잘게 쪼개져 읽히지 않고, 숫자가 이미 위에 크게 있다.
+const MAX_SET_SEGMENTS = 8;
+
+// 세트 진행 칸. 완료는 흰색, 진행 중은 민트(조금 넓게), 남은 것은 어두운 회색.
+// 민트는 "지금 진행 중"인 칸 하나에만 쓴다(잠금화면 Live Activity와 같은 규칙).
+function SetSegments({ completed, targetSets, running }: { completed: number; targetSets: number; running: boolean }) {
+  const count = Math.max(targetSets, completed + (running ? 1 : 0));
+  if (count < 1 || count > MAX_SET_SEGMENTS) return null;
+  return (
+    <View style={styles.segments}>
+      {Array.from({ length: count }, (_, index) => {
+        const isDone = index < completed;
+        const isCurrent = running && index === completed;
+        return (
+          <View
+            key={index}
+            style={[
+              styles.segment,
+              isDone && styles.segmentDone,
+              isCurrent && styles.segmentCurrent,
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+// 세트별 스톱워치. pause 없음 — "N세트 시작" → "N세트 완료" 한 번씩만 눌러
 // 세트 하나의 시작/종료 시각을 기록한다(휴식시간은 추적하지 않음).
 // 목표 세트 수를 넘겨도 계속 기록할 수 있게 두되(추가 세트를 실제로 더 하는 경우 대비),
 // 목표 초과 여부만 라벨로 구분해서 보여준다.
-function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTiming }: SetTimerProps) {
+function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTiming, children }: SetTimerProps) {
   const running = startedAt != null;
   const now = useNowTick(running);
   const elapsedSeconds = runningElapsedSeconds(startedAt, now);
@@ -879,11 +924,8 @@ function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTimin
   // 취소하지 않는다 — 그게 "깜빡했을" 상황이라 알림이 울려야 의미가 있다. 다만 돌아와서
   // "세트 완료"/완료로 표시를 하면 스토어의 id로 취소된다.
   const currentSetIndex = setTimings.length;
-  const isOverTarget = targetSets > 0 && currentSetIndex + 1 > targetSets;
-
-  const handleStart = () => {
-    onStart();
-  };
+  const setNumber = currentSetIndex + 1;
+  const isOverTarget = targetSets > 0 && setNumber > targetSets;
 
   const handleStop = () => {
     if (startedAt) {
@@ -897,21 +939,25 @@ function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTimin
   };
 
   return (
-    <View style={styles.timerWrap}>
-      <Text style={styles.timerCaption}>
-        경과 시간 · 세트 {currentSetIndex + 1}
-        {isOverTarget ? " (목표 초과)" : ""}
-      </Text>
-      <Text style={[styles.timerClock, isOverTarget && styles.timerClockOverTarget]}>
-        {formatSeconds(elapsedSeconds)}
-      </Text>
-      <Pressable
-        style={[styles.timerButton, running && styles.timerButtonActive]}
-        onPress={running ? handleStop : handleStart}
-      >
-        <Text style={styles.timerButtonText}>{running ? "세트 완료" : "세트 시작"}</Text>
-      </Pressable>
-      <SetTimingHistory setTimings={setTimings} />
+    <View style={styles.timerBlock}>
+      <View style={styles.heroRow}>
+        <BigNumber
+          size="hero"
+          value={setNumber}
+          unit={`/ ${targetSets} 세트${isOverTarget ? " · 초과" : ""}`}
+          style={styles.heroNumber}
+        />
+        {/* 흐르는 동안만 민트 — 멈춰 있을 때는 회색 0:00으로 "쉬는 중"임을 색으로 알린다. */}
+        <AppText style={[styles.clock, running && styles.clockRunning]}>{formatSeconds(elapsedSeconds)}</AppText>
+      </View>
+      <SetSegments completed={currentSetIndex} targetSets={targetSets} running={running} />
+      {children}
+      {/* 민트로 채운 버튼은 세트가 진행 중일 때만 — 색 덩어리만 봐도 시작 전인지 진행 중인지 구분된다. */}
+      {running ? (
+        <PrimaryButton size="lg" title={`${setNumber}세트 완료`} onPress={handleStop} />
+      ) : (
+        <QuietButton size="lg" variant="outline" title={`${setNumber}세트 시작`} onPress={onStart} />
+      )}
     </View>
   );
 }
@@ -934,6 +980,7 @@ type DurationTimerProps = {
 
 // 유산소용 단일 누적 스톱워치 — 세트 개념이 없어서 시작/정지를 여러 번 오갈 수 있다(일시정지 후 이어서 측정 가능).
 // 시작 시각과 누적 시간은 스토어에 있어서, 화면을 닫았다 열어도 흐르던 시간이 이어진다.
+// 세트 번호 자리에 경과 시간을 가장 크게 보여준다.
 function DurationTimer({ targetDurationSeconds, actualDurationSeconds, startedAt, onStart, onStop }: DurationTimerProps) {
   const running = startedAt != null;
   const now = useNowTick(running);
@@ -941,27 +988,28 @@ function DurationTimer({ targetDurationSeconds, actualDurationSeconds, startedAt
   const elapsedSeconds = actualDurationSeconds + runningElapsedSeconds(startedAt, now);
 
   return (
-    <View style={styles.timerWrap}>
-      <Text style={styles.timerCaption}>
-        경과 시간{targetDurationSeconds > 0 ? ` · 목표 ${formatSeconds(targetDurationSeconds)}` : ""}
-      </Text>
-      <Text style={styles.timerClock}>{formatSeconds(elapsedSeconds)}</Text>
-      <Pressable
-        style={[styles.timerButton, running && styles.timerButtonActive]}
-        onPress={running ? onStop : onStart}
-      >
-        <Text style={styles.timerButtonText}>
-          {running ? "일시정지" : elapsedSeconds > 0 ? "이어서 측정" : "측정 시작"}
-        </Text>
-      </Pressable>
+    <View style={styles.timerBlock}>
+      <BigNumber
+        size="hero"
+        value={formatSeconds(elapsedSeconds)}
+        unit={targetDurationSeconds > 0 ? `/ 목표 ${formatSeconds(targetDurationSeconds)}` : undefined}
+      />
+      {running ? (
+        <PrimaryButton size="lg" title="일시정지" onPress={onStop} />
+      ) : (
+        <QuietButton
+          size="lg"
+          variant="outline"
+          title={elapsedSeconds > 0 ? "이어서 측정" : "측정 시작"}
+          onPress={onStart}
+        />
+      )}
     </View>
   );
 }
 
-// 운동이 완료된 뒤에도(진행 중 패널을 다시 열었을 때) 세트별 소요 시간을 계속 볼 수 있게
-// SetTimer와 완료 화면 양쪽에서 공용으로 쓰는 이력 표시.
 function SetTimingHistory({ setTimings }: { setTimings: SetTiming[] }) {
-  if (setTimings.length === 0) return null;
+  if (setTimings.length === 0) return <View style={styles.timerHistory} />;
   return (
     <View style={styles.timerHistory}>
       {setTimings.map((timing) => {
@@ -969,9 +1017,9 @@ function SetTimingHistory({ setTimings }: { setTimings: SetTiming[] }) {
           (new Date(timing.endedAt).getTime() - new Date(timing.startedAt).getTime()) / 1000
         );
         return (
-          <Text key={timing.setIndex} style={styles.timerHistoryText}>
-            세트 {timing.setIndex + 1}: {formatSeconds(Math.max(0, seconds))}
-          </Text>
+          <AppText key={timing.setIndex} style={styles.timerHistoryText}>
+            {timing.setIndex + 1}세트 {formatSeconds(Math.max(0, seconds))}
+          </AppText>
         );
       })}
     </View>
@@ -981,252 +1029,212 @@ function SetTimingHistory({ setTimings }: { setTimings: SetTiming[] }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B0B0F",
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    alignItems: "center",
+    paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
+    paddingTop: space.s16,
+    gap: space.s12,
   },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: "#A0A0A0",
-    fontSize: 14,
-    marginTop: 4,
+  headerTitle: {
+    ...type.label,
+    color: colors.text2,
+    flexShrink: 1,
   },
   closeButtonText: {
-    color: "#A0A0A0",
-    fontSize: 15,
-    fontWeight: "600",
+    ...type.label,
+    color: colors.text2,
   },
-  activeCard: {
-    marginHorizontal: 24,
-    marginTop: 16,
-    backgroundColor: "#16161C",
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
+  activePanel: {
+    marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
+    marginTop: space.s20,
+    gap: space.s12,
+  },
+  activeNameRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: space.s12,
   },
   activeName: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
+    ...type.heading,
+    color: colors.text,
+    flexShrink: 1,
+  },
+  activePosition: {
+    ...type.meta,
+    color: colors.text3,
   },
   doneWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
+    gap: space.s8,
+    paddingVertical: space.s8,
   },
   doneText: {
-    color: "#2DD4BF",
-    fontSize: 14,
-    fontWeight: "600",
+    ...type.body,
+    color: colors.text,
+    flexShrink: 1,
   },
-  timerWrap: {
-    backgroundColor: "#0B0B0F",
-    borderRadius: 12,
-    padding: 16,
+  timerBlock: {
+    gap: space.s12,
+  },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: space.s12,
+  },
+  heroNumber: {
+    flex: 1,
+  },
+  clock: {
+    color: colors.text3,
+    fontSize: 24,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+    paddingBottom: space.s8,
+  },
+  clockRunning: {
+    color: colors.accent,
+  },
+  segments: {
+    flexDirection: "row",
+    gap: 5,
+  },
+  segment: {
+    flex: 1,
+    height: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
+  },
+  segmentDone: {
+    backgroundColor: colors.text,
+  },
+  segmentCurrent: {
+    flex: 1.6,
+    backgroundColor: colors.accent,
+  },
+  stepperRow: {
+    flexDirection: "row",
+    gap: space.s12,
+    marginTop: space.s4,
+  },
+  inlineStepperRow: {
+    flexDirection: "row",
+    gap: space.s12,
+  },
+  inlineStepper: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 10,
   },
-  timerCaption: {
-    color: "#A0A0A0",
-    fontSize: 12,
-    fontWeight: "600",
+  inlineStepperLabel: {
+    ...type.meta,
+    color: colors.text3,
+    flex: 1,
   },
-  timerClock: {
-    color: "#FFFFFF",
-    fontSize: 36,
-    fontWeight: "700",
+  // 손가락으로 누르기 충분하게 높이 44를 잡는다.
+  inlineStepperButton: {
+    width: 36,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inlineStepperValue: {
+    ...type.label,
+    color: colors.text,
+    minWidth: 18,
+    textAlign: "center",
     fontVariant: ["tabular-nums"],
   },
-  timerClockOverTarget: {
-    color: "#F87171",
+  secondaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: space.s12,
   },
-  timerButton: {
-    backgroundColor: "#2DD4BF",
-    paddingVertical: 10,
-    paddingHorizontal: 28,
-    borderRadius: 12,
-    marginTop: 4,
+  completeLink: {
+    minHeight: 28,
+    justifyContent: "center",
   },
-  timerButtonActive: {
-    backgroundColor: "#F87171",
+  completeLinkText: {
+    ...type.label,
+    color: colors.text2,
   },
-  timerButtonText: {
-    color: "#0B0B0F",
-    fontSize: 14,
-    fontWeight: "700",
+  completeLinkTextReady: {
+    color: colors.text,
   },
+  // 기록이 없어도 자리를 차지해(flex: 1) "종목 완료로 표시"가 항상 오른쪽 끝에 있게 한다.
   timerHistory: {
+    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 2,
+    columnGap: space.s8,
+    rowGap: 2,
   },
   timerHistoryText: {
-    color: "#6B6B6B",
-    fontSize: 12,
-  },
-  targetSetsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  targetSetsLabel: {
-    color: "#A0A0A0",
-    fontSize: 12,
-  },
-  targetSetsValue: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  statRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  statTile: {
-    flex: 1,
-    backgroundColor: "#0B0B0F",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: "center",
-    gap: 6,
-  },
-  statLabel: {
-    color: "#A0A0A0",
-    fontSize: 11,
-  },
-  statStepperRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  statValue: {
-    color: "#2DD4BF",
-    fontSize: 16,
-    fontWeight: "700",
+    ...type.meta,
+    color: colors.text3,
     fontVariant: ["tabular-nums"],
   },
-  statValueInput: {
-    color: "#2DD4BF",
-    fontSize: 16,
-    fontWeight: "700",
-    textAlign: "center",
-    minWidth: 40,
-    padding: 0,
-  },
-  completeButton: {
-    backgroundColor: "#2DD4BF",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  completeButtonText: {
-    color: "#0B0B0F",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  // 완료 취소 보조 버튼 — "완료로 표시"보다 약한 아웃라인 스타일
-  resumeButton: {
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(45, 212, 191, 0.4)",
-  },
-  resumeButtonText: {
-    color: "#2DD4BF",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  completeButtonToneDown: {
-    backgroundColor: "rgba(45, 212, 191, 0.16)",
-  },
-  // 톤 다운 버튼 글자 — 원래 어두운 글자색 대신 민트색을 써서 흐린 배경 위에서도 읽히게 한다.
-  buttonTextToneDown: {
-    color: "#2DD4BF",
-  },
   listContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 12,
-    gap: 10,
-  },
-  sectionTitle: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 2,
+    paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
+    paddingTop: space.s16,
+    paddingBottom: space.s12,
   },
   listHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255, 255, 255, 0.16)",
+    paddingTop: space.s16,
+    paddingBottom: space.s4,
+  },
+  sectionTitle: {
+    ...type.meta,
+    color: colors.text3,
   },
   addExerciseButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: space.s4,
+    minHeight: 28,
   },
   addExerciseButtonText: {
-    color: "#2DD4BF",
-    fontSize: 13,
-    fontWeight: "600",
+    ...type.label,
+    color: colors.text2,
   },
+  // 상자 없는 한 줄. 높이 44로 누르기 쉽게 한다.
   listItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#16161C",
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  listItemActive: {
-    borderWidth: 1,
-    borderColor: "#2DD4BF",
+    minHeight: 44,
+    gap: space.s12,
   },
   listItemName: {
-    color: "#A0A0A0",
-    fontSize: 14,
-    fontWeight: "600",
+    ...type.body,
+    color: colors.text2,
+    flexShrink: 1,
   },
   listItemNameActive: {
-    color: "#2DD4BF",
+    color: colors.text,
+    fontWeight: "600",
   },
   listItemStatus: {
-    color: "#6B6B6B",
-    fontSize: 13,
-  },
-  listItemStatusDone: {
-    color: "#6B6B6B",
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text3,
+    fontVariant: ["tabular-nums"],
   },
   finishButton: {
-    backgroundColor: "#2DD4BF",
-    paddingVertical: 14,
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  finishButtonToneDown: {
-    backgroundColor: "rgba(45, 212, 191, 0.16)",
-  },
-  finishButtonText: {
-    color: "#0B0B0F",
-    fontSize: 16,
-    fontWeight: "600",
+    marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
+    marginBottom: space.s24,
   },
   difficultyOverlay: {
     flex: 1,
