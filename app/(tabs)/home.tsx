@@ -63,7 +63,7 @@ function sessionCardMeta(session: ApiSession): { metaLabel: string; actionLabel:
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { noRoutines, openRoutines } = useRoutineEntry();
+  const { noRoutines, openRoutines, openCreateRoutine, openRoutineList } = useRoutineEntry();
   const insets = useSafeAreaInsets();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
   // "운동 진행 중" 배너((tabs)/_layout.tsx)가 떠 있으면 그만큼 하단 여백을 더 줘서
@@ -345,6 +345,20 @@ export default function HomeScreen() {
             )}
           </Section>
           </Reveal>
+
+          {/* 루틴 바로가기 — 민트 없이 조용한 두 줄. 홈의 주 버튼은 "운동 시작" 하나이므로 여기는 눈에 덜 띄게 둔다. */}
+          <Reveal index={4}>
+            <View style={styles.shortcuts}>
+              <PressableScale style={styles.shortcutRow} onPress={openRoutineList} accessibilityRole="button">
+                <AppText style={styles.shortcutText}>내 루틴 보기</AppText>
+                <ChevronRight size={16} color={colors.text3} />
+              </PressableScale>
+              <PressableScale style={styles.shortcutRow} onPress={openCreateRoutine} accessibilityRole="button">
+                <AppText style={styles.shortcutText}>새 루틴 만들기</AppText>
+                <ChevronRight size={16} color={colors.text3} />
+              </PressableScale>
+            </View>
+          </Reveal>
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
@@ -554,6 +568,21 @@ const styles = StyleSheet.create({
     ...type.meta,
     color: colors.text3,
     fontVariant: ["tabular-nums"],
+  },
+  shortcuts: {
+    marginTop: space.s8,
+  },
+  shortcutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 52,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255, 255, 255, 0.16)",
+  },
+  shortcutText: {
+    ...type.body,
+    color: colors.text,
   },
   muscleEmpty: {
     ...type.body,

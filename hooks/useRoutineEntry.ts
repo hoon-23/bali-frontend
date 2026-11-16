@@ -28,5 +28,9 @@ export function useRoutineEntry() {
     ]);
   });
 
-  return { noRoutines, openRoutines, openAddMenu };
+  // 홈 하단 바로가기: 목록과 만들기를 각각 바로 연다.
+  const openRoutineList = useSingleTapNavigate(() => router.push("/routines"));
+  const openCreateRoutine = useSingleTapNavigate(() => router.push("/routines/new"));
+
+  return { noRoutines, openRoutines, openAddMenu, openRoutineList, openCreateRoutine };
 }
