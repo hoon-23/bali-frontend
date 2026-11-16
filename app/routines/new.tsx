@@ -12,8 +12,9 @@ import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { colors, radius, space } from "../../constants/theme";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { CATEGORY_LABELS, TemplateCategory } from "../../store/templatesStore";
 import { DraftItem, useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
@@ -101,13 +102,13 @@ export default function NewRoutineScreen() {
       <KeyboardDismissView>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <X size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <X size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>루틴 만들기</Text>
-          <Pressable style={styles.saveButton} onPress={handleSave} hitSlop={8}>
-            <Check size={20} color="#0B0B0F" />
-          </Pressable>
+          <PressableScale style={styles.saveButton} onPress={handleSave} hitSlop={8}>
+            <Check size={20} color={colors.onAccent} />
+          </PressableScale>
         </View>
 
         <DraggableFlatList
@@ -127,7 +128,7 @@ export default function NewRoutineScreen() {
                   value={name}
                   onChangeText={setName}
                   placeholder="예: 등, 하체"
-                  placeholderTextColor="#6B6B6B"
+                  placeholderTextColor={colors.text3}
                 />
               </View>
 
@@ -137,7 +138,7 @@ export default function NewRoutineScreen() {
                   {CATEGORIES.map((item) => {
                     const selected = category === item;
                     return (
-                      <Pressable
+                      <PressableScale
                         key={item}
                         style={[styles.categoryChip, selected && styles.categoryChipSelected]}
                         onPress={dismissThen(() => setCategory(item))}
@@ -150,7 +151,7 @@ export default function NewRoutineScreen() {
                         >
                           {CATEGORY_LABELS[item]}
                         </Text>
-                      </Pressable>
+                      </PressableScale>
                     );
                   })}
                 </View>
@@ -158,10 +159,10 @@ export default function NewRoutineScreen() {
 
               <View style={styles.itemsHeader}>
                 <Text style={styles.label}>운동 목록</Text>
-                <Pressable style={styles.addExerciseButton} onPress={handleAddExercisePress}>
-                  <Plus size={16} color="#2DD4BF" />
+                <PressableScale style={styles.addExerciseButton} onPress={handleAddExercisePress}>
+                  <Plus size={16} color={colors.text} />
                   <Text style={styles.addExerciseText}>운동 추가하기</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             </View>
           }
@@ -209,13 +210,13 @@ function RoutineItemRow({ item, exercise, dragging, onDrag, onRemove, onChangeFi
   return (
     <View style={[styles.itemCard, dragging && styles.itemCardDragging]}>
       <View style={styles.itemHeader}>
-        <Pressable onLongPress={onDrag} disabled={dragging} hitSlop={8} style={styles.dragHandle}>
-          <GripVertical size={18} color="#6B6B6B" />
-        </Pressable>
+        <PressableScale onLongPress={onDrag} disabled={dragging} hitSlop={8} style={styles.dragHandle}>
+          <GripVertical size={18} color={colors.text3} />
+        </PressableScale>
         <Text style={styles.itemName}>{exercise ? formatExerciseName(exercise) : "알 수 없는 운동"}</Text>
-        <Pressable onPress={onRemove} hitSlop={8}>
-          <CircleX size={20} color="#6B6B6B" />
-        </Pressable>
+        <PressableScale onPress={onRemove} hitSlop={8}>
+          <CircleX size={20} color={colors.text3} />
+        </PressableScale>
       </View>
       {isCardio ? (
         <View style={styles.itemInputRow}>
@@ -265,7 +266,7 @@ function ItemInput({ label, value, onChangeText }: ItemInputProps) {
         value={value}
         onChangeText={onChangeText}
         keyboardType="numeric"
-        placeholderTextColor="#6B6B6B"
+        placeholderTextColor={colors.text3}
       />
     </View>
   );
@@ -284,25 +285,23 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   saveButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#2DD4BF",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -315,19 +314,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 10,
+    color: colors.text3,
+    fontSize: 12,
+    marginBottom: space.s8,
   },
   input: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    color: "#FFFFFF",
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    paddingVertical: space.s12,
+    paddingHorizontal: space.s16,
+    color: colors.text,
     fontSize: 15,
   },
   categoryRow: {
@@ -337,54 +333,51 @@ const styles = StyleSheet.create({
   categoryChip: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: radius.control,
     alignItems: "center",
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
   },
   categoryChipSelected: {
-    backgroundColor: "#2DD4BF",
-    borderColor: "#2DD4BF",
+    backgroundColor: colors.text,
   },
   categoryChipText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
     fontWeight: "600",
   },
   categoryChipTextSelected: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
   },
   itemsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: space.s4,
   },
   addExerciseButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: space.s4,
+    minHeight: 44,
   },
   addExerciseText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600",
   },
   itemSeparator: {
-    height: 10,
+    height: space.s12,
   },
   itemCard: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: "transparent",
     padding: 14,
-    gap: 12,
-    ...CARD_SHADOW,
+    gap: space.s12,
   },
   itemCardDragging: {
-    borderColor: "#2DD4BF",
+    borderColor: colors.text2,
   },
   itemHeader: {
     flexDirection: "row",
@@ -396,7 +389,7 @@ const styles = StyleSheet.create({
   },
   itemName: {
     flex: 1,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
@@ -409,21 +402,21 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   itemInputLabel: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
   },
   itemInput: {
-    backgroundColor: "#0B0B0F",
+    backgroundColor: colors.bg,
     borderRadius: 8,
-    paddingVertical: 8,
+    paddingVertical: space.s8,
     paddingHorizontal: 10,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 14,
   },
   emptyText: {
-    color: "#6B6B6B",
+    color: colors.text2,
     fontSize: 13,
     textAlign: "center",
-    marginTop: 12,
+    marginTop: space.s12,
   },
 });

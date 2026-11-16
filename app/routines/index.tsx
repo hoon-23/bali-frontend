@@ -4,9 +4,11 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { colors, radius, space } from "../../constants/theme";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { CATEGORY_LABELS } from "../../store/templatesStore";
 import { ApiExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiTemplate, useTemplates } from "../../hooks/api/useTemplates";
@@ -48,6 +50,8 @@ function sortByRecentlyUsed(templates: ApiTemplate[], createdAt: CreatedAtMap): 
 
 export default function RoutinesScreen() {
   const router = useRouter();
+  // 빠르게 두 번 누르면 루틴 만들기 모달이 두 장 겹쳐 뜨던 문제를 막는다.
+  const handleCreatePress = useSingleTapNavigate(() => router.push("/routines/new"));
   const { data: rawTemplates = [] } = useTemplates();
   const [createdAt, setCreatedAt] = useState<CreatedAtMap>({});
   // 화면이 포커스될 때마다 읽는다 — 루틴 만들기 화면에서 돌아오면 방금 만든 루틴이 바로 반영된다.
@@ -63,17 +67,17 @@ export default function RoutinesScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>내 루틴</Text>
-          <Pressable
+          <PressableScale
             style={styles.addButton}
-            onPress={() => router.push("/routines/new")}
+            onPress={handleCreatePress}
             hitSlop={8}
           >
-            <Plus size={22} color="#0B0B0F" />
-          </Pressable>
+            <Plus size={22} color={colors.text} />
+          </PressableScale>
         </View>
 
         <ScrollView
@@ -83,7 +87,7 @@ export default function RoutinesScreen() {
           {templates.map((template) => {
             const chips = getMuscleGroupChips(template, exerciseMap);
             return (
-              <Pressable
+              <PressableScale
                 key={template.id}
                 style={styles.card}
                 onPress={() => router.push(`/routines/${template.id}`)}
@@ -102,7 +106,7 @@ export default function RoutinesScreen() {
                     </View>
                   ))}
                 </View>
-              </Pressable>
+              </PressableScale>
             );
           })}
 
@@ -128,41 +132,35 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#2DD4BF",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingBottom: 40,
-    gap: 12,
+    paddingBottom: space.s40,
   },
   card: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    gap: 8,
-    ...CARD_SHADOW,
+    paddingVertical: space.s16,
+    gap: space.s8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
   },
   cardHeader: {
     flexDirection: "row",
@@ -170,23 +168,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
+    flexShrink: 1,
   },
   categoryBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 2,
   },
   categoryBadgeText: {
-    color: "#2DD4BF",
+    color: colors.text3,
     fontSize: 12,
     fontWeight: "600",
   },
   itemCount: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
   },
   chipRow: {
@@ -195,19 +191,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chip: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: colors.line,
     paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingHorizontal: space.s8,
+    borderRadius: radius.pill,
   },
   chipText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 11,
   },
   emptyText: {
-    color: "#6B6B6B",
+    color: colors.text2,
     fontSize: 13,
     textAlign: "center",
-    marginTop: 40,
+    marginTop: space.s40,
   },
 });

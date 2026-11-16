@@ -1,6 +1,6 @@
 import { CirclePlus, Search, X } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
@@ -10,6 +10,8 @@ import { PlanLimitSheet } from "../../components/PlanLimitSheet";
 import { PlanLimit } from "../../lib/api/planLimit";
 import { dismissThen, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { colors, radius, space } from "../../constants/theme";
 import { useExercisePickerFilterStore } from "../../store/exercisePickerFilterStore";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import {
@@ -151,7 +153,20 @@ export default function ExercisePickerScreen() {
     if (!isCardioCategory) setQuery(name);
   };
 
+  // 종목을 빠르게 두 번 누르면 같은 운동이 두 번 추가되고 화면이 두 번 닫히던 문제를 막는다.
+  // 한 번 고르면 이 화면은 닫히므로, 실패했을 때만 다시 고를 수 있게 풀어 준다.
+  const selectingRef = useRef(false);
   const handleSelect = async (exercise: ApiExercise) => {
+    if (selectingRef.current) return;
+    selectingRef.current = true;
+    try {
+      await selectExercise(exercise);
+    } catch {
+      selectingRef.current = false;
+    }
+  };
+
+  const selectExercise = async (exercise: ApiExercise) => {
     // sessionId가 있으면 진행 중인 운동 세션에 종목을 즉흥 추가하는 경로 —
     // PATCH /api/v1/sessions/{id}의 addItems로 바로 반영한다.
     if (sessionId && session) {
@@ -168,6 +183,8 @@ export default function ExercisePickerScreen() {
         });
         router.back();
       } catch {
+        // 실패하면 화면이 닫히지 않으므로 다시 고를 수 있게 잠금을 푼다.
+        selectingRef.current = false;
         appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
       }
       return;
@@ -194,6 +211,8 @@ export default function ExercisePickerScreen() {
         });
         router.back();
       } catch {
+        // 실패하면 화면이 닫히지 않으므로 다시 고를 수 있게 잠금을 푼다.
+        selectingRef.current = false;
         appAlert("운동을 추가하지 못했어요. 다시 시도해주세요.");
       }
       return;
@@ -209,9 +228,9 @@ export default function ExercisePickerScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <X size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <X size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>운동 추가하기</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -221,18 +240,18 @@ export default function ExercisePickerScreen() {
         {!isCardioCategory && (
           <>
             <View style={styles.searchWrap}>
-              <Search size={16} color="#6B6B6B" />
+              <Search size={16} color={colors.text3} />
               <AppTextInput
                 style={styles.searchInput}
                 value={query}
                 onChangeText={setQuery}
                 placeholder="운동 이름 검색"
-                placeholderTextColor="#6B6B6B"
+                placeholderTextColor={colors.text3}
               />
             </View>
 
             <View style={styles.filterRow}>
-              <Pressable
+              <PressableScale
                 style={[styles.filterChip, bodyRegionFilter === null && styles.filterChipActive]}
                 onPress={dismissThen(() => {
                   setBodyRegionFilter(null);
@@ -244,9 +263,9 @@ export default function ExercisePickerScreen() {
                 >
                   전체
                 </Text>
-              </Pressable>
+              </PressableScale>
               {(["UPPER", "LOWER"] as BodyRegion[]).map((region) => (
-                <Pressable
+                <PressableScale
                   key={region}
                   style={[styles.filterChip, bodyRegionFilter === region && styles.filterChipActive]}
                   onPress={dismissThen(() => {
@@ -262,22 +281,22 @@ export default function ExercisePickerScreen() {
                   >
                     {BODY_REGION_KOREAN[region]}
                   </Text>
-                </Pressable>
+                </PressableScale>
               ))}
             </View>
 
             {availableMuscleGroups.length > 1 && (
               <View style={styles.filterRow}>
-                <Pressable
+                <PressableScale
                   style={[styles.filterChip, filter === null && styles.filterChipActive]}
                   onPress={dismissThen(() => setFilter(null))}
                 >
                   <Text style={[styles.filterChipText, filter === null && styles.filterChipTextActive]}>
                     전체
                   </Text>
-                </Pressable>
+                </PressableScale>
                 {availableMuscleGroups.map((group) => (
-                  <Pressable
+                  <PressableScale
                     key={group}
                     style={[styles.filterChip, filter === group && styles.filterChipActive]}
                     onPress={dismissThen(() => setFilter(filter === group ? null : group))}
@@ -287,13 +306,13 @@ export default function ExercisePickerScreen() {
                     >
                       {MUSCLE_GROUP_KOREAN[group]}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 ))}
               </View>
             )}
 
             <View style={styles.filterRow}>
-              <Pressable
+              <PressableScale
                 style={[styles.filterChip, equipmentFilter === null && styles.filterChipActive]}
                 onPress={dismissThen(() => setEquipmentFilter(null))}
               >
@@ -302,9 +321,9 @@ export default function ExercisePickerScreen() {
                 >
                   전체 장비
                 </Text>
-              </Pressable>
+              </PressableScale>
               {availableEquipments.map((equipment) => (
-                <Pressable
+                <PressableScale
                   key={equipment}
                   style={[styles.filterChip, equipmentFilter === equipment && styles.filterChipActive]}
                   onPress={dismissThen(() => setEquipmentFilter(equipmentFilter === equipment ? null : equipment))}
@@ -317,7 +336,7 @@ export default function ExercisePickerScreen() {
                   >
                     {EQUIPMENT_KOREAN[equipment]}
                   </Text>
-                </Pressable>
+                </PressableScale>
               ))}
             </View>
           </>
@@ -329,7 +348,7 @@ export default function ExercisePickerScreen() {
           {...keyboardScrollProps}
         >
           {(isCardioCategory ? cardioExercises : results).map((exercise) => (
-            <Pressable
+            <PressableScale
               key={exercise.id}
               style={styles.exerciseRow}
               onPress={() => handleSelect(exercise)}
@@ -352,23 +371,23 @@ export default function ExercisePickerScreen() {
                 </Text>
               </View>
               <View style={styles.rowActions}>
-                <CirclePlus size={22} color="#2DD4BF" />
+                <CirclePlus size={22} color={colors.text} />
               </View>
-            </Pressable>
+            </PressableScale>
           ))}
           {(isCardioCategory ? cardioExercises : results).length === 0 ? (
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyText}>검색 결과가 없어요.</Text>
-              <Pressable style={styles.addOwnButton} onPress={dismissThen(() => setShowCreateSheet(true))}>
+              <PressableScale style={styles.addOwnButton} onPress={dismissThen(() => setShowCreateSheet(true))}>
                 <Text style={styles.addOwnButtonText}>
                   {query.trim() ? `'${query.trim()}' 직접 추가하기` : "직접 추가하기"}
                 </Text>
-              </Pressable>
+              </PressableScale>
             </View>
           ) : (
-            <Pressable style={styles.footerLink} onPress={dismissThen(() => setShowCreateSheet(true))} hitSlop={8}>
+            <PressableScale style={styles.footerLink} onPress={dismissThen(() => setShowCreateSheet(true))} hitSlop={8}>
               <Text style={styles.footerLinkText}>찾는 운동이 없나요? 직접 추가</Text>
-            </Pressable>
+            </PressableScale>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -400,39 +419,35 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerSpacer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: space.s8,
     marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    backgroundColor: "#1C1C25",
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   searchInput: {
     flex: 1,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
   },
   filterRow: {
@@ -443,39 +458,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingVertical: 8,
+    paddingVertical: space.s8,
     paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
   },
   filterChipActive: {
-    backgroundColor: "#2DD4BF",
-    borderColor: "#2DD4BF",
+    backgroundColor: colors.text,
   },
   filterChipText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
     fontWeight: "600",
   },
   filterChipTextActive: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
   },
   listContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingBottom: 40,
-    gap: 10,
+    paddingBottom: space.s40,
   },
   exerciseRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#1C1C25",
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 14,
+    minHeight: 60,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
   },
   emptyWrap: {
     alignItems: "center",
@@ -483,22 +493,22 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   addOwnButton: {
-    backgroundColor: "#2DD4BF",
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    backgroundColor: colors.accent,
+    borderRadius: radius.control,
+    paddingVertical: space.s12,
+    paddingHorizontal: space.s20,
   },
   addOwnButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   footerLink: {
     alignSelf: "center",
     paddingVertical: 12,
   },
   footerLinkText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
     textDecorationLine: "underline",
   },
@@ -512,15 +522,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ownBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
-    borderRadius: 8,
     paddingVertical: 2,
-    paddingHorizontal: 6,
   },
   ownBadgeText: {
-    color: "#2DD4BF",
+    color: colors.text3,
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   rowActions: {
     flexDirection: "row",
@@ -529,17 +536,17 @@ const styles = StyleSheet.create({
   },
   exerciseName: {
     flexShrink: 1,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
   exerciseGroup: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
     marginTop: 2,
   },
   emptyText: {
-    color: "#6B6B6B",
+    color: colors.text2,
     fontSize: 13,
     textAlign: "center",
   },
