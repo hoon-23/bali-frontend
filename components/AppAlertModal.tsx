@@ -18,6 +18,7 @@ export function AppAlertModal() {
 
   if (!current) return null;
 
+  const stacked = current.buttons.length > 2;
   return (
     <View style={styles.root} pointerEvents="box-none">
       <PressableScale style={styles.overlay} onPress={hide}>
@@ -32,18 +33,21 @@ export function AppAlertModal() {
               </Text>
             )}
           </View>
-          <View style={styles.buttonRow}>
+          {/* 버튼이 3개 이상이면 세로로 쌓는다 — 가로로 나누면 칸이 좁아 "루틴으로 운동 시작"처럼
+              긴 글자가 "시/작"으로 한 글자씩 끊긴다. */}
+          <View style={[styles.buttonRow, stacked && styles.buttonRowStacked]}>
             {current.buttons.map((button, index) => (
               <Fragment key={button.text}>
-                {index > 0 && <View style={styles.buttonDivider} />}
+                {index > 0 && <View style={stacked ? styles.buttonDividerStacked : styles.buttonDivider} />}
                 <PressableScale
-                  style={styles.button}
+                  style={[styles.button, stacked && styles.buttonStacked]}
                   onPress={() => {
                     hide();
                     button.onPress?.();
                   }}
                 >
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.buttonText,
                       button.style === "destructive" && styles.buttonTextDanger,
@@ -109,6 +113,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  buttonRowStacked: {
+    flexDirection: "column",
+  },
+  buttonStacked: {
+    flex: 0,
+    alignSelf: "stretch",
+  },
+  buttonDividerStacked: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.track,
   },
   buttonDivider: {
     width: StyleSheet.hairlineWidth,
