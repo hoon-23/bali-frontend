@@ -20,6 +20,7 @@ import {
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
 import { colors, radius, space, type } from "../../constants/theme";
+import { useRoutineEntry } from "../../hooks/useRoutineEntry";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useUnreadNotificationCount } from "../../hooks/api/useNotificationInbox";
@@ -62,6 +63,7 @@ function sessionCardMeta(session: ApiSession): { metaLabel: string; actionLabel:
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { noRoutines, openRoutines } = useRoutineEntry();
   const insets = useSafeAreaInsets();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
   // "운동 진행 중" 배너((tabs)/_layout.tsx)가 떠 있으면 그만큼 하단 여백을 더 줘서
@@ -217,7 +219,7 @@ export default function HomeScreen() {
                 <View style={styles.todayEmptyTitleWrap}>
                   <AppText style={styles.todayEmptyTitle}>예정된 운동이 없어요</AppText>
                 </View>
-                <PrimaryButton title="루틴 시작하기" onPress={() => router.push("/routines")} />
+                <PrimaryButton title={noRoutines ? "첫 루틴 만들기" : "루틴 시작하기"} onPress={openRoutines} />
               </View>
             ) : cardState?.kind === "TODAY" ? (
               <>

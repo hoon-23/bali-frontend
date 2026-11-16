@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { PressableScale } from "../../components/ui/PressableScale";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { Reveal } from "../../components/ui/Reveal";
 import { colors, radius, space } from "../../constants/theme";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
@@ -72,19 +73,20 @@ export default function RoutinesScreen() {
             <ChevronLeft size={20} color={colors.text} />
           </PressableScale>
           <Text style={styles.headerTitle}>내 루틴</Text>
-          <PressableScale
-            style={styles.addButton}
-            onPress={handleCreatePress}
-            hitSlop={8}
-          >
-            <Plus size={22} color={colors.text} />
-          </PressableScale>
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* 만들기는 아이콘만 있으면 눈에 띄지 않는다 — 이름이 적힌 행을 목록 맨 위에 둔다. */}
+          {templates.length > 0 && (
+            <PressableScale style={styles.createRow} onPress={handleCreatePress} accessibilityRole="button">
+              <Plus size={18} color={colors.text} />
+              <AppText style={styles.createRowText}>새 루틴 만들기</AppText>
+            </PressableScale>
+          )}
           {templates.map((template, index) => {
             const chips = getMuscleGroupChips(template, exerciseMap);
             return (
@@ -113,7 +115,10 @@ export default function RoutinesScreen() {
           })}
 
           {templates.length === 0 && (
-            <AppText style={styles.emptyText}>아직 저장된 루틴이 없어요. + 버튼으로 만들어보세요.</AppText>
+            <View style={styles.emptyWrap}>
+              <AppText style={styles.emptyText}>아직 저장된 루틴이 없어요</AppText>
+              <PrimaryButton title="첫 루틴 만들기" onPress={handleCreatePress} style={styles.emptyButton} />
+            </View>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -146,13 +151,29 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "600",
   },
-  addButton: {
+  headerSpacer: {
     width: 40,
     height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
+  },
+  createRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: space.s8,
+    minHeight: 56,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
+  },
+  createRowText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  emptyWrap: {
+    marginTop: space.s40,
+    gap: space.s20,
+  },
+  emptyButton: {
+    alignSelf: "stretch",
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
@@ -204,8 +225,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.text2,
-    fontSize: 13,
+    fontSize: 15,
     textAlign: "center",
-    marginTop: space.s40,
   },
 });

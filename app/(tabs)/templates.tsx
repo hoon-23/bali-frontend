@@ -40,6 +40,7 @@ import { isEmptyFinishedSession } from "../../lib/session/logRecord";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { ApiSessionDetail, useSessionHistory } from "../../hooks/api/useSessions";
 import { getTodayISODate, useUpcomingSessions } from "../../hooks/api/useUpcomingSessions";
+import { useRoutineEntry } from "../../hooks/useRoutineEntry";
 import { recordsTabBarCollapse } from "../../lib/recordsScroll";
 import { estimateSessionDurationMinutes } from "../../lib/session/sessionDisplay";
 
@@ -87,6 +88,7 @@ function firstExerciseThumbnail(
 
 export default function TemplatesScreen() {
   const router = useRouter();
+  const { noRoutines, openRoutines, openAddMenu } = useRoutineEntry();
   const exerciseMap = useExerciseMap();
   // 운동 이름 맵이 아직 한 번도 안 왔을 때 — 이때는 "알 수 없는 운동" 대신 스켈레톤 줄을 보인다.
   const { isPending: exercisesPending } = useExercises();
@@ -205,8 +207,10 @@ export default function TemplatesScreen() {
                 <Text style={styles.screenTitle}>기록</Text>
                 <PressableScale
                   style={styles.addButton}
-                  onPress={() => router.push("/routines")}
+                  onPress={openAddMenu}
                   hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="운동 시작 또는 루틴 만들기"
                 >
                   <Plus size={22} color={colors.text} />
                 </PressableScale>
@@ -273,8 +277,8 @@ export default function TemplatesScreen() {
                 <AppText style={styles.historyEmptyTitle}>아직 운동 기록이 없어요</AppText>
                 <AppText style={styles.historyEmptyBody}>운동을 끝내면 여기에 기록이 남아요</AppText>
                 <PrimaryButton
-                  title="첫 운동 시작"
-                  onPress={() => router.push("/routines")}
+                  title={noRoutines ? "첫 루틴 만들기" : "첫 운동 시작"}
+                  onPress={openRoutines}
                   style={styles.historyEmptyButton}
                 />
               </View>

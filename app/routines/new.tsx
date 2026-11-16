@@ -359,6 +359,7 @@ const styles = StyleSheet.create({
   itemInputLabel: {
     color: colors.text3,
     fontSize: 11,
+    lineHeight: 14,
   },
   itemInput: {
     backgroundColor: colors.bg,
