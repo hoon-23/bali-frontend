@@ -3,34 +3,30 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppTextInput } from "../../components/AppTextInput";
-import { dismissThen, KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
+import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
 import { isBodyweightExercise } from "../../constants/exercises";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
+import { deriveRoutineCategory } from "../../lib/routines/targets";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { PressableScale } from "../../components/ui/PressableScale";
 import { colors, radius, space } from "../../constants/theme";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CATEGORY_LABELS, TemplateCategory } from "../../store/templatesStore";
 import { DraftItem, useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { ApiExercise, formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { PlanLimitSheet } from "../../components/PlanLimitSheet";
 import { PlanLimit, getKoreanApiErrorMessage, getLimitExceeded } from "../../lib/api/planLimit";
 import { useCreateTemplate } from "../../hooks/api/useTemplates";
 
-const CATEGORIES: TemplateCategory[] = ["PUSH", "PULL", "LEGS", "STRENGTH", "CARDIO"];
-
 export default function NewRoutineScreen() {
   const router = useRouter();
   const name = useRoutineBuilderStore((state) => state.name);
-  const category = useRoutineBuilderStore((state) => state.category);
   const items = useRoutineBuilderStore((state) => state.items);
   const setName = useRoutineBuilderStore((state) => state.setName);
-  const setCategory = useRoutineBuilderStore((state) => state.setCategory);
   const removeItem = useRoutineBuilderStore((state) => state.removeItem);
   const updateItemField = useRoutineBuilderStore((state) => state.updateItemField);
   const reorderItems = useRoutineBuilderStore((state) => state.reorderItems);
@@ -61,7 +57,8 @@ export default function NewRoutineScreen() {
     createTemplate.mutate(
       {
         name: name.trim(),
-        category,
+        // 분류는 사용자가 고르지 않고 종목 구성으로 정한다(유산소만 있으면 유산소, 그 밖에는 전신).
+        category: deriveRoutineCategory(items.map((item) => isCardioExercise(exerciseMap.get(item.exerciseId)))),
         items: items.map((item, index) => {
           const exercise = exerciseMap.get(item.exerciseId);
           // 서버 검증은 exercise.type 기준 — CARDIO는 duration만, 그 외(기능성 포함)는 sets/reps/weight만 보낸다.
@@ -130,31 +127,6 @@ export default function NewRoutineScreen() {
                   placeholder="예: 등, 하체"
                   placeholderTextColor={colors.text3}
                 />
-              </View>
-
-              <View>
-                <Text style={styles.label}>분류</Text>
-                <View style={styles.categoryRow}>
-                  {CATEGORIES.map((item) => {
-                    const selected = category === item;
-                    return (
-                      <PressableScale
-                        key={item}
-                        style={[styles.categoryChip, selected && styles.categoryChipSelected]}
-                        onPress={dismissThen(() => setCategory(item))}
-                      >
-                        <Text
-                          style={[
-                            styles.categoryChipText,
-                            selected && styles.categoryChipTextSelected,
-                          ]}
-                        >
-                          {CATEGORY_LABELS[item]}
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
-                </View>
               </View>
 
               <View style={styles.itemsHeader}>
@@ -325,28 +297,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.s16,
     color: colors.text,
     fontSize: 15,
-  },
-  categoryRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  categoryChip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: radius.control,
-    alignItems: "center",
-    backgroundColor: colors.surface,
-  },
-  categoryChipSelected: {
-    backgroundColor: colors.text,
-  },
-  categoryChipText: {
-    color: colors.text2,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  categoryChipTextSelected: {
-    color: colors.onAccent,
   },
   itemsHeader: {
     flexDirection: "row",

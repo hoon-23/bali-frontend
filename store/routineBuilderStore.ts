@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ResolvedTargets } from "../lib/routines/targets";
 import { TemplateCategory } from "./templatesStore";
 
 const DEFAULT_CARDIO_DURATION_MINUTES = "20";
@@ -33,7 +34,8 @@ type RoutineBuilderState = {
   setName: (name: string) => void;
   setCategory: (category: TemplateCategory) => void;
   // 고른 순서대로 여러 운동을 한 번에 추가한다(운동 추가하기 화면의 "N개 추가").
-  addItems: (entries: { exerciseId: string; kind: ExerciseKind }[]) => void;
+  // targets를 주면(직전 기록 등) 그 값으로, 없으면 기본값으로 채운다.
+  addItems: (entries: { exerciseId: string; kind: ExerciseKind; targets?: ResolvedTargets }[]) => void;
   removeItem: (id: string) => void;
   updateItemField: (
     id: string,
@@ -60,13 +62,18 @@ export const useRoutineBuilderStore = create<RoutineBuilderState>((set) => ({
     set((state) => ({
       items: [
         ...state.items,
-        ...entries.map(({ exerciseId, kind }) => ({
+        ...entries.map(({ exerciseId, kind, targets }) => ({
           id: nextDraftId(),
           exerciseId,
-          targetSets: DEFAULT_SETS,
-          targetReps: DEFAULT_REPS,
-          targetWeight: DEFAULT_WEIGHT,
-          targetDurationMinutes: kind === "CARDIO" ? DEFAULT_CARDIO_DURATION_MINUTES : "",
+          targetSets: targets ? String(targets.sets) : DEFAULT_SETS,
+          targetReps: targets ? String(targets.reps) : DEFAULT_REPS,
+          targetWeight: targets ? String(targets.weight) : DEFAULT_WEIGHT,
+          targetDurationMinutes:
+            kind !== "CARDIO"
+              ? ""
+              : targets
+                ? String(Math.round(targets.durationSeconds / 60))
+                : DEFAULT_CARDIO_DURATION_MINUTES,
         })),
       ],
     })),

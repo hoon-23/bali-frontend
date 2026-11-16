@@ -30,19 +30,42 @@ import { useRoutineBuilderStore } from "../../store/routineBuilderStore";
 import { TemplateCategory } from "../../store/templatesStore";
 import { ApiExercise, formatExerciseName, isCardioExercise, useExercises } from "../../hooks/api/useExercises";
 import { toItemsPayload, useTemplate, useUpdateTemplate } from "../../hooks/api/useTemplates";
+import { apiClient } from "../../lib/api/client";
+import { type LastRecord, resolveTargets } from "../../lib/routines/targets";
 import { useSession, usePatchSession } from "../../hooks/api/useSessions";
-
-const DEFAULT_CARDIO_DURATION_SECONDS = 20 * 60;
 
 // 운동 종류(유산소/기능성/근력)에 따라 세션·템플릿에 addItems로 보낼 목표값 필드가
 // 다르다 — 세 곳(세션 즉흥 추가, 템플릿 추가, 빌더 스토어)에서 반복하지 않게 공용화.
-function buildTargetFields(exercise: ApiExercise) {
+function buildTargetFields(exercise: ApiExercise, record: LastRecord | undefined) {
+  const targets = targetsFor(exercise, record);
   // 서버 검증은 exercise.type 기준 — CARDIO는 duration만, 그 외(기능성 포함)는 sets/reps/weight만 보낸다.
   if (isCardioExercise(exercise)) {
-    return { targetDurationSeconds: DEFAULT_CARDIO_DURATION_SECONDS };
+    return { targetDurationSeconds: targets.durationSeconds };
   }
-  // 맨몸 종목은 무게 개념이 없어 weight=0
-  return { targetSets: 3, targetReps: 15, targetWeight: isBodyweightExercise(exercise) ? 0 : 20 };
+  return { targetSets: targets.sets, targetReps: targets.reps, targetWeight: targets.weight };
+}
+
+// 직전에 했던 기록이 있으면 그 값, 없으면 기본값(3세트 15회).
+function targetsFor(exercise: ApiExercise, record: LastRecord | undefined) {
+  return resolveTargets(
+    { isCardio: isCardioExercise(exercise), isBodyweight: isBodyweightExercise(exercise) },
+    record
+  );
+}
+
+// 고른 종목들의 직전 기록을 한 번에 가져온다. 미리 채우기는 편의 기능이라, 실패하거나 오래 걸리면
+// (서버에 아직 이 기능이 없는 경우 포함) 빈 결과로 넘어가 기본값을 쓴다 — 운동 추가 자체를 막지 않는다.
+const LAST_RECORDS_TIMEOUT_MS = 2500;
+async function fetchLastRecords(exerciseIds: string[]): Promise<Map<string, LastRecord>> {
+  try {
+    const { data } = await apiClient.get<LastRecord[]>("/api/v1/exercises/last-records", {
+      params: { ids: exerciseIds.join(",") },
+      timeout: LAST_RECORDS_TIMEOUT_MS,
+    });
+    return new Map((Array.isArray(data) ? data : []).map((record) => [record.exerciseId, record]));
+  } catch {
+    return new Map();
+  }
 }
 
 // CARDIO는 별도 분류(전체 필터 숨김 + 직행 목록)로 처리하므로 근력 운동용 근육군
@@ -176,6 +199,7 @@ export default function ExercisePickerScreen() {
 
     submittingRef.current = true;
     setSubmitting(true);
+    const lastRecords = await fetchLastRecords(selected.map((exercise) => exercise.id));
     try {
       if (sessionId && session) {
         await patchSession.mutateAsync({
@@ -183,7 +207,7 @@ export default function ExercisePickerScreen() {
           addItems: selected.map((exercise, index) => ({
             exerciseId: exercise.id,
             sortOrder: session.logs.length + index,
-            ...buildTargetFields(exercise),
+            ...buildTargetFields(exercise, lastRecords.get(exercise.id)),
           })),
         });
       } else if (templateId && template) {
@@ -197,7 +221,7 @@ export default function ExercisePickerScreen() {
               ...selected.map((exercise, index) => ({
                 exerciseId: exercise.id,
                 sortOrder: template.items.length + index,
-                ...buildTargetFields(exercise),
+                ...buildTargetFields(exercise, lastRecords.get(exercise.id)),
               })),
             ],
           },
@@ -207,6 +231,7 @@ export default function ExercisePickerScreen() {
           selected.map((exercise) => ({
             exerciseId: exercise.id,
             kind: isCardioExercise(exercise) ? ("CARDIO" as const) : ("STRENGTH" as const),
+            targets: targetsFor(exercise, lastRecords.get(exercise.id)),
           }))
         );
       }
