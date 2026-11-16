@@ -1,21 +1,16 @@
 import { AnimatedBar } from "../../components/AnimatedBar";
-import { Bell, ChevronDown, ChevronRight, ChevronUp } from "lucide-react-native";
+import { Bell, ChevronRight } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import {
-  Image,
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  UIManager,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { appAlert } from "../../lib/alert";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { BigNumber } from "../../components/ui/BigNumber";
+import { PressableScale } from "../../components/ui/PressableScale";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { QuietButton } from "../../components/ui/QuietButton";
+import { Divider, Section } from "../../components/ui/Section";
 import { Skeleton } from "../../components/Skeleton";
 import {
   IN_PROGRESS_BANNER_RESERVED_HEIGHT,
@@ -23,9 +18,7 @@ import {
   TAB_BAR_BOTTOM_MARGIN,
   TAB_BAR_HEIGHT,
 } from "../../constants/layout";
-import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
-import { MUSCLE_GROUP_KOREAN, toDisplayMuscleGroup } from "../../constants/exercises";
-import { CARD_SHADOW } from "../../constants/shadow";
+import { colors, radius, space, type } from "../../constants/theme";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { useUnreadNotificationCount } from "../../hooks/api/useNotificationInbox";
@@ -33,7 +26,6 @@ import { useMe } from "../../hooks/api/useMe";
 import { useLifetimeStats } from "../../hooks/api/useAnalysis";
 import { useWeeklyCurrent } from "../../hooks/api/useWeeklyCurrent";
 import { computeTopMuscleGroups } from "../../lib/analysis/muscleGroups";
-import { useExercises, ApiExercise } from "../../hooks/api/useExercises";
 import { useUpcomingSessions, getTodayISODate } from "../../hooks/api/useUpcomingSessions";
 import { usePatchSession } from "../../hooks/api/useSessions";
 import {
@@ -45,11 +37,6 @@ import {
 import { minutesToDurationText } from "../../lib/format/duration";
 import { formatThousands } from "../../lib/format/number";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const TODAY_CARD_GAP = 12; // todayCardList의 카드 사이 간격과 동일한 값 — 배너와의 간격도 이걸로 통일한다.
 // 이번 주 근육군별 집중도에 아직 데이터가 없을 때 보여줄 디폴트 바 3줄 — 실제 집계는
 // 아니지만 흔히 많이 하는 부위 3개를 자리에 채워 넣고, 길이도 서로 다르게 줘서
 // "데이터 없음" 대신 "곧 이런 모양으로 채워질 것"처럼 보이게 한다.
@@ -68,18 +55,17 @@ function toDDayLabel(dateStr: string): string {
 
 function sessionCardMeta(session: ApiSession): { metaLabel: string; actionLabel: string; muted: boolean } {
   if (session.status === "COMPLETED") {
-    return { metaLabel: "오늘 완료", actionLabel: "완료", muted: true };
+    return { metaLabel: "오늘 완료", actionLabel: "기록 보기", muted: true };
   }
   return {
     metaLabel: `${estimateSessionDurationMinutes(session.logs)}분`,
-    actionLabel: session.status === "IN_PROGRESS" ? "이어하기" : "시작",
+    actionLabel: session.status === "IN_PROGRESS" ? "이어하기" : "운동 시작",
     muted: false,
   };
 }
 
 export default function HomeScreen() {
   const router = useRouter();
-  const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
   // "운동 진행 중" 배너((tabs)/_layout.tsx)가 떠 있으면 그만큼 하단 여백을 더 줘서
@@ -96,7 +82,6 @@ export default function HomeScreen() {
   // 월간 분석 API는 무료 플랜에서 403(MONTHLY_INSIGHTS)이라 월간 인사이트는 리포트 탭에만 둔다.
   const { data: weeklyCurrent, isPending: weeklyPending } = useWeeklyCurrent();
   const topMuscleGroupsWeek = computeTopMuscleGroups(weeklyCurrent?.summary);
-  const { data: exercises } = useExercises();
   const {
     data: sessions,
     isPending: sessionsPending,
@@ -154,132 +139,190 @@ export default function HomeScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
-          ref={scrollViewRef}
           contentContainerStyle={[
             styles.scrollContent,
             {
               // 탭바 위치(_layout.tsx)는 insets.bottom을 더해서 계산되는데
               // 이 화면은 SafeAreaView edges=["top"]이라 insets.bottom이 반영 안 돼 있었음 —
-              // 그만큼 하단 여백이 부족해서 마지막 카드가 탭바와 겹쳐 보였던 원인.
+              // 그만큼 하단 여백이 부족해서 마지막 항목이 탭바와 겹쳐 보였던 원인.
               // 여기서도 같은 insets.bottom을 더해 맞춘다.
               paddingBottom:
                 insets.bottom +
                 TAB_BAR_BOTTOM_MARGIN +
                 TAB_BAR_HEIGHT +
-                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + TODAY_CARD_GAP : 24),
+                (inProgressSessionId ? IN_PROGRESS_BANNER_RESERVED_HEIGHT + space.s12 : space.s24),
             },
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {/* 인사 줄 — 작게 둔다. 앱을 열었을 때 가장 먼저 보여야 하는 것은 아래 "오늘의 운동"이다. */}
+          <View>
+            <View style={styles.header}>
+              <PressableScale
+                style={styles.identity}
+                disabled={!me?.level}
+                onPress={() => router.push("/profile")}
+                accessibilityRole="button"
+                accessibilityLabel="프로필의 경험치 보기"
+                hitSlop={8}
+              >
+                {mePending ? (
+                  <Skeleton width={120} height={14} style={styles.identitySkeleton} />
+                ) : (
+                  <AppText style={styles.identityText} numberOfLines={1}>
+                    {me?.nickname ?? "—"} 님{me?.level ? ` · Lv.${me.level.level}` : ""}
+                  </AppText>
+                )}
+              </PressableScale>
+              <PressableScale
+                style={styles.bellButton}
+                hitSlop={8}
+                onPress={() => router.push("/notifications")}
+                accessibilityRole="button"
+                accessibilityLabel="알림"
+              >
+                <Bell size={20} color={colors.text2} />
+                {unreadCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <AppText style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</AppText>
+                  </View>
+                )}
+              </PressableScale>
+            </View>
+            {/* 레벨 값이 늦게 와도 자리는 미리 잡혀 있어 아래가 밀리지 않는다. */}
+            <View style={styles.xpTrack}>
+              {me?.level && (
+                <AnimatedBar
+                  progress={me.level.xpForNextLevel > 0 ? me.level.currentXp / me.level.xpForNextLevel : 0}
+                  style={styles.xpFill}
+                />
+              )}
+            </View>
+          </View>
+
           {meError && (
-            <View style={styles.card}>
-              <Text style={styles.legendText}>불러오지 못했어요</Text>
-              <Pressable style={styles.startButton} onPress={() => refetchMe()}>
-                <Text style={styles.startButtonText}>다시 시도</Text>
-              </Pressable>
+            <View style={styles.errorRow}>
+              <AppText style={styles.errorText}>내 정보를 불러오지 못했어요</AppText>
+              <QuietButton variant="text" title="다시 시도" onPress={() => refetchMe()} />
             </View>
           )}
 
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.greetingSub}>안녕하세요</Text>
-              <View style={styles.greetingRow}>
-                {mePending ? (
-                  // 닉네임 한 줄(22pt) 높이에 맞춘 막대 — "— 님"이 잠깐 보이던 것을 대신한다.
-                  <Skeleton width={120} height={22} style={styles.greetingSkeleton} />
-                ) : (
-                  <Text style={styles.greeting}>{me?.nickname ?? "—"} 님</Text>
-                )}
-                {me?.level && (
-                  <View style={styles.levelBadge}>
-                    <Text style={styles.levelBadgeText}>Lv.{me.level.level}</Text>
-                  </View>
-                )}
+          <Section label="오늘의 운동" style={styles.todaySection}>
+            {sessionsError ? (
+              <View style={styles.todayBody}>
+                <AppText style={styles.todayEmptyTitle}>불러오지 못했어요</AppText>
+                <QuietButton title="다시 시도" onPress={() => refetchSessions()} />
               </View>
-            </View>
-            <Pressable style={styles.bellButton} hitSlop={8} onPress={() => router.push("/notifications")}>
-              <Bell size={18} color="#FBBF24" />
-              {unreadCount > 0 && (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-
-          {/* 로딩 전에도 같은 높이를 잡아 두어 데이터가 와도 아래 요소가 밀리지 않는다. */}
-          <Pressable
-            style={styles.xpRow}
-            disabled={!me?.level}
-            onPress={() => router.push("/profile")}
-            accessibilityRole="button"
-            accessibilityLabel="프로필의 경험치 보기"
-          >
-            {me?.level && (
+            ) : cardState?.kind === "EMPTY" ? (
+              <View style={styles.todayBody}>
+                <AppText style={styles.todayEmptyTitle}>예정된 운동이 없어요</AppText>
+                <PrimaryButton title="루틴 시작하기" onPress={() => router.push("/routines")} />
+              </View>
+            ) : cardState?.kind === "TODAY" ? (
               <>
-                <View style={styles.xpBody}>
-                  <Text style={styles.xpText}>
-                    {formatThousands(me.level.currentXp)} / {formatThousands(me.level.xpForNextLevel)} XP
-                  </Text>
-                  <View style={styles.xpTrack}>
-                    <AnimatedBar
-                      progress={me.level.xpForNextLevel > 0 ? me.level.currentXp / me.level.xpForNextLevel : 0}
-                      style={styles.xpFill}
-                    />
+                <TodayHero session={cardState.sessions[0]} onAction={() => handleSessionAction(cardState.sessions[0])} />
+                {(cardState.sessions.length > 1 || cardState.next) && (
+                  <View style={styles.sessionRows}>
+                    {cardState.sessions.slice(1).map((session) => (
+                      <SessionRow
+                        key={session.id}
+                        title={session.title}
+                        meta={sessionCardMeta(session).metaLabel}
+                        onPress={() => handleSessionAction(session)}
+                      />
+                    ))}
+                    {cardState.next && (
+                      <SessionRow
+                        title={cardState.next.title}
+                        meta={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
+                        onPress={() => router.push(`/upcoming/${cardState.next!.id}`)}
+                      />
+                    )}
                   </View>
-                </View>
-                <ChevronRight size={16} color="#6B6B6B" />
+                )}
               </>
+            ) : cardState?.kind === "NEXT_UPCOMING" ? (
+              <View style={styles.todayBody}>
+                <View>
+                  <AppText style={styles.todayTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                    {cardState.next.title}
+                  </AppText>
+                  <AppText style={styles.todayMeta}>
+                    다음 운동 · {toDDayLabel(cardState.next.date)} · {sessionVolumeText(cardState.next)}
+                  </AppText>
+                </View>
+                <QuietButton title="미리보기" onPress={() => router.push(`/upcoming/${cardState.next.id}`)} />
+              </View>
+            ) : (
+              // 로딩 중 — 실제 내용(제목 + 메타 + 버튼)과 같은 높이를 잡아 데이터가 와도 아래가 밀리지 않는다.
+              <View style={styles.todayBody}>
+                <View style={styles.todaySkeletonLines}>
+                  {sessionsPending && <Skeleton width="60%" height={32} />}
+                  {sessionsPending && <Skeleton width={120} height={15} />}
+                </View>
+                <View style={styles.todaySkeletonButton}>{sessionsPending && <Skeleton height={52} radius={radius.control} />}</View>
+              </View>
             )}
-          </Pressable>
+          </Section>
 
-          <View style={styles.statsRow}>
-            <StatTile
-              label="총 운동일"
-              value={lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
-              loading={lifetimePending}
-            />
-            <StatTile
-              label="총 운동시간"
-              value={lifetime ? minutesToDurationText(lifetime.totalWorkoutMinutes) : "—"}
-              loading={lifetimePending}
-            />
-            <StatTile
-              label="이번 주 운동일"
-              value={me ? `${me.weeklyWorkoutDays}일` : "—"}
-              loading={mePending}
-              onPress={goToMonthlyReport}
-            />
+          <Divider />
+
+          <View style={styles.weekRow}>
+            <PressableScale onPress={goToMonthlyReport} accessibilityRole="button" accessibilityLabel="월간 리포트 보기">
+              <AppText style={styles.weekLabel}>이번 주</AppText>
+              {mePending ? (
+                <Skeleton width={110} height={36} style={styles.weekSkeleton} />
+              ) : (
+                <BigNumber size="display" value={me ? me.weeklyWorkoutDays : "—"} unit="일 운동" />
+              )}
+            </PressableScale>
+            <View style={styles.lifetime}>
+              {lifetimePending ? (
+                <Skeleton width={64} height={30} />
+              ) : (
+                <>
+                  <AppText style={styles.lifetimeText}>
+                    누적 {lifetime ? `${formatThousands(lifetime.totalWorkoutDays)}일` : "—"}
+                  </AppText>
+                  <AppText style={styles.lifetimeText}>
+                    {lifetime ? minutesToDurationText(lifetime.totalWorkoutMinutes) : "—"}
+                  </AppText>
+                </>
+              )}
+            </View>
           </View>
 
-          <View>
-            <Text style={[styles.sectionTitle, topMuscleGroupsWeek.length === 0 && styles.sectionTitleTight]}>
-              이번 주 근육군별 집중도
-            </Text>
+          <Section label="이번 주 근육군별 집중도">
             {topMuscleGroupsWeek.length === 0 &&
               (weeklyPending ? (
                 // 로딩 중에 "기록이 없어요"가 잘못 보이지 않게 같은 높이의 막대로 자리만 잡는다.
-                <Skeleton width={150} height={12} style={styles.sectionSubcopySkeleton} />
+                <Skeleton width={150} height={12} style={styles.muscleSubcopySkeleton} />
               ) : (
-                <Text style={styles.sectionSubcopy}>이번 주 운동 기록이 아직 없어요</Text>
+                <AppText style={styles.muscleSubcopy}>이번 주 운동 기록이 아직 없어요</AppText>
               ))}
-            <View style={styles.card}>
+            <View style={styles.muscleBars}>
               {topMuscleGroupsWeek.length > 0
-                ? topMuscleGroupsWeek.map((item) => (
-                    <View key={item.label} style={styles.muscleBarRow}>
+                ? topMuscleGroupsWeek.map((item, index) => (
+                    // 1위만 흰색으로 또렷하게, 나머지는 회색 — 색이 아니라 밝기 차이로 순위를 보여준다.
+                    <View key={item.label}>
                       <View style={styles.muscleBarHeader}>
-                        <Text style={styles.muscleBarLabel}>{item.label}</Text>
-                        <Text style={styles.muscleBarPercent}>{item.percent}%</Text>
+                        <AppText style={[styles.muscleBarLabel, index === 0 && styles.muscleBarLabelTop]}>
+                          {item.label}
+                        </AppText>
+                        <AppText style={styles.muscleBarPercent}>{item.percent}%</AppText>
                       </View>
                       <View style={styles.muscleBarTrack}>
-                        <AnimatedBar progress={item.percent / 100} style={styles.muscleBarFill} />
+                        <AnimatedBar
+                          progress={item.percent / 100}
+                          style={[styles.muscleBarFill, index === 0 && styles.muscleBarFillTop]}
+                        />
                       </View>
                     </View>
                   ))
                 : MUSCLE_BAR_PLACEHOLDERS.map((item) => (
-                    <View key={item.label} style={styles.muscleBarRow}>
+                    <View key={item.label}>
                       <View style={styles.muscleBarHeader}>
-                        <Text style={styles.muscleBarLabelMuted}>{item.label}</Text>
+                        <AppText style={styles.muscleBarLabelMuted}>{item.label}</AppText>
                       </View>
                       <View style={styles.muscleBarTrack}>
                         <AnimatedBar progress={item.percent / 100} style={styles.muscleBarFillEmpty} />
@@ -287,250 +330,64 @@ export default function HomeScreen() {
                     </View>
                   ))}
             </View>
-          </View>
-
-          <View>
-            <Text style={styles.sectionTitle}>오늘의 운동</Text>
-            {sessionsError ? (
-              <View style={styles.card}>
-                <Text style={styles.legendText}>불러오지 못했어요</Text>
-                <Pressable style={styles.startButton} onPress={() => refetchSessions()}>
-                  <Text style={styles.startButtonText}>다시 시도</Text>
-                </Pressable>
-              </View>
-            ) : cardState?.kind === "EMPTY" ? (
-              <View style={styles.card}>
-                <Text style={styles.suggestedName}>예정된 운동이 없어요</Text>
-                <Pressable style={styles.startButton} onPress={() => router.push("/routines")}>
-                  <Text style={styles.startButtonText}>루틴 시작하기</Text>
-                </Pressable>
-              </View>
-            ) : cardState?.kind === "TODAY" ? (
-              <View style={styles.todayCardList}>
-                <TodaySessionCards
-                  sessions={cardState.sessions}
-                  exercises={exercises}
-                  onAction={handleSessionAction}
-                  onExpand={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-                />
-                {cardState.next && (
-                  <SessionSummaryCard
-                    session={cardState.next}
-                    exercises={exercises}
-                    metaLabel={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
-                    actionLabel="미리보기"
-                    onAction={() => router.push(`/upcoming/${cardState.next!.id}`)}
-                  />
-                )}
-              </View>
-            ) : cardState?.kind === "NEXT_UPCOMING" ? (
-              <SessionSummaryCard
-                session={cardState.next}
-                exercises={exercises}
-                metaLabel={`다음 운동 · ${toDDayLabel(cardState.next.date)}`}
-                actionLabel="미리보기"
-                onAction={() => router.push(`/upcoming/${cardState.next.id}`)}
-              />
-            ) : sessionsPending ? (
-              <TodayCardSkeleton />
-            ) : (
-              <View style={styles.card} />
-            )}
-          </View>
+          </Section>
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
   );
 }
 
-type TodaySessionCardsProps = {
-  sessions: ApiSession[];
-  exercises: ApiExercise[] | undefined;
-  onAction: (session: ApiSession) => void;
-  // 압축 행이 펼쳐질 때 새로 드러난 사진+버튼이 탭바/배너에 가려지지 않게 스크롤을 끝까지 내린다.
-  onExpand: () => void;
-};
-
-// 우선순위가 가장 높은 세션(정렬은 deriveUpcomingCardState가 이미 해둠)만 사진 카드로,
-// 나머지는 SecondarySessionRow로 압축해서 보여준다.
-function TodaySessionCards({ sessions, exercises, onAction, onExpand }: TodaySessionCardsProps) {
-  const [primarySession, ...secondarySessions] = sessions;
-  const primaryMeta = sessionCardMeta(primarySession);
-
-  return (
-    <>
-      <SessionSummaryCard
-        session={primarySession}
-        exercises={exercises}
-        metaLabel={primaryMeta.metaLabel}
-        actionLabel={primaryMeta.actionLabel}
-        muted={primaryMeta.muted}
-        onAction={() => onAction(primarySession)}
-      />
-      {secondarySessions.map((session) => {
-        const meta = sessionCardMeta(session);
-        return (
-          <SecondarySessionRow
-            key={session.id}
-            session={session}
-            exercises={exercises}
-            metaLabel={meta.metaLabel}
-            actionLabel={meta.actionLabel}
-            muted={meta.muted}
-            onAction={() => onAction(session)}
-            onExpand={onExpand}
-          />
-        );
-      })}
-    </>
-  );
+// "5종목 · 15세트" — 세트 목표가 없는(유산소만 있는) 세션은 종목 수만 보여준다.
+function sessionVolumeText(session: ApiSession): string {
+  const totalSets = session.logs.reduce((sum, log) => sum + (log.targetSets ?? 0), 0);
+  const exercises = `${session.logs.length}종목`;
+  return totalSets > 0 ? `${exercises} · ${totalSets}세트` : exercises;
 }
 
-type SessionSummaryCardProps = {
+type TodayHeroProps = {
   session: ApiSession;
-  exercises: ApiExercise[] | undefined;
-  metaLabel: string;
-  actionLabel: string;
   onAction: () => void;
-  // 이미 끝난 세션 카드 — "이어하기"처럼 계속할 수 있다는 인상을 주지 않게
-  // 버튼을 액션형(민트)이 아닌 안내형(회색)으로 보여준다.
-  muted?: boolean;
 };
 
-function SessionSummaryCard({ session, exercises, metaLabel, actionLabel, onAction, muted }: SessionSummaryCardProps) {
-  const firstExerciseId = session.logs[0]?.exerciseId;
-  const exercise = exercises?.find((e) => e.id === firstExerciseId);
-  // 사진은 4종 에셋으로 근사(대체)하지만, 배지 텍스트는 실제 8개 근육군 라벨을 그대로 써야 한다 —
-  // 안 그러면 SHOULDER/BICEPS/TRICEPS/ABS/FUNCTIONAL 종목이 전부 "가슴"으로 잘못 표기된다.
-  const photoMuscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
-  const muscleGroupLabel = exercise ? MUSCLE_GROUP_KOREAN[exercise.muscleGroup] : null;
-
+// 오늘 할 운동 하나를 크게 보여준다 — 앱을 열면 가장 먼저 보이는 것이 "오늘 무엇을 하는가"와 시작 버튼이다.
+function TodayHero({ session, onAction }: TodayHeroProps) {
+  const { metaLabel, actionLabel, muted } = sessionCardMeta(session);
   return (
-    <Pressable style={styles.card} onPress={onAction}>
-      <View style={styles.photoWrap}>
-        {photoMuscleGroup && (
-          <Image source={MUSCLE_GROUP_IMAGES[photoMuscleGroup]} style={styles.photo} resizeMode="cover" />
-        )}
-        {muscleGroupLabel && (
-          <View style={styles.photoBadge}>
-            <Text style={styles.photoBadgeText}>{muscleGroupLabel}</Text>
-          </View>
-        )}
+    <View style={styles.todayBody}>
+      <View>
+        <AppText style={styles.todayTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+          {session.title}
+        </AppText>
+        <AppText style={styles.todayMeta}>
+          {sessionVolumeText(session)} · {metaLabel}
+        </AppText>
       </View>
-      <View style={styles.suggestedRow}>
-        <View style={styles.suggestedTitleGroup}>
-          <Text style={styles.suggestedName}>{session.title}</Text>
-          <Text style={styles.suggestedMeta}>{metaLabel}</Text>
-        </View>
-        <View style={styles.cardIndicator}>
-          <Text style={[styles.cardIndicatorText, muted && styles.cardIndicatorTextMuted]}>{actionLabel}</Text>
-          <ChevronRight size={16} color={muted ? "#6B6B6B" : "#2DD4BF"} />
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-type SecondarySessionRowProps = SessionSummaryCardProps & {
-  // 펼쳐졌을 때(접힐 때는 X) 호출 — 새로 드러난 사진+버튼이 탭바/배너에 가리지 않게 스크롤한다.
-  onExpand: () => void;
-};
-
-// 오늘 세션이 여러 개일 때 첫 번째(가장 우선순위 높은)만 사진 카드로 보여주고
-// 나머지는 압축된 행으로 두었다가, 탭하면 그 자리에서 사진+버튼이 펼쳐진다 —
-// 큰 사진 카드가 여러 개 연달아 쌓이면 같은 카드가 중복 렌더링된 것처럼 보여서 생긴 개선.
-function SecondarySessionRow({ session, exercises, metaLabel, actionLabel, onAction, muted, onExpand }: SecondarySessionRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const firstExerciseId = session.logs[0]?.exerciseId;
-  const exercise = exercises?.find((e) => e.id === firstExerciseId);
-  const photoMuscleGroup = exercise ? toDisplayMuscleGroup(exercise.muscleGroup) : null;
-  const muscleGroupLabel = exercise ? MUSCLE_GROUP_KOREAN[exercise.muscleGroup] : null;
-
-  useEffect(() => {
-    if (!expanded) return;
-    // 레이아웃이 실제로 반영된 뒤(다음 프레임) 스크롤해야 새 콘텐츠 높이가 반영된다.
-    const id = requestAnimationFrame(() => onExpand());
-    return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded]);
-
-  const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded((prev) => !prev);
-  };
-
-  return (
-    <Pressable style={styles.secondaryCard} onPress={toggle}>
-      <View style={styles.secondaryHeaderRow}>
-        <View style={styles.secondaryTitleGroup}>
-          <Text style={styles.suggestedName}>{session.title}</Text>
-          <Text style={styles.suggestedMeta}>{metaLabel}</Text>
-        </View>
-        {expanded ? (
-          <ChevronUp size={18} color="#6B6B6B" />
-        ) : (
-          <ChevronDown size={18} color="#6B6B6B" />
-        )}
-      </View>
-      {expanded && (
-        <View style={styles.secondaryExpanded}>
-          <View style={styles.photoWrap}>
-            {photoMuscleGroup && (
-              <Image source={MUSCLE_GROUP_IMAGES[photoMuscleGroup]} style={styles.photo} resizeMode="cover" />
-            )}
-            {muscleGroupLabel && (
-              <View style={styles.photoBadge}>
-                <Text style={styles.photoBadgeText}>{muscleGroupLabel}</Text>
-              </View>
-            )}
-          </View>
-          <Pressable
-            style={[styles.startButton, styles.secondaryActionButton, muted && styles.startButtonMuted]}
-            onPress={onAction}
-          >
-            <Text style={[styles.startButtonText, muted && styles.startButtonTextMuted]}>{actionLabel}</Text>
-          </Pressable>
-        </View>
+      {/* 이미 끝난 세션은 "계속할 수 있다"는 인상을 주지 않게 민트 주 버튼 대신 조용한 버튼으로 보여준다. */}
+      {muted ? (
+        <QuietButton title={actionLabel} onPress={onAction} />
+      ) : (
+        <PrimaryButton title={actionLabel} onPress={onAction} />
       )}
-    </Pressable>
-  );
-}
-
-// "오늘의 운동" 사진 카드(SessionSummaryCard)와 같은 틀로 그린 로딩용 자리표시.
-// 이 섹션은 화면 맨 아래라, 실제 카드가 더 낮게(EMPTY 등) 오더라도 다른 요소를 밀지 않는다.
-function TodayCardSkeleton() {
-  return (
-    <View style={styles.card}>
-      <Skeleton height={140} radius={12} />
-      <View style={styles.suggestedRow}>
-        <View style={[styles.suggestedTitleGroup, styles.skeletonLines]}>
-          <Skeleton width="45%" height={15} />
-          <Skeleton width={56} height={12} />
-        </View>
-        <Skeleton width={44} height={14} />
-      </View>
     </View>
   );
 }
 
-type StatTileProps = {
-  value: string;
-  label: string;
-  // 최초 로딩 중이면 값 대신 같은 높이의 스켈레톤을 보인다.
-  loading?: boolean;
-  onPress?: () => void;
+type SessionRowProps = {
+  title: string;
+  meta: string;
+  onPress: () => void;
 };
 
-function StatTile({ value, label, loading, onPress }: StatTileProps) {
+// 오늘의 두 번째 이후 세션, 다음 예정 운동을 한 줄로 보여준다.
+function SessionRow({ title, meta, onPress }: SessionRowProps) {
   return (
-    <Pressable style={styles.statTile} onPress={onPress} disabled={!onPress}>
-      <Text style={styles.statLabel}>{label}</Text>
-      {loading ? (
-        <Skeleton width={44} height={17} style={styles.statValueSkeleton} />
-      ) : (
-        <Text style={styles.statValue}>{value}</Text>
-      )}
-    </Pressable>
+    <PressableScale style={styles.sessionRow} onPress={onPress} accessibilityRole="button">
+      <AppText style={styles.sessionRowTitle} numberOfLines={1}>
+        {title}
+      </AppText>
+      <AppText style={styles.sessionRowMeta}>{meta}</AppText>
+      <ChevronRight size={16} color={colors.text3} />
+    </PressableScale>
   );
 }
 
@@ -540,297 +397,201 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingTop: 12,
-    gap: 20,
+    paddingTop: space.s8,
+    gap: space.s24,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  greetingSub: {
-    color: "#A0A0A0",
-    fontSize: 13,
-  },
-  // 배지는 닉네임 줄 높이 안에 들어가서, 레벨 값이 늦게 와도 아래 요소가 밀리지 않는다.
-  greetingRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginTop: 2,
+    height: 40,
   },
-  greeting: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "700",
-  },
-  // 22pt 한 줄 높이(약 26px)에 맞추기 위한 위아래 여백.
-  greetingSkeleton: {
-    marginVertical: 2,
-  },
-  skeletonLines: {
-    gap: 5,
-  },
-  // 프로필 탭의 레벨 배지와 같은 모양.
-  levelBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
-  levelBadgeText: {
-    color: "#2DD4BF",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  // 벨 버튼 오른쪽 위에 겹쳐 놓는 안 읽은 알림 개수 — 버튼 크기는 그대로라 주변 레이아웃이 밀리지 않는다.
-  bellBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 5,
-    backgroundColor: "#EF4444",
-    alignItems: "center",
+  identity: {
+    flexShrink: 1,
     justifyContent: "center",
+    height: 40,
   },
-  bellBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "700",
+  identityText: {
+    ...type.label,
+    color: colors.text2,
+  },
+  identitySkeleton: {
+    marginVertical: 1,
   },
   bellButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#16161C",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  // 벨 오른쪽 위에 겹쳐 놓는 안 읽은 알림 개수 — 버튼 크기는 그대로라 주변 레이아웃이 밀리지 않는다.
+  bellBadge: {
+    position: "absolute",
+    top: 2,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: radius.pill,
+    paddingHorizontal: 5,
+    backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
   },
-  card: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    gap: 16,
-    ...CARD_SHADOW,
-  },
-  legendText: {
-    color: "#D0D0D0",
-    fontSize: 13,
-    flexShrink: 1,
-  },
-  // 고정 높이 — 레벨 값이 늦게 와도 레이아웃이 흔들리지 않는다.
-  xpRow: {
-    height: 32,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: -8,
-  },
-  xpBody: {
-    flex: 1,
-    gap: 6,
-  },
-  xpText: {
-    color: "#A0A0A0",
-    fontSize: 12,
+  bellBadgeText: {
+    color: colors.onAccent,
+    fontSize: 10,
+    fontWeight: "800",
   },
   xpTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    height: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
     overflow: "hidden",
   },
   xpFill: {
     height: "100%",
-    borderRadius: 2,
-    backgroundColor: "#2DD4BF",
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
   },
-  statsRow: {
+  errorRow: {
     flexDirection: "row",
-    gap: 12,
-  },
-  statTile: {
-    flex: 1,
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    paddingVertical: 14,
     alignItems: "center",
-    gap: 4,
-    ...CARD_SHADOW,
+    justifyContent: "space-between",
   },
-  statLabel: {
-    color: "#A0A0A0",
-    fontSize: 12,
+  errorText: {
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text2,
   },
-  statValue: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
+  todaySection: {
+    marginTop: space.s8,
   },
-  // 17pt 한 줄 높이(약 20px)에 맞추기 위한 위아래 여백.
-  statValueSkeleton: {
-    marginVertical: 2,
+  todayBody: {
+    gap: space.s20,
   },
-  sectionTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 12,
+  todayTitle: {
+    ...type.title,
+    color: colors.text,
+    letterSpacing: -0.6,
+    lineHeight: 40,
   },
-  sectionTitleTight: {
-    marginBottom: 4,
+  todayMeta: {
+    ...type.body,
+    color: colors.text2,
+    marginTop: space.s4,
   },
-  sectionSubcopy: {
-    color: "#6B6B6B",
-    fontSize: 12,
-    marginBottom: 12,
+  todayEmptyTitle: {
+    ...type.heading,
+    color: colors.text,
+    lineHeight: 40,
   },
-  // 12pt 한 줄 높이(약 14px) + sectionSubcopy의 아래 여백에 맞춘다.
-  sectionSubcopySkeleton: {
-    marginTop: 1,
-    marginBottom: 13,
+  // 제목(40) + 메타(4 + 18) 높이에 맞춘 로딩 자리.
+  todaySkeletonLines: {
+    height: 62,
+    justifyContent: "space-between",
+    paddingVertical: 4,
   },
-  muscleBarRow: {
-    gap: 8,
+  todaySkeletonButton: {
+    height: 52,
+  },
+  sessionRows: {
+    marginTop: space.s12,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 44,
+    gap: space.s8,
+  },
+  sessionRowTitle: {
+    ...type.body,
+    color: colors.text,
+    flex: 1,
+  },
+  sessionRowMeta: {
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text3,
+  },
+  weekRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  weekLabel: {
+    ...type.meta,
+    color: colors.text3,
+    marginBottom: space.s4,
+  },
+  // display 숫자 한 줄 높이(44)에 맞춘다.
+  weekSkeleton: {
+    marginVertical: 4,
+  },
+  lifetime: {
+    alignItems: "flex-end",
+    gap: 2,
+    paddingBottom: 6,
+  },
+  lifetimeText: {
+    ...type.meta,
+    color: colors.text3,
+    fontVariant: ["tabular-nums"],
+  },
+  muscleSubcopy: {
+    ...type.meta,
+    color: colors.text3,
+  },
+  // 12pt 한 줄 높이(약 14px)에 맞춘다.
+  muscleSubcopySkeleton: {
+    marginVertical: 1,
+  },
+  muscleBars: {
+    gap: space.s12,
+    marginTop: space.s8,
   },
   muscleBarHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
   muscleBarLabel: {
-    color: "#FFFFFF",
-    fontSize: 14,
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text2,
+  },
+  muscleBarLabelTop: {
+    color: colors.text,
     fontWeight: "600",
   },
   muscleBarLabelMuted: {
-    color: "#6B6B6B",
-    fontSize: 14,
-    fontWeight: "600",
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text3,
   },
   muscleBarPercent: {
-    color: "#A0A0A0",
-    fontSize: 13,
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text2,
+    fontVariant: ["tabular-nums"],
   },
   muscleBarTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(45, 212, 191, 0.12)",
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
     overflow: "hidden",
+    marginTop: 6,
   },
   muscleBarFill: {
     height: "100%",
-    borderRadius: 4,
-    backgroundColor: "#2DD4BF",
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
+  },
+  muscleBarFillTop: {
+    backgroundColor: colors.text,
   },
   muscleBarFillEmpty: {
     height: "100%",
-    borderRadius: 4,
-    backgroundColor: "rgba(45, 212, 191, 0.35)",
-  },
-  todayCardList: {
-    gap: TODAY_CARD_GAP,
-  },
-  secondaryCard: {
-    backgroundColor: "#1C1C25",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
-    padding: 16,
-    ...CARD_SHADOW,
-  },
-  secondaryHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  secondaryTitleGroup: {
-    flex: 1,
-  },
-  secondaryExpanded: {
-    marginTop: 16,
-    gap: 16,
-  },
-  secondaryActionButton: {
-    alignSelf: "flex-start",
-  },
-  photoWrap: {
-    borderRadius: 12,
-    overflow: "hidden",
-    height: 140,
-  },
-  photo: {
-    width: "100%",
-    height: "100%",
-  },
-  photoBadge: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    backgroundColor: "rgba(11, 11, 15, 0.65)",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
-  photoBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  suggestedRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  suggestedName: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  suggestedMeta: {
-    color: "#A0A0A0",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  suggestedTitleGroup: {
-    flex: 1,
-  },
-  cardIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  cardIndicatorText: {
-    color: "#2DD4BF",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  cardIndicatorTextMuted: {
-    color: "#6B6B6B",
-  },
-  startButton: {
-    backgroundColor: "#2DD4BF",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  startButtonMuted: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
-  startButtonText: {
-    color: "#0B0B0F",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  startButtonTextMuted: {
-    color: "#A0A0A0",
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
   },
 });

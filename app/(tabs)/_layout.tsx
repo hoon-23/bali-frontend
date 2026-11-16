@@ -4,6 +4,7 @@ import { Tabs, useRouter, useSegments } from "expo-router";
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../constants/layout";
+import { colors } from "../../constants/theme";
 import { useInProgressSessionId } from "../../hooks/api/useInProgressSession";
 import { usePushTapNavigation } from "../../hooks/usePushTapNavigation";
 import { usePushTokenRegistration } from "../../hooks/usePushTokenRegistration";
@@ -104,7 +105,8 @@ function CustomTabBar({ state, descriptors, navigation, bottom, sideMargin, hide
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
         const Icon = TAB_ICONS[route.name];
-        const color = isFocused ? "#2DD4BF" : "#6B6B6B";
+        // 선택된 탭은 흰색 — 민트는 "진행 중인 것"에만 쓴다(constants/theme.ts).
+          const color = isFocused ? colors.text : colors.text3;
 
         const handlePress = () => {
           const event = navigation.emit({
