@@ -60,6 +60,22 @@ enum WorkoutPlanEngine {
     return 0
   }
 
+  // 잠금화면에 보여줄 반복·무게. 앱 입력란이 바꾸는 값은 actual* 쪽이라 그것을 먼저 쓴다 —
+  // target*만 보면 앱에서 무게를 바꿔도 잠금화면은 루틴에 적힌 옛 값을 계속 보여준다.
+  // 입력란이 비었거나 필드가 없으면(옛 기록) 목표값으로 돌아간다.
+  private static func entered(_ value: Any?) -> Double? {
+    guard let s = value as? String, !s.isEmpty else { return nil }
+    return Double(s)
+  }
+
+  static func displayWeight(_ log: [String: Any]) -> Double {
+    entered(log["actualWeight"]) ?? number(log["targetWeight"])
+  }
+
+  static func displayReps(_ log: [String: Any]) -> Int {
+    Int(entered(log["actualReps"]) ?? number(log["targetReps"]))
+  }
+
   private static func timings(_ log: [String: Any]) -> [[String: Any]] {
     log["setTimings"] as? [[String: Any]] ?? []
   }

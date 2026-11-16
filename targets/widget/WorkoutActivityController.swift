@@ -58,8 +58,9 @@ enum WorkoutActivityController {
       setNumber: completedSets + 1,
       totalSets: max(Int(number(log["targetSets"])), completedSets, 1),
       completedSets: completedSets,
-      targetReps: Int(number(log["targetReps"])),
-      targetWeight: number(log["targetWeight"]),
+      // 필드 이름은 target이지만 앱에서 바꾼 값이 있으면 그 값이 들어간다(displayReps/displayWeight 참고).
+      targetReps: WorkoutPlanEngine.displayReps(log),
+      targetWeight: WorkoutPlanEngine.displayWeight(log),
       targetMinutes: Int((number(log["targetDurationSeconds"]) / 60).rounded()),
       timerStart: timerStart,
       pausedSeconds: accumulated,

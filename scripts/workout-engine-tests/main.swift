@@ -86,6 +86,19 @@ done = WorkoutPlanEngine.apply(.completeSet, to: done, now: at(10)).plan
 check(!WorkoutPlanEngine.apply(.startSet, to: done, now: at(20)).changed, "전부 끝난 뒤에는 버튼이 동작하지 않는다(종료는 앱에서)")
 check(!WorkoutPlanEngine.apply(.startSet, to: ["logs": [[String: Any]]()], now: at(0)).changed, "plan이 비어 있으면 안전하게 무시된다")
 
+print("잠금화면에 보여줄 반복·무게")
+var shown = weightLog("a")
+check(WorkoutPlanEngine.displayWeight(shown) == 20 && WorkoutPlanEngine.displayReps(shown) == 10, "입력값이 목표와 같으면 그 값을 보여준다")
+shown["actualWeight"] = "27.5"; shown["actualReps"] = "8"
+check(WorkoutPlanEngine.displayWeight(shown) == 27.5, "앱에서 바꾼 무게를 보여준다(목표 무게가 아니라)")
+check(WorkoutPlanEngine.displayReps(shown) == 8, "앱에서 바꾼 반복 수를 보여준다")
+shown["actualWeight"] = ""; shown["actualReps"] = ""
+check(WorkoutPlanEngine.displayWeight(shown) == 20 && WorkoutPlanEngine.displayReps(shown) == 10, "입력란을 비우면 목표값으로 돌아간다")
+shown["actualWeight"] = "0"
+check(WorkoutPlanEngine.displayWeight(shown) == 0, "0을 입력하면(맨몸) 무게를 숨긴다")
+shown["actualWeight"] = nil; shown["actualReps"] = nil
+check(WorkoutPlanEngine.displayWeight(shown) == 20 && WorkoutPlanEngine.displayReps(shown) == 10, "입력 필드가 없는 옛 기록은 목표값을 쓴다")
+
 print("시각 형식")
 let s = WorkoutPlanEngine.iso(at(0))
 check(WorkoutPlanEngine.parse(s) == at(0), "iso → parse 왕복이 같다")
