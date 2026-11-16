@@ -1,6 +1,8 @@
 import { Lock } from "lucide-react-native";
+import { colors } from "../constants/theme";
+import { PressableScale } from "./ui/PressableScale";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SUBSCRIPTION_UI_ENABLED } from "../constants/features";
 import { PlanLimit } from "../lib/api/planLimit";
@@ -62,15 +64,15 @@ export function PlanLimitSheet({ limit, onClose }: Props) {
 
   return (
     <View style={styles.root} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} onPress={onClose} />
+      <PressableScale style={styles.backdrop} onPress={onClose} />
       <SafeAreaView edges={["bottom"]} style={styles.sheet}>
         <View style={styles.iconWrap}>
-          <Lock size={22} color="#2DD4BF" />
+          <Lock size={22} color={colors.text} />
         </View>
         <Text style={styles.title}>{copy.title}</Text>
         <Text style={styles.description} lineBreakStrategyIOS="hangul-word">{copy.description}</Text>
         {SUBSCRIPTION_UI_ENABLED && (
-          <Pressable
+          <PressableScale
             style={styles.primaryButton}
             onPress={() => {
               onClose();
@@ -78,11 +80,11 @@ export function PlanLimitSheet({ limit, onClose }: Props) {
             }}
           >
             <Text style={styles.primaryButtonText}>PRO 알아보기</Text>
-          </Pressable>
+          </PressableScale>
         )}
-        <Pressable style={styles.secondaryButton} onPress={onClose} hitSlop={8}>
+        <PressableScale style={styles.secondaryButton} onPress={onClose} hitSlop={8}>
           <Text style={styles.secondaryButtonText}>닫기</Text>
-        </Pressable>
+        </PressableScale>
       </SafeAreaView>
     </View>
   );
@@ -95,14 +97,14 @@ export function PlanLockCard({ limit }: { limit: PlanLimit }) {
   return (
     <View style={styles.lockCard}>
       <View style={styles.iconWrap}>
-        <Lock size={22} color="#2DD4BF" />
+        <Lock size={22} color={colors.text} />
       </View>
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.description} lineBreakStrategyIOS="hangul-word">{copy.description}</Text>
       {SUBSCRIPTION_UI_ENABLED && (
-        <Pressable style={styles.primaryButton} onPress={goToSubscription}>
+        <PressableScale style={styles.primaryButton} onPress={goToSubscription}>
           <Text style={styles.primaryButtonText}>PRO 알아보기</Text>
-        </Pressable>
+        </PressableScale>
       )}
     </View>
   );
@@ -120,11 +122,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   sheet: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 12,
@@ -132,10 +132,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   lockCard: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 24,
     alignItems: "center",
     gap: 10,
@@ -144,33 +142,33 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    backgroundColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
   },
   title: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
     textAlign: "center",
   },
   description: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
   },
   primaryButton: {
     alignSelf: "stretch",
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 8,
   },
   primaryButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   secondaryButtonText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 14,
     fontWeight: "600",
   },

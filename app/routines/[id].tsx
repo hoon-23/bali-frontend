@@ -1,14 +1,15 @@
 import { ChevronLeft, CircleX, GripVertical, Plus, Trash2 } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { AppTextInput } from "../../components/AppTextInput";
 import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
 import { isBodyweightExercise } from "../../constants/exercises";
@@ -173,17 +174,17 @@ export default function RoutineDetailScreen() {
       <KeyboardDismissView>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>루틴 상세</Text>
           <View style={styles.headerActions}>
-            <Pressable style={styles.backButton} onPress={handleDelete} hitSlop={8}>
-              <Trash2 size={18} color="#F87171" />
-            </Pressable>
-            <Pressable style={styles.editToggle} onPress={handleToggleEdit}>
+            <PressableScale style={styles.backButton} onPress={handleDelete} hitSlop={8}>
+              <Trash2 size={18} color={colors.danger} />
+            </PressableScale>
+            <PressableScale style={styles.editToggle} onPress={handleToggleEdit}>
               <Text style={styles.editToggleText}>{editMode ? "완료" : "편집"}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
 
@@ -206,7 +207,7 @@ export default function RoutineDetailScreen() {
                       value={nameDraft}
                       onChangeText={setNameDraft}
                       onBlur={handleNameBlur}
-                      placeholderTextColor="#6B6B6B"
+                      placeholderTextColor={colors.text3}
                     />
                   ) : (
                     <Text style={styles.name}>{template.name}</Text>
@@ -235,15 +236,15 @@ export default function RoutineDetailScreen() {
             </ScaleDecorator>
           )}
           ListFooterComponent={
-            <Pressable style={styles.addExerciseButton} onPress={handleAddExercise}>
-              <Plus size={18} color="#2DD4BF" />
+            <PressableScale style={styles.addExerciseButton} onPress={handleAddExercise}>
+              <Plus size={18} color={colors.text} />
               <Text style={styles.addExerciseButtonText}>운동 추가</Text>
-            </Pressable>
+            </PressableScale>
           }
         />
 
         <View style={styles.actionRow}>
-          <Pressable
+          <PressableScale
             style={styles.scheduleButton}
             onPress={() =>
               router.push({
@@ -253,12 +254,12 @@ export default function RoutineDetailScreen() {
             }
           >
             <Text style={styles.scheduleButtonText}>날짜 예약하기</Text>
-          </Pressable>
-          <Pressable style={styles.startButton} onPress={handleStart} disabled={starting}>
+          </PressableScale>
+          <PressableScale style={styles.startButton} onPress={handleStart} disabled={starting}>
             <Text style={styles.startButtonText}>
               {starting ? "시작하는 중..." : "이 루틴으로 시작하기"}
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </SafeAreaView>
       </KeyboardDismissView>
@@ -328,15 +329,15 @@ function RoutineDetailItemRow({
     <View style={[styles.itemCard, dragging && styles.itemCardDragging]}>
       <View style={styles.itemHeader}>
         {editMode && (
-          <Pressable onLongPress={onDrag} disabled={dragging} hitSlop={8} style={styles.dragHandle}>
-            <GripVertical size={18} color="#6B6B6B" />
-          </Pressable>
+          <PressableScale onLongPress={onDrag} disabled={dragging} hitSlop={8} style={styles.dragHandle}>
+            <GripVertical size={18} color={colors.text3} />
+          </PressableScale>
         )}
         <Text style={styles.itemName}>{exerciseName}</Text>
         {editMode && (
-          <Pressable onPress={handleDeletePress} hitSlop={8}>
-            <CircleX size={20} color="#6B6B6B" />
-          </Pressable>
+          <PressableScale onPress={handleDeletePress} hitSlop={8}>
+            <CircleX size={20} color={colors.text3} />
+          </PressableScale>
         )}
       </View>
       {editMode ? (
@@ -393,7 +394,7 @@ function ItemInput({ label, value, onChangeText, onBlur }: ItemInputProps) {
         onChangeText={onChangeText}
         onBlur={onBlur}
         keyboardType="numeric"
-        placeholderTextColor="#6B6B6B"
+        placeholderTextColor={colors.text3}
       />
     </View>
   );
@@ -415,14 +416,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -435,14 +434,12 @@ const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   editToggleText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -455,12 +452,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   card: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 16,
-    ...CARD_SHADOW,
   },
   titleRow: {
     flexDirection: "row",
@@ -468,32 +462,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   name: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 18,
     fontWeight: "700",
   },
   nameInput: {
     flex: 1,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 18,
     fontWeight: "700",
     borderBottomWidth: 1,
-    borderBottomColor: "#2DD4BF",
+    borderBottomColor: colors.text,
     paddingVertical: 2,
   },
   categoryBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    backgroundColor: colors.line,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
   },
   categoryBadgeText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 12,
     fontWeight: "600",
   },
   sectionTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -501,16 +495,13 @@ const styles = StyleSheet.create({
     height: 10,
   },
   itemCard: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 14,
     gap: 4,
-    ...CARD_SHADOW,
   },
   itemCardDragging: {
-    borderColor: "#2DD4BF",
+    borderColor: colors.text2,
   },
   itemHeader: {
     flexDirection: "row",
@@ -522,12 +513,12 @@ const styles = StyleSheet.create({
   },
   itemName: {
     flex: 1,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
   itemTarget: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
   },
   itemInputRow: {
@@ -540,19 +531,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   itemInputLabel: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
   },
   itemInput: {
-    backgroundColor: "#0B0B0F",
+    backgroundColor: colors.bg,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 14,
   },
   emptyText: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 12,
@@ -564,13 +555,13 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(45, 212, 191, 0.4)",
+    borderColor: colors.text2,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
   },
   addExerciseButtonText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -582,27 +573,27 @@ const styles = StyleSheet.create({
   },
   scheduleButton: {
     flex: 1,
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(45, 212, 191, 0.4)",
+    borderColor: colors.text2,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
   },
   scheduleButtonText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
   },
   startButton: {
     flex: 1.4,
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
   },
   startButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: "700",
   },

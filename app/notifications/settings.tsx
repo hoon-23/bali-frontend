@@ -1,11 +1,12 @@
 import { BellOff, ChevronLeft } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { AppState, Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { AppState, Linking, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
 import {
   NotificationSettings,
   useNotificationSettings,
@@ -85,28 +86,28 @@ export default function NotificationSettingsScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>알림 설정</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.content}>
           {permissionDenied && (
-            <Pressable style={styles.warningCard} onPress={() => Linking.openSettings()}>
-              <BellOff size={18} color="#FBBF24" />
+            <PressableScale style={styles.warningCard} onPress={() => Linking.openSettings()}>
+              <BellOff size={18} color={colors.warn} />
               <Text style={styles.warningText}>
                 기기 알림 권한이 꺼져 있어요. 눌러서 설정에서 켜주세요.
               </Text>
-            </Pressable>
+            </PressableScale>
           )}
 
           {settingsLoadFailed && (
-            <Pressable style={styles.warningCard} onPress={() => refetch()}>
-              <BellOff size={18} color="#FBBF24" />
+            <PressableScale style={styles.warningCard} onPress={() => refetch()}>
+              <BellOff size={18} color={colors.warn} />
               <Text style={styles.warningText}>설정을 불러오지 못했어요. 눌러서 다시 시도해주세요.</Text>
-            </Pressable>
+            </PressableScale>
           )}
 
           {updateSettings.isError && (
@@ -127,8 +128,8 @@ export default function NotificationSettingsScreen() {
                   value={settings?.[item.key] ?? false}
                   disabled={!settings}
                   onValueChange={(value) => handleToggle(item.key, value)}
-                  trackColor={{ false: "#3A3A42", true: "rgba(45, 212, 191, 0.5)" }}
-                  thumbColor={settings?.[item.key] ? "#2DD4BF" : "#A0A0A0"}
+                  trackColor={{ false: colors.track, true: colors.text2 }}
+                  thumbColor={settings?.[item.key] ? colors.text : colors.text2}
                 />
               </View>
             ))}
@@ -155,9 +156,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -166,7 +165,7 @@ const styles = StyleSheet.create({
     height: 36,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -179,25 +178,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(251, 191, 36, 0.12)",
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(251, 191, 36, 0.35)",
+    borderColor: colors.warn,
     padding: 12,
   },
   warningText: {
     flex: 1,
-    color: "#FBBF24",
+    color: colors.warn,
     fontSize: 12,
     fontWeight: "600",
   },
   card: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 16,
-    ...CARD_SHADOW,
   },
   toggleRow: {
     flexDirection: "row",
@@ -207,19 +203,19 @@ const styles = StyleSheet.create({
   },
   toggleRowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    borderTopColor: colors.line,
   },
   toggleTextGroup: {
     flex: 1,
     gap: 2,
   },
   toggleLabel: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
   toggleDescription: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
   },
 });

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { colors } from "../constants/theme";
+import { PressableScale } from "./ui/PressableScale";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppTextInput } from "./AppTextInput";
 import { dismissThen, keyboardScrollProps, KeyboardDismissView } from "./KeyboardDismissView";
@@ -178,14 +180,14 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
       style={styles.root}
       pointerEvents="box-none"
     >
-      <Pressable style={styles.backdrop} onPress={onClose} />
+      <PressableScale style={styles.backdrop} onPress={onClose} />
       <SafeAreaView edges={["bottom"]} style={styles.sheet}>
         <KeyboardDismissView style={styles.sheetInner}>
           <View style={styles.sheetHeader}>
             <Text style={styles.title}>{isEdit ? "내 운동 수정" : "운동 직접 추가"}</Text>
-            <Pressable onPress={onClose} hitSlop={8}>
+            <PressableScale onPress={onClose} hitSlop={8}>
               <Text style={styles.cancelText}>취소</Text>
-            </Pressable>
+            </PressableScale>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.form} {...keyboardScrollProps}>
@@ -199,7 +201,7 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
                   setMessage("");
                 }}
                 placeholder="예: 인클라인 덤벨 컬"
-                placeholderTextColor="#6B6B6B"
+                placeholderTextColor={colors.text3}
                 maxLength={255}
               />
             </View>
@@ -211,7 +213,7 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
                 value={variant}
                 onChangeText={setVariant}
                 placeholder="예: 와이드 그립"
-                placeholderTextColor="#6B6B6B"
+                placeholderTextColor={colors.text3}
                 maxLength={255}
               />
             </View>
@@ -260,7 +262,7 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
           </ScrollView>
 
           <Text style={styles.message} lineBreakStrategyIOS="hangul-word">{message}</Text>
-          <Pressable
+          <PressableScale
             style={[styles.saveButton, !isValid && styles.saveButtonToneDown]}
             onPress={() => {
               handleSave();
@@ -269,7 +271,7 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
             <Text style={[styles.saveButtonText, !isValid && styles.saveButtonTextToneDown]}>
               {saving ? "저장 중..." : "저장"}
             </Text>
-          </Pressable>
+          </PressableScale>
         </KeyboardDismissView>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -278,9 +280,9 @@ function SheetBody({ onClose, onCreated, onLimit, exercise, initialName }: Omit<
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable style={[styles.chip, selected && styles.chipActive]} onPress={onPress}>
+    <PressableScale style={[styles.chip, selected && styles.chipActive]} onPress={onPress}>
       <Text style={[styles.chipText, selected && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -296,11 +298,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   sheet: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     maxHeight: "88%",
   },
   sheetInner: {
@@ -316,12 +316,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
   cancelText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 14,
     fontWeight: "600",
   },
@@ -330,18 +330,16 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   label: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
     fontWeight: "600",
     marginBottom: 8,
   },
   input: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
-    backgroundColor: "#14141B",
+    backgroundColor: colors.surface,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
@@ -354,44 +352,42 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: "#14141B",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
   },
   chipActive: {
-    backgroundColor: "#2DD4BF",
-    borderColor: "#2DD4BF",
+    backgroundColor: colors.accent,
+    borderColor: colors.text2,
   },
   chipText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
     fontWeight: "600",
   },
   chipTextActive: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
   },
   message: {
-    color: "#F87171",
+    color: colors.danger,
     fontSize: 12,
     textAlign: "center",
     minHeight: 32,
     paddingTop: 8,
   },
   saveButton: {
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
   },
   saveButtonToneDown: {
-    backgroundColor: "rgba(45, 212, 191, 0.25)",
+    backgroundColor: colors.track,
   },
   saveButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 15,
     fontWeight: "700",
   },
   saveButtonTextToneDown: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: colors.text2,
   },
 });

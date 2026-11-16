@@ -1,7 +1,9 @@
 import { ChevronLeft } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useRouter } from "expo-router";
 import { Children, cloneElement, ReactElement, ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -16,16 +18,16 @@ export default function PrivacyPolicyScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>개인정보처리방침</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         {isLoading && (
           <View style={styles.centerBox}>
-            <ActivityIndicator color="#2DD4BF" />
+            <ActivityIndicator color={colors.text} />
           </View>
         )}
 
@@ -34,9 +36,9 @@ export default function PrivacyPolicyScreen() {
             <Text style={styles.errorText}>
               개인정보처리방침을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.
             </Text>
-            <Pressable style={styles.retryButton} onPress={() => refetch()} disabled={isRefetching}>
+            <PressableScale style={styles.retryButton} onPress={() => refetch()} disabled={isRefetching}>
               <Text style={styles.retryButtonText}>{isRefetching ? "다시 시도 중..." : "다시 시도"}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -66,14 +68,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   errorText: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
@@ -98,12 +98,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
   },
   retryButtonText: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
   },
@@ -140,58 +138,56 @@ const markdownRules = {
 
 const markdownStyles = StyleSheet.create({
   body: {
-    color: "#D0D0D0",
+    color: colors.text2,
     fontSize: 13,
     lineHeight: 21,
   },
   heading1: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 20,
     fontWeight: "700",
     marginTop: 8,
     marginBottom: 12,
   },
   heading2: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginTop: 20,
     marginBottom: 8,
   },
   strong: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontWeight: "700",
   },
   link: {
-    color: "#2DD4BF",
+    color: colors.text,
   },
   blockquote: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderLeftWidth: 3,
-    borderLeftColor: "#2DD4BF",
+    borderLeftColor: colors.text2,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginVertical: 8,
   },
   hr: {
-    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.track,
     height: StyleSheet.hairlineWidth,
   },
   table: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     borderRadius: 8,
     marginVertical: 8,
   },
   th: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontWeight: "700",
     padding: 6,
     flex: 0,
     width: 150,
   },
   td: {
-    color: "#D0D0D0",
+    color: colors.text2,
     padding: 6,
     flex: 0,
     width: 150,
@@ -202,6 +198,5 @@ const markdownStyles = StyleSheet.create({
   tr: {
     flexDirection: "row",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
   },
 });

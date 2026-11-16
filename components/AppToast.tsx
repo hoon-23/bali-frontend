@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { colors } from "../constants/theme";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 
 import { AppText } from "./AppText";
@@ -106,14 +107,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
   message: {
     flex: 1,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 14,
   },
   action: {

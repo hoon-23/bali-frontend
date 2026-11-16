@@ -1,14 +1,15 @@
 import { ChevronLeft, CircleMinus, CirclePlus } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppTextInput } from "../../components/AppTextInput";
 import { dismissThen, KeyboardDismissView } from "../../components/KeyboardDismissView";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { apiClient } from "../../lib/api/client";
 import { LAST_LOGIN_PROVIDER_KEY } from "../../lib/auth/lastLoginProvider";
@@ -106,9 +107,9 @@ export default function AccountScreen() {
       <KeyboardDismissView>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>계정 정보</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -129,7 +130,7 @@ export default function AccountScreen() {
               onChangeText={setNickname}
               maxLength={NICKNAME_MAX_LENGTH}
               placeholder="닉네임"
-              placeholderTextColor="#6B6B6B"
+              placeholderTextColor={colors.text3}
             />
             <Text style={styles.fieldHint}>
               {trimmedNickname.length}/{NICKNAME_MAX_LENGTH}자
@@ -139,7 +140,7 @@ export default function AccountScreen() {
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>주간 목표 운동 횟수</Text>
             <View style={styles.stepperRow}>
-              <Pressable
+              <PressableScale
                 style={styles.stepperButton}
                 onPress={dismissThen(() => setWeeklyGoal((v) => Math.max(WEEKLY_GOAL_MIN, v - 1)))}
                 disabled={weeklyGoal <= WEEKLY_GOAL_MIN}
@@ -149,9 +150,9 @@ export default function AccountScreen() {
                   size={28}
                   color={weeklyGoal <= WEEKLY_GOAL_MIN ? "#3A3A42" : "#2DD4BF"}
                 />
-              </Pressable>
+              </PressableScale>
               <Text style={styles.stepperValue}>주 {weeklyGoal}회</Text>
-              <Pressable
+              <PressableScale
                 style={styles.stepperButton}
                 onPress={dismissThen(() => setWeeklyGoal((v) => Math.min(WEEKLY_GOAL_MAX, v + 1)))}
                 disabled={weeklyGoal >= WEEKLY_GOAL_MAX}
@@ -161,21 +162,21 @@ export default function AccountScreen() {
                   size={28}
                   color={weeklyGoal >= WEEKLY_GOAL_MAX ? "#3A3A42" : "#2DD4BF"}
                 />
-              </Pressable>
+              </PressableScale>
             </View>
           </View>
 
-          <Pressable
+          <PressableScale
             style={[styles.saveButton, (!dirty || saving) && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={!dirty || saving}
           >
             <Text style={styles.saveButtonText}>{saving ? "저장하는 중..." : "저장"}</Text>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable style={styles.withdrawButton} onPress={handleWithdraw}>
+          <PressableScale style={styles.withdrawButton} onPress={handleWithdraw}>
             <Text style={styles.withdrawButtonText}>회원 탈퇴</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </SafeAreaView>
       </KeyboardDismissView>
@@ -199,9 +200,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -210,7 +209,7 @@ const styles = StyleSheet.create({
     height: 36,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -220,34 +219,31 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 16,
     gap: 8,
-    ...CARD_SHADOW,
   },
   fieldLabel: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
     fontWeight: "600",
   },
   readonlyValue: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 15,
   },
   input: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
     paddingVertical: 4,
   },
   inputError: {
-    color: "#F87171",
+    color: colors.danger,
   },
   fieldHint: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
   },
   stepperRow: {
@@ -259,22 +255,22 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   stepperValue: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
   },
   saveButton: {
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 8,
   },
   saveButtonDisabled: {
-    backgroundColor: "rgba(45, 212, 191, 0.3)",
+    backgroundColor: colors.track,
   },
   saveButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -283,7 +279,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   withdrawButtonText: {
-    color: "#F87171",
+    color: colors.danger,
     fontSize: 13,
     fontWeight: "600",
   },

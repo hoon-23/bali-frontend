@@ -1,14 +1,15 @@
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ExerciseFormSheet } from "../../components/ExerciseFormSheet";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { EQUIPMENT_KOREAN, MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { ApiExercise, formatExerciseName, useDeleteExercise, useExercises } from "../../hooks/api/useExercises";
 import { appAlert } from "../../lib/alert";
 import { getApiErrorMessage } from "../../lib/api/planLimit";
@@ -57,9 +58,9 @@ export default function MyExercisesScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>내 운동 관리</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -73,7 +74,7 @@ export default function MyExercisesScreen() {
             </Text>
           ) : (
             personal.map((exercise) => (
-              <Pressable key={exercise.id} style={styles.row} onPress={() => setEditing(exercise)}>
+              <PressableScale key={exercise.id} style={styles.row} onPress={() => setEditing(exercise)}>
                 <View style={styles.info}>
                   <Text style={styles.name} numberOfLines={2}>
                     {formatExerciseName(exercise)}
@@ -89,12 +90,12 @@ export default function MyExercisesScreen() {
                   </Text>
                 </View>
                 <View style={styles.actions}>
-                  <Pencil size={18} color="#A0A0A0" />
-                  <Pressable onPress={() => handleDelete(exercise)} hitSlop={10}>
-                    <Trash2 size={18} color="#F87171" />
-                  </Pressable>
+                  <Pencil size={18} color={colors.text2} />
+                  <PressableScale onPress={() => handleDelete(exercise)} hitSlop={10}>
+                    <Trash2 size={18} color={colors.danger} />
+                  </PressableScale>
                 </View>
-              </Pressable>
+              </PressableScale>
             ))
           )}
         </ScrollView>
@@ -121,9 +122,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -132,7 +131,7 @@ const styles = StyleSheet.create({
     height: 36,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -145,24 +144,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 14,
-    ...CARD_SHADOW,
   },
   info: {
     flex: 1,
     marginRight: 12,
   },
   name: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
   meta: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 12,
     marginTop: 2,
   },
@@ -172,7 +168,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: {
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 13,
     textAlign: "center",
     marginTop: 40,

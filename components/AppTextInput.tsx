@@ -1,10 +1,11 @@
 import { Check } from "lucide-react-native";
+import { colors } from "../constants/theme";
+import { PressableScale } from "./ui/PressableScale";
 import { useId } from "react";
 import {
   InputAccessoryView,
   Keyboard,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -36,10 +37,10 @@ export function AppTextInput(props: TextInputProps) {
       {needsAccessory && Platform.OS === "ios" && (
         <InputAccessoryView nativeID={accessoryId}>
           <View style={styles.bar}>
-            <Pressable onPress={Keyboard.dismiss} hitSlop={8} style={styles.button}>
-              <Check size={18} color="#2DD4BF" />
+            <PressableScale onPress={Keyboard.dismiss} hitSlop={8} style={styles.button}>
+              <Check size={18} color={colors.text} />
               <Text style={styles.text}>완료</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </InputAccessoryView>
       )}
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    backgroundColor: "#1A1A22",
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   text: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "600",
   },

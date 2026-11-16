@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { PressableScale } from "../../components/ui/PressableScale";
+import { Reveal } from "../../components/ui/Reveal";
 import { colors, radius, space } from "../../constants/theme";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
@@ -84,11 +85,11 @@ export default function RoutinesScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {templates.map((template) => {
+          {templates.map((template, index) => {
             const chips = getMuscleGroupChips(template, exerciseMap);
             return (
+              <Reveal key={template.id} index={index}>
               <PressableScale
-                key={template.id}
                 style={styles.card}
                 onPress={() => router.push(`/routines/${template.id}`)}
               >
@@ -107,6 +108,7 @@ export default function RoutinesScreen() {
                   ))}
                 </View>
               </PressableScale>
+              </Reveal>
             );
           })}
 

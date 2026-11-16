@@ -3,6 +3,8 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppTextInput } from "../../components/AppTextInput";
+import Animated from "react-native-reanimated";
+import { useShake } from "../../components/ui/useShake";
 import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from "react-native-draggable-flatlist";
 import { appAlert } from "../../lib/alert";
@@ -45,8 +47,11 @@ export default function NewRoutineScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const { style: shakeStyle, shake } = useShake();
+
   const handleSave = () => {
     if (!name.trim()) {
+      shake();
       appAlert("루틴 이름을 입력해주세요");
       return;
     }
@@ -118,7 +123,7 @@ export default function NewRoutineScreen() {
           onDragEnd={({ data }) => reorderItems(data)}
           ListHeaderComponent={
             <View style={styles.headerSections}>
-              <View>
+              <Animated.View style={shakeStyle}>
                 <Text style={styles.label}>루틴 이름</Text>
                 <AppTextInput
                   style={styles.input}
@@ -127,7 +132,7 @@ export default function NewRoutineScreen() {
                   placeholder="예: 등, 하체"
                   placeholderTextColor={colors.text3}
                 />
-              </View>
+              </Animated.View>
 
               <View style={styles.itemsHeader}>
                 <Text style={styles.label}>운동 목록</Text>

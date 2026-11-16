@@ -1,7 +1,9 @@
 import { ChevronLeft } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { appAlert } from "../../lib/alert";
 import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
 import { sanitizeWeightInput } from "../../lib/format/numberInput";
@@ -12,7 +14,6 @@ import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { isBodyweightExercise, toDisplayMuscleGroup } from "../../constants/exercises";
 import { MUSCLE_GROUP_IMAGES } from "../../constants/muscleGroups";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { formatExerciseName, isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { ApiSessionLogDetail, useDeleteSession, useSession, usePatchSession } from "../../hooks/api/useSessions";
 import { getTodayISODate } from "../../hooks/api/useUpcomingSessions";
@@ -223,9 +224,9 @@ export default function UpcomingWorkoutScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>예정된 운동</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -325,31 +326,31 @@ export default function UpcomingWorkoutScreen() {
         <View style={styles.buttonRow}>
           {isEditing ? (
             <>
-              <Pressable style={styles.secondaryButton} onPress={handleCancelPress} disabled={saving}>
+              <PressableScale style={styles.secondaryButton} onPress={handleCancelPress} disabled={saving}>
                 <Text style={styles.secondaryButtonText}>취소</Text>
-              </Pressable>
-              <Pressable style={styles.primaryButton} onPress={handleSavePress} disabled={saving}>
+              </PressableScale>
+              <PressableScale style={styles.primaryButton} onPress={handleSavePress} disabled={saving}>
                 <Text style={styles.primaryButtonText}>{saving ? "저장하는 중..." : "저장"}</Text>
-              </Pressable>
+              </PressableScale>
             </>
           ) : (
             <>
-              <Pressable style={styles.secondaryButton} onPress={handleEditPress}>
+              <PressableScale style={styles.secondaryButton} onPress={handleEditPress}>
                 <Text style={styles.secondaryButtonText}>수정</Text>
-              </Pressable>
-              <Pressable style={styles.primaryButton} onPress={handleStart} disabled={starting}>
+              </PressableScale>
+              <PressableScale style={styles.primaryButton} onPress={handleStart} disabled={starting}>
                 <Text style={styles.primaryButtonText}>{starting ? "시작하는 중..." : "시작하기"}</Text>
-              </Pressable>
+              </PressableScale>
             </>
           )}
         </View>
 
         {!isEditing && session.status === "SCHEDULED" && (
-          <Pressable style={styles.cancelScheduleButton} onPress={handleCancelSchedule} disabled={cancelling}>
+          <PressableScale style={styles.cancelScheduleButton} onPress={handleCancelSchedule} disabled={cancelling}>
             <Text style={styles.cancelScheduleButtonText}>
               {cancelling ? "취소하는 중..." : "예약 취소"}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </SafeAreaView>
     </ScreenBackground>
@@ -373,7 +374,7 @@ function EditField({ label, value, hasError, onChangeText }: EditFieldProps) {
         onChangeText={onChangeText}
         keyboardType="numeric"
         placeholder="0"
-        placeholderTextColor="#6B6B6B"
+        placeholderTextColor={colors.text3}
       />
     </View>
   );
@@ -395,9 +396,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -406,7 +405,7 @@ const styles = StyleSheet.create({
     height: 36,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -418,12 +417,9 @@ const styles = StyleSheet.create({
   summaryCard: {
     flexDirection: "row",
     gap: 12,
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 16,
-    ...CARD_SHADOW,
   },
   thumbnail: {
     width: 64,
@@ -436,21 +432,21 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   summaryDate: {
-    color: "#2DD4BF",
+    color: colors.text,
     fontSize: 12,
     fontWeight: "600",
   },
   summaryName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 18,
     fontWeight: "700",
   },
   summaryMeta: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
   },
   sectionTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -458,21 +454,18 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   itemCard: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 14,
     gap: 4,
-    ...CARD_SHADOW,
   },
   itemName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
   itemTarget: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
   },
   itemEditRow: {
@@ -485,24 +478,24 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   itemInputLabel: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 11,
   },
   itemInput: {
-    backgroundColor: "#0B0B0F",
+    backgroundColor: colors.bg,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 14,
     borderWidth: 1,
     borderColor: "transparent",
   },
   itemInputError: {
-    borderColor: "#F87171",
+    borderColor: colors.danger,
   },
   itemErrorText: {
-    color: "#F87171",
+    color: colors.danger,
     fontSize: 11,
     marginTop: 4,
   },
@@ -518,33 +511,31 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cancelScheduleButtonText: {
-    color: "#F87171",
+    color: colors.danger,
     fontSize: 13,
     fontWeight: "600",
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
   },
   secondaryButtonText: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
   },
   primaryButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: "700",
   },

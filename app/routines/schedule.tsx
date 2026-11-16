@@ -1,12 +1,13 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
+import { colors } from "../../constants/theme";
+import { PressableScale } from "../../components/ui/PressableScale";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
-import { CARD_SHADOW } from "../../constants/shadow";
 import { appAlert } from "../../lib/alert";
 import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
 import { useCreateSession } from "../../hooks/api/useSessions";
@@ -58,9 +59,9 @@ export default function ScheduleRoutineScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
-            <X size={20} color="#FFFFFF" />
-          </Pressable>
+          <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
+            <X size={20} color={colors.text} />
+          </PressableScale>
           <Text style={styles.headerTitle}>날짜 예약</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -75,7 +76,7 @@ export default function ScheduleRoutineScreen() {
                 {monthDisplayDate.getFullYear()}년 {monthDisplayDate.getMonth() + 1}월
               </Text>
               <View style={styles.calendarNav}>
-                <Pressable
+                <PressableScale
                   onPress={() => setMonthOffset((offset) => offset - 1)}
                   hitSlop={8}
                   disabled={monthOffset <= 0}
@@ -84,8 +85,8 @@ export default function ScheduleRoutineScreen() {
                     size={18}
                     color={monthOffset <= 0 ? "#3A3A42" : "#A0A0A0"}
                   />
-                </Pressable>
-                <Pressable
+                </PressableScale>
+                <PressableScale
                   onPress={() => setMonthOffset((offset) => offset + 1)}
                   hitSlop={8}
                   disabled={!canGoToNextMonth}
@@ -94,7 +95,7 @@ export default function ScheduleRoutineScreen() {
                     size={18}
                     color={canGoToNextMonth ? "#A0A0A0" : "#3A3A42"}
                   />
-                </Pressable>
+                </PressableScale>
               </View>
             </View>
 
@@ -118,7 +119,7 @@ export default function ScheduleRoutineScreen() {
                   const disabled = dateStr < todayISODate || dateStr > maxISODate;
                   const active = dateStr === selectedISODate;
                   return (
-                    <Pressable
+                    <PressableScale
                       key={dayIndex}
                       style={styles.dayCell}
                       disabled={disabled}
@@ -135,7 +136,7 @@ export default function ScheduleRoutineScreen() {
                           {day}
                         </Text>
                       </View>
-                    </Pressable>
+                    </PressableScale>
                   );
                 })}
               </View>
@@ -143,9 +144,9 @@ export default function ScheduleRoutineScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.confirmButton} onPress={handleConfirm} disabled={saving}>
+        <PressableScale style={styles.confirmButton} onPress={handleConfirm} disabled={saving}>
           <Text style={styles.confirmButtonText}>{saving ? "예약하는 중..." : "예약하기"}</Text>
-        </Pressable>
+        </PressableScale>
       </SafeAreaView>
       {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
           AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
@@ -170,9 +171,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1C1C25",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -181,7 +180,7 @@ const styles = StyleSheet.create({
     height: 36,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
   },
@@ -191,22 +190,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routineName: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 20,
     fontWeight: "700",
   },
   hint: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 13,
   },
   calendarCard: {
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 16,
     gap: 4,
-    ...CARD_SHADOW,
   },
   calendarHeader: {
     flexDirection: "row",
@@ -215,7 +211,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   calendarTitle: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -229,7 +225,7 @@ const styles = StyleSheet.create({
   },
   weekdayText: {
     flex: 1,
-    color: "#6B6B6B",
+    color: colors.text3,
     fontSize: 11,
     textAlign: "center",
   },
@@ -247,21 +243,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dayCircleActive: {
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
   },
   dayText: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600",
   },
   dayTextDisabled: {
-    color: "#3A3A42",
+    color: colors.track,
   },
   dayTextActive: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
   },
   confirmButton: {
-    backgroundColor: "#2DD4BF",
+    backgroundColor: colors.accent,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
@@ -269,7 +265,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   confirmButtonText: {
-    color: "#0B0B0F",
+    color: colors.onAccent,
     fontSize: 16,
     fontWeight: "700",
   },

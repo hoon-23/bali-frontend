@@ -1,6 +1,7 @@
 import { Fragment } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { CARD_SHADOW } from "../constants/shadow";
+import { colors } from "../constants/theme";
+import { PressableScale } from "./ui/PressableScale";
+import { StyleSheet, Text, View } from "react-native";
 import { breakSentences } from "../lib/format/text";
 import { useAlertStore } from "../store/alertStore";
 
@@ -19,8 +20,8 @@ export function AppAlertModal() {
 
   return (
     <View style={styles.root} pointerEvents="box-none">
-      <Pressable style={styles.overlay} onPress={hide}>
-        <Pressable style={styles.card} onPress={() => {}}>
+      <PressableScale style={styles.overlay} onPress={hide}>
+        <PressableScale style={styles.card} onPress={() => {}}>
           <View style={styles.content}>
             <Text style={styles.title} lineBreakStrategyIOS="hangul-word">
               {current.title}
@@ -35,7 +36,7 @@ export function AppAlertModal() {
             {current.buttons.map((button, index) => (
               <Fragment key={button.text}>
                 {index > 0 && <View style={styles.buttonDivider} />}
-                <Pressable
+                <PressableScale
                   style={styles.button}
                   onPress={() => {
                     hide();
@@ -50,12 +51,12 @@ export function AppAlertModal() {
                   >
                     {button.text}
                   </Text>
-                </Pressable>
+                </PressableScale>
               </Fragment>
             ))}
           </View>
-        </Pressable>
-      </Pressable>
+        </PressableScale>
+      </PressableScale>
     </View>
   );
 }
@@ -76,26 +77,23 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     paddingTop: 20,
     paddingHorizontal: 20,
     overflow: "hidden",
-    ...CARD_SHADOW,
   },
   content: {
     paddingBottom: 20,
   },
   title: {
-    color: "#FFFFFF",
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
     textAlign: "center",
   },
   message: {
-    color: "#A0A0A0",
+    color: colors.text2,
     fontSize: 14,
     textAlign: "center",
     marginTop: 8,
@@ -103,7 +101,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: "row",
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255, 255, 255, 0.14)",
+    borderTopColor: colors.line,
     marginHorizontal: -20,
   },
   button: {
@@ -114,14 +112,14 @@ const styles = StyleSheet.create({
   },
   buttonDivider: {
     width: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    backgroundColor: colors.track,
   },
   buttonText: {
-    color: "#EAEAEA",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "600",
   },
   buttonTextDanger: {
-    color: "#F87171",
+    color: colors.danger,
   },
 });

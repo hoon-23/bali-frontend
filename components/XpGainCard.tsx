@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { colors } from "../constants/theme";
 import { useTimedProgress } from "../hooks/useTimedProgress";
 import type { SessionXpResult } from "../hooks/api/useSessions";
 import { breakSentences } from "../lib/format/text";
@@ -90,24 +91,22 @@ const styles = StyleSheet.create({
     width: "100%",
     // 연출 중 내용이 바뀌어도 높이가 변하지 않도록 고정한다.
     height: 128,
-    backgroundColor: "#1C1C25",
+    backgroundColor: colors.surface,
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 255, 255, 0.14)",
     padding: 14,
     gap: 10,
   },
   topRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   levelBadge: {
-    backgroundColor: "rgba(45, 212, 191, 0.15)",
+    backgroundColor: colors.line,
     paddingVertical: 3,
     paddingHorizontal: 10,
     borderRadius: 12,
   },
-  levelBadgeText: { color: "#2DD4BF", fontSize: 13, fontWeight: "700" },
+  levelBadgeText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   levelUpText: { color: "#FBBF24", fontSize: 13, fontWeight: "700" },
   earnedText: { marginLeft: "auto", color: "#2DD4BF", fontSize: 16, fontWeight: "700" },
-  earnedTextZero: { color: "#6B6B6B" },
+  earnedTextZero: { color: colors.text3 },
   track: {
     height: 8,
     borderRadius: 4,
@@ -118,5 +117,5 @@ const styles = StyleSheet.create({
   fillBase: { position: "absolute", left: 0, top: 0, bottom: 0, backgroundColor: "#1F7A70" },
   fillGain: { position: "absolute", left: 0, top: 0, bottom: 0, backgroundColor: "#2DD4BF" },
   xpText: { color: "#E5E5E5", fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums"] },
-  detailText: { color: "#A0A0A0", fontSize: 12, lineHeight: 17 },
+  detailText: { color: colors.text2, fontSize: 12, lineHeight: 17 },
 });

@@ -6,6 +6,7 @@ import { appAlert } from "../../lib/alert";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
+import { Reveal } from "../../components/ui/Reveal";
 import { BigNumber } from "../../components/ui/BigNumber";
 import { PressableScale } from "../../components/ui/PressableScale";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -202,6 +203,7 @@ export default function HomeScreen() {
             </View>
           )}
 
+          <Reveal index={1}>
           <Section label="오늘의 운동" style={styles.todaySection}>
             {sessionsError ? (
               <View style={styles.todayBody}>
@@ -264,9 +266,11 @@ export default function HomeScreen() {
               </View>
             )}
           </Section>
+          </Reveal>
 
           <Divider />
 
+          <Reveal index={2}>
           <View style={styles.weekRow}>
             <PressableScale onPress={goToMonthlyReport} accessibilityRole="button" accessibilityLabel="월간 리포트 보기">
               <AppText style={styles.weekLabel}>이번 주</AppText>
@@ -291,7 +295,9 @@ export default function HomeScreen() {
               )}
             </View>
           </View>
+          </Reveal>
 
+          <Reveal index={3}>
           <Section label="이번 주 근육군별 집중도">
             {topMuscleGroupsWeek.length > 0 ? (
               <View style={styles.muscleBars}>
@@ -336,6 +342,7 @@ export default function HomeScreen() {
               </>
             )}
           </Section>
+          </Reveal>
         </ScrollView>
       </SafeAreaView>
     </ScreenBackground>
