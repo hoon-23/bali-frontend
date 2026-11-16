@@ -63,7 +63,7 @@ function sessionCardMeta(session: ApiSession): { metaLabel: string; actionLabel:
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { noRoutines, openRoutines, openCreateRoutine, openRoutineList } = useRoutineEntry();
+  const { noRoutines, routineCount, openRoutines, openRoutineList } = useRoutineEntry();
   const insets = useSafeAreaInsets();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
   // "운동 진행 중" 배너((tabs)/_layout.tsx)가 떠 있으면 그만큼 하단 여백을 더 줘서
@@ -346,18 +346,15 @@ export default function HomeScreen() {
           </Section>
           </Reveal>
 
-          {/* 루틴 바로가기 — 민트 없이 조용한 두 줄. 홈의 주 버튼은 "운동 시작" 하나이므로 여기는 눈에 덜 띄게 둔다. */}
+          {/* 루틴 바로가기 — 한 줄. 만들기는 목록 맨 위 행에 있어 따로 두지 않는다.
+              민트 없이 조용하게 둔다(홈의 주 버튼은 "운동 시작" 하나). */}
           <Reveal index={4}>
-            <View style={styles.shortcuts}>
-              <PressableScale style={styles.shortcutRow} onPress={openRoutineList} accessibilityRole="button">
-                <AppText style={styles.shortcutText}>내 루틴 보기</AppText>
-                <ChevronRight size={16} color={colors.text3} />
-              </PressableScale>
-              <PressableScale style={styles.shortcutRow} onPress={openCreateRoutine} accessibilityRole="button">
-                <AppText style={styles.shortcutText}>새 루틴 만들기</AppText>
-                <ChevronRight size={16} color={colors.text3} />
-              </PressableScale>
-            </View>
+            <PressableScale style={styles.shortcutRow} onPress={openRoutineList} accessibilityRole="button">
+              <AppText style={styles.shortcutText}>
+                {routineCount === undefined ? "내 루틴" : routineCount === 0 ? "루틴 만들기" : `내 루틴 ${routineCount}개`}
+              </AppText>
+              <ChevronRight size={16} color={colors.text3} />
+            </PressableScale>
           </Reveal>
         </ScrollView>
       </SafeAreaView>
@@ -569,14 +566,12 @@ const styles = StyleSheet.create({
     color: colors.text3,
     fontVariant: ["tabular-nums"],
   },
-  shortcuts: {
-    marginTop: space.s8,
-  },
   shortcutRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     minHeight: 52,
+    marginTop: space.s8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(255, 255, 255, 0.16)",
   },

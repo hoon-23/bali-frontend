@@ -11,6 +11,7 @@ export function useRoutineEntry() {
   const router = useRouter();
   const { data: templates } = useTemplates();
   const noRoutines = templates !== undefined && templates.length === 0;
+  const routineCount = templates?.length;
 
   // 홈·기록의 빈 화면 버튼: 루틴이 없으면 첫 루틴 만들기, 있으면 루틴 목록.
   const openRoutines = useSingleTapNavigate(() => router.push(noRoutines ? "/routines/new" : "/routines"));
@@ -28,9 +29,8 @@ export function useRoutineEntry() {
     ]);
   });
 
-  // 홈 하단 바로가기: 목록과 만들기를 각각 바로 연다.
+  // 홈 하단 한 줄: 항상 루틴 목록으로 간다(만들기는 목록 맨 위 행).
   const openRoutineList = useSingleTapNavigate(() => router.push("/routines"));
-  const openCreateRoutine = useSingleTapNavigate(() => router.push("/routines/new"));
 
-  return { noRoutines, openRoutines, openAddMenu, openRoutineList, openCreateRoutine };
+  return { noRoutines, routineCount, openRoutines, openAddMenu, openRoutineList };
 }
