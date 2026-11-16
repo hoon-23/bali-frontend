@@ -1,4 +1,11 @@
-import { Pressable, type GestureResponderEvent, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  type GestureResponderEvent,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { motion } from "../../constants/theme";
@@ -19,10 +26,14 @@ export type PressableScaleProps = Omit<PressableProps, "style"> & {
 // 앱의 모든 누를 수 있는 것의 기반. Pressable과 같은 props를 받고, 누르는 즉시 반응한다.
 export function PressableScale({ style, onPressIn, onPressOut, disabled, ...rest }: PressableScaleProps) {
   const pressed = useSharedValue(0);
+  // 호출하는 쪽이 준 opacity(비활성 버튼의 0.4 등)에 눌림 효과를 곱한다 —
+  // 그냥 덮어쓰면 비활성 버튼이 멀쩡한 버튼처럼 보인다.
+  const flatOpacity = StyleSheet.flatten(style)?.opacity;
+  const baseOpacity = typeof flatOpacity === "number" ? flatOpacity : 1;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - pressed.value * (1 - PRESSED_SCALE) }],
-    opacity: 1 - pressed.value * (1 - PRESSED_OPACITY),
+    opacity: baseOpacity * (1 - pressed.value * (1 - PRESSED_OPACITY)),
   }));
 
   const handlePressIn = (event: GestureResponderEvent) => {

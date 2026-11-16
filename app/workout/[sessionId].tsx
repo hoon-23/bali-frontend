@@ -25,6 +25,7 @@ import { QuietButton } from "../../components/ui/QuietButton";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { colors, radius, space, type } from "../../constants/theme";
 import { stepReps, stepWeight } from "../../lib/format/stepper";
+import { completedSetCount } from "../../lib/session/setProgress";
 import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { appAlert } from "../../lib/alert";
 import { getKoreanApiErrorMessage } from "../../lib/api/planLimit";
@@ -560,11 +561,14 @@ export default function WorkoutSessionScreen() {
         <AppText style={styles.headerTitle} numberOfLines={1}>
           {apiSession?.title ?? fallbackTemplate?.name ?? "운동 진행 중"}
         </AppText>
-        <PressableScale accessibilityRole="button" onPress={handleClose} hitSlop={12}>
+        <PressableScale accessibilityRole="button" onPress={handleClose} hitSlop={16}>
           <AppText style={styles.closeButtonText}>닫기</AppText>
         </PressableScale>
       </View>
 
+      {/* 패널과 목록을 함께 스크롤한다 — 작은 화면이나 큰 글자 설정에서도 "운동 종료"가 밀려나지 않고,
+          무게를 입력할 때 키보드가 입력란을 가리지 않는다. */}
+      <ScrollView contentContainerStyle={styles.listContent} automaticallyAdjustKeyboardInsets {...keyboardScrollProps}>
       {activeLog && (
         <ActiveExercisePanel
           key={activeLog.id}
@@ -584,8 +588,6 @@ export default function WorkoutSessionScreen() {
           onResume={() => handleResumeLog(activeLog)}
         />
       )}
-
-      <ScrollView contentContainerStyle={styles.listContent} automaticallyAdjustKeyboardInsets {...keyboardScrollProps}>
         <View style={styles.listHeaderRow}>
           <AppText style={styles.sectionTitle}>운동 목록</AppText>
           {isRealSession && (
@@ -613,7 +615,14 @@ export default function WorkoutSessionScreen() {
               ? `${log.actualSets || 0}세트 완료`
               : `${log.actualSets || 0}/${log.targetSets} 세트`;
           return (
-            <PressableScale key={log.id} style={styles.listItem} onPress={() => setExpandedId(log.id)}>
+            <PressableScale
+              key={log.id}
+              style={styles.listItem}
+              onPress={() => setExpandedId(log.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${log.name} ${statusText}`}
+            >
               <AppText style={[styles.listItemName, active && styles.listItemNameActive]} numberOfLines={1}>
                 {log.name}
               </AppText>
@@ -784,6 +793,7 @@ function ActiveExercisePanel({
         <>
           <SetTimer
             setTimings={log.setTimings}
+            completedSets={completedSetCount(log.setTimings.length, log.actualSets)}
             targetSets={log.targetSets}
             startedAt={log.setStartedAt}
             onStart={onStartSet}
@@ -853,6 +863,8 @@ function InlineStepper({ label, value, onStep }: { label: string; value: number;
 
 type SetTimerProps = {
   setTimings: SetTiming[];
+  // 화면에 보여줄 완료 세트 수 — 타이머 기록과 수동 조절 중 큰 값(lib/session/setProgress).
+  completedSets: number;
   targetSets: number;
   // 진행 중 세트의 시작 시각(스토어 값) — null이 아니면 세트가 진행 중이다.
   startedAt: string | null;
@@ -890,7 +902,8 @@ const MAX_SET_SEGMENTS = 8;
 // 민트는 "지금 진행 중"인 칸 하나에만 쓴다(잠금화면 Live Activity와 같은 규칙).
 function SetSegments({ completed, targetSets, running }: { completed: number; targetSets: number; running: boolean }) {
   const count = Math.max(targetSets, completed + (running ? 1 : 0));
-  if (count < 1 || count > MAX_SET_SEGMENTS) return null;
+  // 칸을 그리지 않을 때도 같은 높이를 잡아, 세트 수가 바뀌어도 아래 버튼이 움직이지 않게 한다.
+  if (count < 1 || count > MAX_SET_SEGMENTS) return <View style={styles.segments} />;
   return (
     <View style={styles.segments}>
       {Array.from({ length: count }, (_, index) => {
@@ -915,7 +928,7 @@ function SetSegments({ completed, targetSets, running }: { completed: number; ta
 // 세트 하나의 시작/종료 시각을 기록한다(휴식시간은 추적하지 않음).
 // 목표 세트 수를 넘겨도 계속 기록할 수 있게 두되(추가 세트를 실제로 더 하는 경우 대비),
 // 목표 초과 여부만 라벨로 구분해서 보여준다.
-function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTiming, children }: SetTimerProps) {
+function SetTimer({ setTimings, completedSets, targetSets, startedAt, onStart, onRecordSetTiming, children }: SetTimerProps) {
   const running = startedAt != null;
   const now = useNowTick(running);
   const elapsedSeconds = runningElapsedSeconds(startedAt, now);
@@ -923,8 +936,10 @@ function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTimin
   // 있고 예약/취소는 화면 핸들러가 맡는다. 다른 운동으로 전환/화면 이탈(unmount)해도 일부러
   // 취소하지 않는다 — 그게 "깜빡했을" 상황이라 알림이 울려야 의미가 있다. 다만 돌아와서
   // "세트 완료"/완료로 표시를 하면 스토어의 id로 취소된다.
+  // 기록에 남기는 순번은 타이머 기록 수 그대로 두고(스토어·서버와 같은 기준),
+  // 화면의 세트 번호만 완료 세트 수를 따른다 — 손으로 세트 수를 올렸을 때 큰 숫자가 어긋나지 않게.
   const currentSetIndex = setTimings.length;
-  const setNumber = currentSetIndex + 1;
+  const setNumber = completedSets + 1;
   const isOverTarget = targetSets > 0 && setNumber > targetSets;
 
   const handleStop = () => {
@@ -950,7 +965,7 @@ function SetTimer({ setTimings, targetSets, startedAt, onStart, onRecordSetTimin
         {/* 흐르는 동안만 민트 — 멈춰 있을 때는 회색 0:00으로 "쉬는 중"임을 색으로 알린다. */}
         <AppText style={[styles.clock, running && styles.clockRunning]}>{formatSeconds(elapsedSeconds)}</AppText>
       </View>
-      <SetSegments completed={currentSetIndex} targetSets={targetSets} running={running} />
+      <SetSegments completed={completedSets} targetSets={targetSets} running={running} />
       {children}
       {/* 민트로 채운 버튼은 세트가 진행 중일 때만 — 색 덩어리만 봐도 시작 전인지 진행 중인지 구분된다. */}
       {running ? (
@@ -1049,9 +1064,8 @@ const styles = StyleSheet.create({
     color: colors.text2,
   },
   activePanel: {
-    marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    marginTop: space.s20,
     gap: space.s12,
+    marginBottom: space.s20,
   },
   activeNameRow: {
     flexDirection: "row",
@@ -1104,6 +1118,7 @@ const styles = StyleSheet.create({
   segments: {
     flexDirection: "row",
     gap: 5,
+    height: 5,
   },
   segment: {
     flex: 1,
@@ -1139,7 +1154,7 @@ const styles = StyleSheet.create({
   },
   // 손가락으로 누르기 충분하게 높이 44를 잡는다.
   inlineStepperButton: {
-    width: 36,
+    width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
@@ -1183,7 +1198,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingTop: space.s16,
+    paddingTop: space.s20,
     paddingBottom: space.s12,
   },
   listHeaderRow: {

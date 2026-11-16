@@ -91,10 +91,11 @@ const styles = StyleSheet.create({
   },
   value: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     textAlign: "center",
     minWidth: 28,
+    flexShrink: 1,
     padding: 0,
     fontVariant: ["tabular-nums"],
   },

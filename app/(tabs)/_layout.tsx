@@ -106,7 +106,7 @@ function CustomTabBar({ state, descriptors, navigation, bottom, sideMargin, hide
         const isFocused = state.index === index;
         const Icon = TAB_ICONS[route.name];
         // 선택된 탭은 흰색 — 민트는 "진행 중인 것"에만 쓴다(constants/theme.ts).
-          const color = isFocused ? colors.text : colors.text3;
+        const color = isFocused ? colors.text : colors.text3;
 
         const handlePress = () => {
           const event = navigation.emit({
