@@ -176,7 +176,7 @@ export default function ProfileScreen() {
               </>
             ) : (
               <>
-                <AppText style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                <AppText style={styles.name} numberOfLines={1}>
                   {me?.nickname ?? "—"} 님
                 </AppText>
                 {/* 이메일이 없어도 같은 높이를 잡아 아래가 밀리지 않게 한다. */}

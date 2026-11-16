@@ -248,7 +248,7 @@ export default function HomeScreen() {
             ) : cardState?.kind === "NEXT_UPCOMING" ? (
               <View style={styles.todayBody}>
                 <View>
-                  <AppText style={styles.todayTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  <AppText style={styles.todayTitle} numberOfLines={1}>
                     {cardState.next.title}
                   </AppText>
                   <AppText style={styles.todayMeta}>
@@ -380,7 +380,7 @@ function TodayHero({ session, onAction }: TodayHeroProps) {
   return (
     <View style={styles.todayBody}>
       <View>
-        <AppText style={styles.todayTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        <AppText style={styles.todayTitle} numberOfLines={1}>
           {session.title}
         </AppText>
         <AppText style={styles.todayMeta}>
