@@ -53,7 +53,10 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     // 한도 초과(403 LIMIT_EXCEEDED)는 앱이 시트로 안내하는 정상 업무 응답이라 error 레벨(빨간 LogBox)로 찍지 않는다.
-    const logLevel = isLimitExceededError(error) ? console.log : console.error;
+    // 아직 집계되지 않은 주·달 조회(404)도 화면이 "기록 없음"으로 처리하는 정상 응답이라 같은 취급이다.
+    const isExpectedMiss =
+      error.response?.status === 404 && /\/api\/v1\/analysis\/(weekly|monthly)\//.test(String(error.config?.url));
+    const logLevel = isLimitExceededError(error) || isExpectedMiss ? console.log : console.error;
     // 응답 본문에 민감 정보가 있을 수 있어 개발 빌드에서만 찍는다.
     if (__DEV__) {
       logLevel(
