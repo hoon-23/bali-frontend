@@ -117,6 +117,7 @@
 - **로고는 세트 막대로 만든 기울어진 덤벨**이다(2026-11-17 확정, C안). 흰색 막대 = 끝낸 세트, 민트 = 지금 세트, 흰색 35% = 남은 세트. 앱의 세트 막대와 같은 색 규칙이다.
 - 파일은 `assets/images/logo/`: `swayt-lockup.png`(마크+글자, 정식 색), `swayt-lockup-white.png`(전부 흰색), `swayt-mark.svg`, `swayt-mark-layered.svg`(막대마다 id `set-1`~`set-6`).
 - 로고 글자 "Swayt"는 **Quicksand Bold**(끝이 둥글어 마크의 둥근 막대와 맞음, SIL OFL 라이선스, `scripts/fonts/`에 파일과 라이선스 보관). 결합 로고 PNG도 같은 스크립트가 만든다 — 글꼴이나 간격을 바꾸면 스크립트만 고치고 다시 돌린다.
+- **스플래시**: 위에 마크, 아래에 글자의 세로 배치. 배경 이미지에는 "빈" 마크(흰색 12%)와 흐린 글자가 박혀 있고, `components/AnimatedSplashIntro.tsx`가 그 위에서 판을 아래에서 위로 차례로 채운 뒤 글자를 채운다(약 2.3초, 로딩이 길면 민트 판만 맥박). 이미지와 위치 정보(`assets/splash-layout.json`)는 같은 스크립트가 만든다. 앱 준비 시점·스플래시 숨김 코드는 건드리지 않는다.
 - 앱 아이콘(`assets/icon.png`)과 스플래시(`assets/splash-background.png`)는 `scripts/make-logo-assets.py`로 만든다. 로고 도형이 단순해서 같은 좌표로 그대로 그린다.
 - 앱 안에서 쓰는 곳은 세 군데뿐이다: 홈 상단 가운데(흰색 결합 로고), 운동 완료 요약(막대가 하나씩 쌓이며 나타남, 1회), 기록이 없는 화면(흐린 마크). 로그인 화면에서는 정식 색 결합 로고. 프로필에는 넣지 않는다.
 - 마크는 `components/LogoMark.tsx`를 쓴다. 남은 세트의 색은 새 회색이 아니라 `colors.remaining`(흰색 35%)이다.
