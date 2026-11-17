@@ -7,7 +7,6 @@ import { ScreenBackground } from "../../components/ScreenBackground";
 import { useSingleTapNavigate } from "../../lib/navigation/useSingleTapNavigate";
 import { PressableScale } from "../../components/ui/PressableScale";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
-import { Reveal } from "../../components/ui/Reveal";
 import { colors, radius, space } from "../../constants/theme";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { MUSCLE_GROUP_KOREAN } from "../../constants/exercises";
@@ -87,11 +86,11 @@ export default function RoutinesScreen() {
               <AppText style={styles.createRowText}>새 루틴 만들기</AppText>
             </PressableScale>
           )}
-          {templates.map((template, index) => {
+          {templates.map((template) => {
             const chips = getMuscleGroupChips(template, exerciseMap);
             return (
-              <Reveal key={template.id} index={index}>
               <PressableScale
+                key={template.id}
                 style={styles.card}
                 onPress={() => router.push(`/routines/${template.id}`)}
               >
@@ -110,7 +109,6 @@ export default function RoutinesScreen() {
                   ))}
                 </View>
               </PressableScale>
-              </Reveal>
             );
           })}
 
