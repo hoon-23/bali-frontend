@@ -4,7 +4,7 @@ import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useScrollToTop } from "@react-navigation/native";
 import { useEffect, useRef } from "react";
-import { Image, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
@@ -162,14 +162,6 @@ export default function ProfileScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* 앱 안에서 글자 로고가 보이는 유일한 자리 — 프로필이 이 앱의 "간판" 역할을 한다. */}
-          <Image
-            source={require("../../assets/images/logo/swayt-full.png")}
-            style={styles.wordmark}
-            resizeMode="contain"
-            accessibilityLabel="Swayt"
-          />
-
           <View>
             {mePending ? (
               <>
@@ -276,11 +268,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
     paddingTop: space.s12,
     gap: space.s32,
-  },
-  // 원본 비율 2048×1012.
-  wordmark: {
-    height: 30,
-    width: 30 * (2048 / 1012),
   },
   name: {
     ...type.title,
