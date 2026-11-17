@@ -1,13 +1,15 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
-import { colors } from "../../constants/theme";
+import { colors, radius, space, type } from "../../constants/theme";
 import { PressableScale } from "../../components/ui/PressableScale";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet, View } from "react-native";
+import { AppText } from "../../components/AppText";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppAlertModal } from "../../components/AppAlertModal";
 import { ScreenBackground } from "../../components/ScreenBackground";
-import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
+import { SCREEN_HORIZONTAL_MARGIN, TAB_BAR_BOTTOM_MARGIN } from "../../constants/layout";
 import { appAlert } from "../../lib/alert";
 import { getMonthGrid, toISODate, WEEKDAY_LABELS_MON_FIRST } from "../../lib/date";
 import { useCreateSession } from "../../hooks/api/useSessions";
@@ -19,6 +21,7 @@ const SCHEDULABLE_DAYS = 30;
 export default function ScheduleRoutineScreen() {
   const { templateId, name } = useLocalSearchParams<{ templateId: string; name: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const createSession = useCreateSession();
   const todayISODate = useMemo(() => getTodayISODate(), []);
   const maxISODate = useMemo(() => {
@@ -62,19 +65,19 @@ export default function ScheduleRoutineScreen() {
           <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
             <X size={20} color={colors.text} />
           </PressableScale>
-          <Text style={styles.headerTitle}>날짜 예약</Text>
+          <AppText style={styles.headerTitle}>날짜 예약</AppText>
           <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.routineName}>{name}</Text>
-          <Text style={styles.hint}>운동할 날짜를 선택해주세요</Text>
+          <AppText style={styles.routineName} numberOfLines={1}>{name}</AppText>
+          <AppText style={styles.hint}>운동할 날짜를 선택해주세요</AppText>
 
           <View style={styles.calendarCard}>
             <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>
+              <AppText style={styles.calendarTitle}>
                 {monthDisplayDate.getFullYear()}년 {monthDisplayDate.getMonth() + 1}월
-              </Text>
+              </AppText>
               <View style={styles.calendarNav}>
                 <PressableScale
                   onPress={() => setMonthOffset((offset) => offset - 1)}
@@ -83,7 +86,7 @@ export default function ScheduleRoutineScreen() {
                 >
                   <ChevronLeft
                     size={18}
-                    color={monthOffset <= 0 ? "#3A3A42" : "#A0A0A0"}
+                    color={monthOffset <= 0 ? colors.track : colors.text2}
                   />
                 </PressableScale>
                 <PressableScale
@@ -93,7 +96,7 @@ export default function ScheduleRoutineScreen() {
                 >
                   <ChevronRight
                     size={18}
-                    color={canGoToNextMonth ? "#A0A0A0" : "#3A3A42"}
+                    color={canGoToNextMonth ? colors.text2 : colors.track}
                   />
                 </PressableScale>
               </View>
@@ -101,9 +104,9 @@ export default function ScheduleRoutineScreen() {
 
             <View style={styles.weekRow}>
               {WEEKDAY_LABELS_MON_FIRST.map((label) => (
-                <Text key={label} style={styles.weekdayText}>
+                <AppText key={label} style={styles.weekdayText}>
                   {label}
-                </Text>
+                </AppText>
               ))}
             </View>
 
@@ -126,7 +129,7 @@ export default function ScheduleRoutineScreen() {
                       onPress={() => setSelectedISODate(dateStr)}
                     >
                       <View style={[styles.dayCircle, active && styles.dayCircleActive]}>
-                        <Text
+                        <AppText
                           style={[
                             styles.dayText,
                             disabled && styles.dayTextDisabled,
@@ -134,7 +137,7 @@ export default function ScheduleRoutineScreen() {
                           ]}
                         >
                           {day}
-                        </Text>
+                        </AppText>
                       </View>
                     </PressableScale>
                   );
@@ -144,9 +147,13 @@ export default function ScheduleRoutineScreen() {
           </View>
         </View>
 
-        <PressableScale style={styles.confirmButton} onPress={handleConfirm} disabled={saving}>
-          <Text style={styles.confirmButtonText}>{saving ? "예약하는 중..." : "예약하기"}</Text>
-        </PressableScale>
+        {/* 홈의 탭바와 같은 높이에 둔다 — 화면 맨 아래에 붙어 엄지가 닿기 어려웠다. */}
+        <PrimaryButton
+          title={saving ? "예약하는 중..." : "예약하기"}
+          onPress={handleConfirm}
+          disabled={saving}
+          style={[styles.confirmButton, { marginBottom: insets.bottom + TAB_BAR_BOTTOM_MARGIN }]}
+        />
       </SafeAreaView>
       {/* 이 화면은 presentation:"modal"로 뜨는 네이티브 모달이라, app/_layout.tsx의 전역
           AppAlertModal이 뒤로 깔린다 — 같은 화면 안에 하나 더 마운트해서 위로 뜨게 한다. */}
@@ -164,69 +171,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingTop: space.s8,
+    paddingBottom: space.s12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerSpacer: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
   },
   headerTitle: {
+    ...type.body,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   content: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    gap: 16,
+    gap: space.s16,
     flex: 1,
   },
   routineName: {
+    ...type.title,
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
   },
   hint: {
+    ...type.body,
     color: colors.text2,
-    fontSize: 13,
   },
   calendarCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    gap: 4,
+    borderRadius: radius.control,
+    padding: space.s16,
+    gap: space.s4,
   },
   calendarHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: space.s4,
   },
   calendarTitle: {
+    ...type.heading,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
   },
   calendarNav: {
     flexDirection: "row",
-    gap: 16,
+    gap: space.s16,
   },
   weekRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: space.s4,
   },
   weekdayText: {
+    ...type.meta,
     flex: 1,
     color: colors.text3,
-    fontSize: 11,
     textAlign: "center",
   },
   dayCell: {
@@ -238,17 +243,17 @@ const styles = StyleSheet.create({
   dayCircle: {
     width: "78%",
     aspectRatio: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
+  // 선택된 날짜는 민트가 아니라 흰색이다(민트는 화면의 주 버튼 하나에만).
   dayCircleActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.text,
   },
   dayText: {
+    ...type.label,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: "600",
   },
   dayTextDisabled: {
     color: colors.track,
@@ -257,16 +262,6 @@ const styles = StyleSheet.create({
     color: colors.onAccent,
   },
   confirmButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
     marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    marginBottom: 12,
-  },
-  confirmButtonText: {
-    color: colors.onAccent,
-    fontSize: 16,
-    fontWeight: "700",
   },
 });

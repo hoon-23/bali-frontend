@@ -220,7 +220,7 @@ export default function HomeScreen() {
           )}
 
           <Reveal index={1}>
-          <Section label="오늘의 운동" style={styles.todaySection}>
+          <Section label={cardState?.kind === "NEXT_UPCOMING" ? "다음 운동" : "오늘의 운동"} style={styles.todaySection}>
             {sessionsError ? (
               <View style={styles.todayBody}>
                 <View style={styles.todayEmptyTitleWrap}>
@@ -266,7 +266,7 @@ export default function HomeScreen() {
                     {cardState.next.title}
                   </AppText>
                   <AppText style={styles.todayMeta}>
-                    다음 운동 · {toDDayLabel(cardState.next.date)} · {sessionVolumeText(cardState.next)}
+                    {toDDayLabel(cardState.next.date)} · {sessionVolumeText(cardState.next)}
                   </AppText>
                 </View>
                 <QuietButton title="미리보기" onPress={() => router.push(`/upcoming/${cardState.next.id}`)} />
