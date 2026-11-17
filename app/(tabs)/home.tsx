@@ -444,10 +444,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     height: 52,
   },
-  // 원본 비율 2048×628.
+  // 원본 비율 2048×622.
   logo: {
     height: 36,
-    width: 36 * (2048 / 628),
+    width: 36 * (2048 / 622),
   },
   header: {
     flexDirection: "row",

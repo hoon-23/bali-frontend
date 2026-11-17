@@ -244,10 +244,10 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   // 원본 비율(992x492)을 유지한다
-  // 원본 비율 2048×628.
+  // 원본 비율 2048×622.
   logo: {
     width: 240,
-    height: 240 * (628 / 2048),
+    height: 240 * (622 / 2048),
   },
   tagline: {
     color: "#A0A0A0",
