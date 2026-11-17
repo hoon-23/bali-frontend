@@ -799,6 +799,7 @@ function ActiveExercisePanel({
             setTimings={log.setTimings}
             completedSets={completedSetCount(log.setTimings.length, log.actualSets)}
             targetSets={log.targetSets}
+            targetReached={targetReached}
             startedAt={log.setStartedAt}
             onStart={onStartSet}
             onRecordSetTiming={onRecordSetTiming}
@@ -870,6 +871,8 @@ type SetTimerProps = {
   // 화면에 보여줄 완료 세트 수 — 타이머 기록과 수동 조절 중 큰 값(lib/session/setProgress).
   completedSets: number;
   targetSets: number;
+  // 목표 세트를 다 채웠는지 — 그러면 민트는 "종목 완료로 표시"에 모으고 세트 시작 버튼은 조용하게 둔다.
+  targetReached?: boolean;
   // 진행 중 세트의 시작 시각(스토어 값) — null이 아니면 세트가 진행 중이다.
   startedAt: string | null;
   onStart: () => void;
@@ -932,7 +935,16 @@ function SetSegments({ completed, targetSets, running }: { completed: number; ta
 // 세트 하나의 시작/종료 시각을 기록한다(휴식시간은 추적하지 않음).
 // 목표 세트 수를 넘겨도 계속 기록할 수 있게 두되(추가 세트를 실제로 더 하는 경우 대비),
 // 목표 초과 여부만 라벨로 구분해서 보여준다.
-function SetTimer({ setTimings, completedSets, targetSets, startedAt, onStart, onRecordSetTiming, children }: SetTimerProps) {
+function SetTimer({
+  setTimings,
+  completedSets,
+  targetSets,
+  targetReached = false,
+  startedAt,
+  onStart,
+  onRecordSetTiming,
+  children,
+}: SetTimerProps) {
   const running = startedAt != null;
   const now = useNowTick(running);
   const elapsedSeconds = runningElapsedSeconds(startedAt, now);
@@ -975,7 +987,13 @@ function SetTimer({ setTimings, completedSets, targetSets, startedAt, onStart, o
       {running ? (
         <PrimaryButton size="lg" title={`${setNumber}세트 완료`} onPress={handleStop} />
       ) : (
-        <QuietButton size="lg" variant="outline" title={`${setNumber}세트 시작`} onPress={onStart} />
+        // 목표를 다 채운 뒤의 추가 세트는 조용한 버튼 — 민트 테두리까지 있으면 "종목 완료로 표시"의 민트와 시선이 갈린다.
+        <QuietButton
+          size="lg"
+          variant={targetReached ? "filled" : "outline"}
+          title={`${setNumber}세트 시작`}
+          onPress={onStart}
+        />
       )}
     </View>
   );
@@ -1184,8 +1202,10 @@ const styles = StyleSheet.create({
     ...type.label,
     color: colors.text2,
   },
+  // 목표를 다 채우면 "종목 완료로 표시"가 지금 눌러야 할 동작이므로 민트로 또렷하게 보인다(흰색은 눈에 안 띄었다).
   completeLinkTextReady: {
-    color: colors.text,
+    color: colors.accent,
+    fontWeight: "800",
   },
   // 기록이 없어도 자리를 차지해(flex: 1) "종목 완료로 표시"가 항상 오른쪽 끝에 있게 한다.
   timerHistory: {
