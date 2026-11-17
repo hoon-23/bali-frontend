@@ -67,7 +67,7 @@ struct PillBar: View {
     let isDone = index <= state.completedSets
     let isCurrent = !isDone && index == state.setNumber
     if isDone {
-      Capsule().fill(Theme.accent).frame(width: 14, height: 6)
+      Capsule().fill(Theme.text).frame(width: 14, height: 6)
     } else if isCurrent {
       if state.phase == .running {
         Capsule().fill(Theme.accent).frame(width: 28, height: 6)
@@ -112,14 +112,16 @@ struct SegmentRing: View {
   }
 
   private func color(for index: Int) -> Color {
-    if index <= state.completedSets { return Theme.accent }
+    if index <= state.completedSets { return Theme.text }
     if index == state.setNumber { return state.phase == .running ? Theme.accent : Theme.accent.opacity(0.45) }
     return Theme.track
   }
 }
 
 // 버튼 모양. action이 있으면 App Intent로 앱을 열지 않고 동작하고, 없으면 탭하면 앱을 연다(Link).
-enum ActionStyle { case primary, secondary, danger }
+// primary: 민트로 채움 — 지금 진행 중인 것을 끝내는 동작(세트 완료).
+// outline: 민트 테두리 — 시작 대기 상태의 동작(세트 시작, 이어서 측정). 채운 버튼과 한눈에 구분된다.
+enum ActionStyle { case primary, outline, secondary, danger }
 
 struct ActionButton: View {
   let title: String
@@ -147,12 +149,17 @@ struct ActionButton: View {
     .frame(maxWidth: .infinity)
     .frame(height: height)
     .background(Capsule().fill(background))
+    .overlay {
+      if style == .outline {
+        Capsule().strokeBorder(Theme.accent, lineWidth: 1.5)
+      }
+    }
   }
 
   private var foreground: Color {
     switch style {
     case .primary: return Theme.onAccent
-    case .secondary: return Theme.text
+    case .outline, .secondary: return Theme.text
     case .danger: return Theme.danger
     }
   }
@@ -160,6 +167,7 @@ struct ActionButton: View {
   private var background: Color {
     switch style {
     case .primary: return Theme.accent
+    case .outline: return Color.clear
     case .secondary, .danger: return Theme.surface
     }
   }
@@ -176,11 +184,12 @@ struct ActionRow: View {
     case (.awaitingFinish, _):
       ActionButton(title: "운동 종료", symbol: "arrow.up.forward.app", fontSize: fontSize)
     case (.waiting, false):
-      ActionButton(title: "세트 시작", symbol: "play.fill", fontSize: fontSize, action: "startSet")
+      // 버튼 글자에 세트 번호를 넣어 "몇 세트째"를 버튼이 직접 말한다.
+      ActionButton(title: "\(state.setNumber)세트 시작", symbol: "play.fill", style: .outline, fontSize: fontSize, action: "startSet")
     case (.running, false):
-      ActionButton(title: "세트 완료", symbol: "checkmark", fontSize: fontSize, action: "completeSet")
+      ActionButton(title: "\(state.setNumber)세트 완료", symbol: "checkmark", fontSize: fontSize, action: "completeSet")
     case (.waiting, true):
-      ActionButton(title: "측정 시작", symbol: "play.fill", fontSize: fontSize, action: "startCardio")
+      ActionButton(title: "측정 시작", symbol: "play.fill", style: .outline, fontSize: fontSize, action: "startCardio")
     case (.running, true):
       HStack(spacing: 8) {
         ActionButton(title: "일시정지", symbol: "pause.fill", style: .secondary, fontSize: fontSize, action: "pauseCardio")
@@ -188,7 +197,7 @@ struct ActionRow: View {
       }
     case (.paused, _):
       HStack(spacing: 8) {
-        ActionButton(title: "이어서 측정", symbol: "play.fill", fontSize: fontSize, action: "resumeCardio")
+        ActionButton(title: "이어서 측정", symbol: "play.fill", style: .outline, fontSize: fontSize, action: "resumeCardio")
         ActionButton(title: "종료", symbol: "stop.fill", style: .danger, fontSize: fontSize, action: "finishCardio").frame(width: 96)
       }
     }
