@@ -1,7 +1,9 @@
 import { AnimatedBar } from "../../components/AnimatedBar";
+import { useRef } from "react";
+import { useScrollToTop } from "@react-navigation/native";
 import { Bell, ChevronRight } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import { appAlert } from "../../lib/alert";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
@@ -63,6 +65,8 @@ function sessionCardMeta(session: ApiSession): { metaLabel: string; actionLabel:
 
 export default function HomeScreen() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const { noRoutines, routineCount, openRoutines, openRoutineList } = useRoutineEntry();
   const insets = useSafeAreaInsets();
   const activeSessionId = useWorkoutSessionStore((state) => state.sessionId);
@@ -137,6 +141,7 @@ export default function HomeScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
             {
@@ -156,6 +161,15 @@ export default function HomeScreen() {
           {/* 인사 줄 — 작게 둔다. 앱을 열었을 때 가장 먼저 보여야 하는 것은 아래 "오늘의 운동"이다. */}
           <View>
             <View style={styles.header}>
+              {/* 가운데 로고 — 양옆 요소와 겹치지 않게 절대 위치로 두고 터치는 통과시킨다. */}
+              <View style={styles.logoWrap} pointerEvents="none">
+                <Image
+                  source={require("../../assets/images/logo/swayt-full-white.png")}
+                  style={styles.logo}
+                  resizeMode="contain"
+                  accessibilityLabel="Swayt"
+                />
+              </View>
               <PressableScale
                 style={styles.identity}
                 disabled={!me?.level}
@@ -315,7 +329,7 @@ export default function HomeScreen() {
                     <View style={styles.muscleBarTrack}>
                       <AnimatedBar
                         progress={item.percent / 100}
-                        style={[styles.muscleBarFill, index === 0 && styles.muscleBarFillTop]}
+                        style={styles.muscleBarFill}
                       />
                     </View>
                   </View>
@@ -425,13 +439,25 @@ const styles = StyleSheet.create({
     paddingTop: space.s8,
     gap: space.s24,
   },
+  logoWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // 원본 비율 2048×1012.
+  logo: {
+    height: 28,
+    width: 28 * (2048 / 1012),
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     height: 40,
   },
+  // 가운데 로고와 겹치지 않게 폭을 제한한다.
   identity: {
+    maxWidth: "34%",
     flexShrink: 1,
     justifyContent: "center",
     height: 40,
@@ -476,7 +502,7 @@ const styles = StyleSheet.create({
   xpFill: {
     height: "100%",
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.55)",
+    backgroundColor: colors.text,
   },
   errorRow: {
     flexDirection: "row",
@@ -627,9 +653,6 @@ const styles = StyleSheet.create({
   muscleBarFill: {
     height: "100%",
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
-  },
-  muscleBarFillTop: {
     backgroundColor: colors.text,
   },
 });

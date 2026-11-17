@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AnimatedBar } from "../../components/AnimatedBar";
 import { Bell, ChevronRight, Dumbbell, FileText, LogOut, LucideIcon, User } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useScrollToTop } from "@react-navigation/native";
 import { useEffect, useRef } from "react";
 import { Image, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -61,6 +62,8 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ focus?: string; t?: string }>();
   const scrollRef = useRef<ScrollView>(null);
+  // 이미 선택된 탭을 다시 누르면 맨 위로 올라간다.
+  useScrollToTop(scrollRef);
   // 구독 카드의 스크롤 내 y 위치 — "PRO 알아보기"로 들어왔을 때 이 위치로 스크롤한다.
   const subscriptionY = useRef(0);
 
@@ -320,7 +323,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.55)",
+    backgroundColor: colors.text,
   },
   subscription: {
     gap: space.s12,

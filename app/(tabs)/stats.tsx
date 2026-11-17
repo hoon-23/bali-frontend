@@ -1,7 +1,8 @@
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { useScrollToTop } from "@react-navigation/native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useReportTargetStore } from "../../store/reportTargetStore";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedBar, AnimatedCell } from "../../components/AnimatedBar";
@@ -221,6 +222,8 @@ export default function StatsScreen() {
   const [monthOffset, setMonthOffset] = useState(0);
   const inProgressSessionId = useInProgressSessionId();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
 
   useEffect(() => {
     if (params.view === "monthly") {
@@ -321,6 +324,7 @@ export default function StatsScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
             {
@@ -406,7 +410,7 @@ export default function StatsScreen() {
                             styles.bar,
                             {
                               backgroundColor:
-                                index === todayIndex ? colors.text : "rgba(255, 255, 255, 0.35)",
+                                colors.text,
                             },
                           ]}
                         />
@@ -753,7 +757,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: radius.pill,
-    backgroundColor: "rgba(255, 255, 255, 0.55)",
+    backgroundColor: colors.text,
   },
   sectionTitle: {
     ...type.meta,

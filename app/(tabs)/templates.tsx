@@ -1,5 +1,6 @@
 import { ChevronRight, Plus } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useScrollToTop } from "@react-navigation/native";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -146,6 +147,9 @@ export default function TemplatesScreen() {
     }
   };
 
+  const listRef = useRef<FlatList<ApiSessionDetail>>(null);
+  // 이미 선택된 탭을 다시 누르면 맨 위로 올라간다.
+  useScrollToTop(listRef);
   const lastOffsetRef = useRef(0);
   const isCollapsedRef = useRef(false);
 
@@ -187,6 +191,7 @@ export default function TemplatesScreen() {
     <ScreenBackground>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <FlatList
+          ref={listRef}
           data={pastSessions}
           keyExtractor={(session) => session.id}
           onEndReached={handleEndReached}
