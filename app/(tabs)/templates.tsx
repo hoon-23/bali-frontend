@@ -17,7 +17,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ScreenBackground } from "../../components/ScreenBackground";
-import { SwayPalm } from "../../components/SwayPalm";
+import { LogoMark } from "../../components/LogoMark";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { PressableScale } from "../../components/ui/PressableScale";
 import { colors, radius, space, type } from "../../constants/theme";
@@ -276,9 +276,9 @@ export default function TemplatesScreen() {
               </View>
             ) : (
               // 기록이 아직 없는 사람에게 — 무엇을 하면 여기가 채워지는지와 그 버튼을 함께 보여준다.
-              // 야자수는 흐리게 둔다(아직 기록이 없다).
+              // 로고는 흐리게 둔다(아직 기록이 없다).
               <View style={styles.historyEmpty}>
-                <SwayPalm height={84} tone="muted" />
+                <LogoMark width={120} tone="muted" />
                 <AppText style={styles.historyEmptyTitle}>아직 운동 기록이 없어요</AppText>
                 <AppText style={styles.historyEmptyBody}>운동을 끝내면 여기에 기록이 남아요</AppText>
                 <PrimaryButton

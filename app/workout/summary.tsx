@@ -3,7 +3,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { AppText } from "../../components/AppText";
-import { SwayPalm } from "../../components/SwayPalm";
+import { LogoMark, logoMarkHeight } from "../../components/LogoMark";
 import { QuietButton } from "../../components/ui/QuietButton";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { colors, space, type } from "../../constants/theme";
@@ -13,6 +13,8 @@ import { formatSetSeconds0 } from "../../lib/format/duration";
 import { hasLogRecord } from "../../lib/session/logRecord";
 import { XpGainCard } from "../../components/XpGainCard";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
+
+const LOGO_WIDTH = 150;
 
 // 전환 종료 이벤트를 못 받는 경우(animation: none 등)를 대비한 안전장치 시간(ms).
 const TRANSITION_FALLBACK_MS = 1200;
@@ -53,9 +55,14 @@ export default function WorkoutSummaryScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* 기록이 있을 때만 야자수가 한 번 흔들린다 — 운동을 해낸 순간의 마무리.
-            아무것도 기록하지 않고 끝낸 경우에는 보여주지 않는다. */}
-        {hasAnyRecord && <SwayPalm height={112} sway={transitionDone} style={styles.palm} />}
+        {/* 기록이 있을 때만 로고의 막대가 하나씩 쌓이며 나타난다(1회) — 운동을 해낸 순간의 마무리.
+            화면 전환이 끝난 뒤에 시작하고, 아무것도 기록하지 않고 끝낸 경우에는 보여주지 않는다. */}
+        {hasAnyRecord && (
+          // 나타나기 전에도 같은 높이를 잡아 두어, 연출이 시작될 때 제목이 아래로 밀리지 않는다.
+          <View style={[styles.logoSlot, { height: logoMarkHeight(LOGO_WIDTH) }]}>
+            {transitionDone && <LogoMark width={LOGO_WIDTH} animate />}
+          </View>
+        )}
         <AppText style={styles.title} numberOfLines={1}>
           {hasAnyRecord ? "수고하셨어요" : "운동이 종료되었어요."}
         </AppText>
@@ -127,7 +134,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: space.s24,
   },
-  palm: {
+  logoSlot: {
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: space.s8,
     marginBottom: space.s20,
   },

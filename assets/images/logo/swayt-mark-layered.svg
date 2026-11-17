@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4.33 -12.205 76.661 48.411" width="766.607" height="484.109" role="img" aria-label="Swayt mark c (layered, animatable)">
+  <title>Swayt mark c (layered, animatable)</title>
+  <style>
+    .done{fill:#FFFFFF}.current{fill:#2DD4BF}.remaining{fill:#FFFFFF;fill-opacity:0.35}
+    rect{transform-box:fill-box;transform-origin:center}
+    /* animate the current set, e.g.: .current-set{animation:pulse 1.6s ease-in-out infinite}
+       @keyframes pulse{50%{transform:scale(1.12)}} */
+  </style>
+  <g id="mark" transform="rotate(-18 34 12)">
+    <rect id="set-1" class="done" data-state="done" x="0" y="0" width="6" height="24" rx="3"/>
+    <rect id="set-2" class="done" data-state="done" x="9" y="0" width="6" height="24" rx="3"/>
+    <rect id="set-3" class="done" data-state="done" x="18" y="0" width="6" height="24" rx="3"/>
+    <rect id="bar" class="done" data-state="done" x="27" y="10" width="14" height="4" rx="2"/>
+    <rect id="set-4" class="current current-set" data-state="current" x="44" y="0" width="6" height="24" rx="3"/>
+    <rect id="set-5" class="remaining" data-state="remaining" x="53" y="0" width="6" height="24" rx="3"/>
+    <rect id="set-6" class="remaining" data-state="remaining" x="62" y="0" width="6" height="24" rx="3"/>
+  </g>
+</svg>
