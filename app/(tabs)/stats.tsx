@@ -414,7 +414,8 @@ export default function StatsScreen() {
                             {
                               // 오늘만 흰색 100%, 나머지는 흰색 70% — 회색이 아니라 밝은 흰색 계열로 "오늘"만 구분한다.
                               backgroundColor:
-                                index === todayIndex ? colors.text : "rgba(255, 255, 255, 0.7)",
+                                // 지난 주에는 "오늘"이 없으므로 전부 흰색 100%로 — 흐린 막대(회색 톤)로 보이지 않게 한다.
+                                index === todayIndex || weekOffset < 0 ? colors.text : "rgba(255, 255, 255, 0.7)",
                             },
                           ]}
                         />
