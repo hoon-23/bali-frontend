@@ -8,8 +8,8 @@ import { colors, motion } from "../constants/theme";
 // 흰색 = 끝낸 세트, 민트 = 지금 세트, 흰색 35% = 남은 세트 — 앱의 세트 막대와 같은 색 규칙이다.
 
 // 단위 좌표: [x, y, 폭, 높이, 상태]. 전체 폭 68, 높이 24, -18도 기울임.
-type Part = { x: number; y: number; w: number; h: number; state: "done" | "current" | "remaining" };
-const PARTS: Part[] = [
+export type LogoPart = { x: number; y: number; w: number; h: number; state: "done" | "current" | "remaining" };
+export const LOGO_PARTS: LogoPart[] = [
   { x: 0, y: 0, w: 6, h: 24, state: "done" },
   { x: 9, y: 0, w: 6, h: 24, state: "done" },
   { x: 18, y: 0, w: 6, h: 24, state: "done" },
@@ -18,13 +18,19 @@ const PARTS: Part[] = [
   { x: 53, y: 0, w: 6, h: 24, state: "remaining" },
   { x: 62, y: 0, w: 6, h: 24, state: "remaining" },
 ];
-const UNIT_W = 68;
-const UNIT_H = 24;
-const TILT_DEG = -18;
+export const LOGO_UNIT_W = 68;
+export const LOGO_UNIT_H = 24;
+export const LOGO_TILT_DEG = -18;
+const UNIT_W = LOGO_UNIT_W;
+const UNIT_H = LOGO_UNIT_H;
+const TILT_DEG = LOGO_TILT_DEG;
+const PARTS = LOGO_PARTS;
 // 회전한 뒤의 바깥 상자(단위): 폭 = 68cos18 + 24sin18, 높이 = 68sin18 + 24cos18.
 const RAD = (Math.abs(TILT_DEG) * Math.PI) / 180;
-const BOX_W = UNIT_W * Math.cos(RAD) + UNIT_H * Math.sin(RAD);
-const BOX_H = UNIT_W * Math.sin(RAD) + UNIT_H * Math.cos(RAD);
+export const LOGO_BOX_W = UNIT_W * Math.cos(RAD) + UNIT_H * Math.sin(RAD);
+export const LOGO_BOX_H = UNIT_W * Math.sin(RAD) + UNIT_H * Math.cos(RAD);
+const BOX_W = LOGO_BOX_W;
+const BOX_H = LOGO_BOX_H;
 
 // 아래로 갈수록 한 막대씩 차례로 나타난다. 이 개수·간격 이상으로 늘리지 않는다(반복 연출은 눈만 피로하다).
 const STAGGER_MS = 70;

@@ -9,8 +9,12 @@
   assets/images/logo/swayt-lockup.png        마크 + "Swayt"(Quicksand Bold), 정식 색, 투명 배경 2048px
   assets/images/logo/swayt-lockup-white.png  같은 모양, 전부 흰색
   assets/icon.png               1024x1024 불투명 앱 아이콘
-  assets/splash-background.png  2160x4680 전체 화면 스플래시(네이티브·JS 스플래시가 같은 이미지를 쓴다)
+  assets/splash-background.png  2160x4680 전체 화면 스플래시. 마크는 "빈 상태"(흐린 판)와 흐린 글자로 박혀 있고,
+                                JS 스플래시(components/AnimatedSplashIntro.tsx)가 그 위에서 판을 차례로 채운다.
+  assets/splash-layout.json     위 이미지 안의 마크·글자 위치(JS가 같은 자리에 겹쳐 그리려고 읽는다)
+  assets/images/logo/swayt-wordmark-white.png  글자만(흰색, 투명 배경) — 스플래시에서 흐린 글자 위에 겹쳐 채운다
 """
+import json
 import math
 import os
 
@@ -62,6 +66,25 @@ def draw_mark(target_width: int, supersample: int = 4, mono: bool = False) -> Im
     return rotated.resize((target_width, max(1, round(rotated.height * target_width / rotated.width))), Image.LANCZOS)
 
 
+def draw_mark_box(target_width: int, supersample: int = 4, color=None) -> Image.Image:
+    """회전한 마크를 "분석상 바깥 상자"(폭 68cos18+24sin18, 높이 68sin18+24cos18) 크기 그대로 그린다.
+    알파 범위로 잘라 쓰는 draw_mark와 달리 상자가 일정해서, 코드(components/LogoMark.tsx)가 같은 좌표로 겹쳐 그릴 수 있다.
+    color를 주면 모든 도형을 그 색으로 칠한다(스플래시의 "빈" 마크)."""
+    rad = math.radians(abs(TILT))
+    box_w = UNIT_W * math.cos(rad) + UNIT_H * math.sin(rad)
+    box_h = UNIT_W * math.sin(rad) + UNIT_H * math.cos(rad)
+    u = target_width * supersample / box_w
+    flat = Image.new("RGBA", (round(UNIT_W * u), round(UNIT_H * u)), (0, 0, 0, 0))
+    d = ImageDraw.Draw(flat)
+    for x, y, w, h, c in SHAPES:
+        d.rounded_rectangle(
+            [x * u, y * u, (x + w) * u - 1, (y + h) * u - 1], radius=min(w, h) * u / 2, fill=color or c
+        )
+    rotated = flat.rotate(-TILT, resample=Image.BICUBIC, expand=True)
+    height = round(box_h * target_width / box_w)
+    return rotated.resize((target_width, height), Image.LANCZOS)
+
+
 def draw_wordmark(text: str, cap_height: int, supersample: int = 4) -> Image.Image:
     """글자를 흰색·투명 배경으로 그린다. cap_height는 글자(대문자 S 높이 기준)의 목표 높이."""
     size = cap_height * supersample * 1.45  # 글꼴 크기 -> 대문자 높이 비율 보정(대략)
@@ -111,7 +134,8 @@ def make_icon(path: str, mark_ratio: float = 0.70) -> None:
     layer.convert("RGB").save(path, optimize=True)
 
 
-def make_splash(path: str, lockup_path: str) -> None:
+def make_splash(path: str, layout_path: str, word_path: str) -> None:
+    """세로 배치 스플래시: 위에 마크, 아래에 글자. 마크는 "빈" 상태(흰색 12%)로, 글자도 흐리게 박는다."""
     w, h = 2160, 4680
     # 중앙이 살짝 밝은 어두운 초록빛 방사형 배경(기존 스플래시와 같은 분위기).
     img = Image.new("RGB", (w, h), BG)
@@ -119,9 +143,9 @@ def make_splash(path: str, lockup_path: str) -> None:
     cx, cy = w / 2, h * 0.47
     max_r = math.hypot(w / 2, h / 2)
     glow = (22, 48, 42)
-    for yy in range(0, h, 1):
+    for yy in range(h):
         dy = yy - cy
-        for xx in range(0, w, 1):
+        for xx in range(w):
             r = math.hypot(xx - cx, dy) / max_r
             t = max(0.0, 1.0 - r * 1.35)
             t = t * t
@@ -130,12 +154,36 @@ def make_splash(path: str, lockup_path: str) -> None:
                 int(BG[1] + (glow[1] - BG[1]) * t),
                 int(BG[2] + (glow[2] - BG[2]) * t),
             )
-    lockup = Image.open(lockup_path).convert("RGBA")
-    target_w = int(w * 0.62)
-    lockup = lockup.resize((target_w, round(lockup.height * target_w / lockup.width)), Image.LANCZOS)
+    mark_w = int(w * 0.40)
+    word_w = int(w * 0.46)
+    mark = draw_mark_box(mark_w, color=(255, 255, 255, 31))  # 흰색 12%
+    word_full = draw_wordmark("Swayt", cap_height=300)
+    word_full = word_full.resize((word_w, round(word_full.height * word_w / word_full.width)), Image.LANCZOS)
+    gap = int(w * 0.045)
+    group_h = mark.height + gap + word_full.height
+    top = int(cy - group_h / 2)
+    mark_xy = ((w - mark.width) // 2, top)
+    word_xy = ((w - word_full.width) // 2, top + mark.height + gap)
+    # 글자는 흰색 12%로 박는다(모양은 완전한 글자 이미지에 알파만 곱한다).
+    word_dim = word_full.copy()
+    word_dim.putalpha(word_full.getchannel("A").point(lambda a: a * 31 // 255))
     layer = img.convert("RGBA")
-    layer.alpha_composite(lockup, ((w - lockup.width) // 2, int(cy - lockup.height / 2)))
+    layer.alpha_composite(mark, mark_xy)
+    layer.alpha_composite(word_dim, word_xy)
     layer.convert("RGB").save(path, optimize=True)
+    word_full.save(word_path, optimize=True)
+    with open(layout_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "imageWidth": w,
+                "imageHeight": h,
+                "mark": {"x": mark_xy[0], "y": mark_xy[1], "w": mark.width, "h": mark.height},
+                "word": {"x": word_xy[0], "y": word_xy[1], "w": word_full.width, "h": word_full.height},
+            },
+            f,
+            indent=2,
+        )
+        f.write("\n")
 
 
 if __name__ == "__main__":
@@ -145,6 +193,7 @@ if __name__ == "__main__":
     make_icon(os.path.join(ROOT, "assets", "icon.png"))
     make_splash(
         os.path.join(ROOT, "assets", "splash-background.png"),
-        os.path.join(ROOT, "assets", "images", "logo", "swayt-lockup.png"),
+        os.path.join(ROOT, "assets", "splash-layout.json"),
+        os.path.join(logo_dir, "swayt-wordmark-white.png"),
     )
-    print("완료: 결합 로고 2종, assets/icon.png, assets/splash-background.png")
+    print("완료: 결합 로고 2종, assets/icon.png, 스플래시 이미지·배치 JSON·글자 PNG")
