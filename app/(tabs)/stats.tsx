@@ -412,8 +412,9 @@ export default function StatsScreen() {
                           style={[
                             styles.bar,
                             {
+                              // 오늘만 흰색 100%, 나머지는 흰색 70% — 회색이 아니라 밝은 흰색 계열로 "오늘"만 구분한다.
                               backgroundColor:
-                                colors.text,
+                                index === todayIndex ? colors.text : "rgba(255, 255, 255, 0.7)",
                             },
                           ]}
                         />
