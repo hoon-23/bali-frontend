@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/api/client";
 
 export type DailyAnalysisEntry = {
@@ -80,6 +80,9 @@ export function useWeeklyByDate(weekOf: string | null) {
   return useQuery({
     queryKey: ["weeklyAnalysis", weekOf],
     enabled: !!weekOf,
+    // 주를 넘길 때 새 주 응답이 올 때까지 이전 주 내용을 그대로 두어, 스켈레톤이 깜빡이지 않게 한다.
+    // 화면은 isPlaceholderData일 때 내용을 흐리게 보여 "이전 주 값"임을 알린다.
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       try {
         const { data } = await apiClient.get<WeeklyAnalysisResponse>(`/api/v1/analysis/weekly/${weekOf}`);
@@ -124,6 +127,7 @@ export function useMonthlyByDate(monthOf: string | null) {
   return useQuery({
     queryKey: ["monthlyAnalysis", monthOf],
     enabled: !!monthOf,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       try {
         const { data } = await apiClient.get<MonthlyAnalysisResponse>(`/api/v1/analysis/monthly/${monthOf}`);

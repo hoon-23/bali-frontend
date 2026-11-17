@@ -160,16 +160,16 @@ export default function HomeScreen() {
         >
           {/* 인사 줄 — 작게 둔다. 앱을 열었을 때 가장 먼저 보여야 하는 것은 아래 "오늘의 운동"이다. */}
           <View>
+            {/* 로고를 위에 가운데로 두고, 그 아래 줄에 이름·레벨과 알림을 둔다 — 위아래로 쌓아 홈 상단이 더 채워지게 한다. */}
+            <View style={styles.logoRow}>
+              <Image
+                source={require("../../assets/images/logo/swayt-full-white.png")}
+                style={styles.logo}
+                resizeMode="contain"
+                accessibilityLabel="Swayt"
+              />
+            </View>
             <View style={styles.header}>
-              {/* 가운데 로고 — 양옆 요소와 겹치지 않게 절대 위치로 두고 터치는 통과시킨다. */}
-              <View style={styles.logoWrap} pointerEvents="none">
-                <Image
-                  source={require("../../assets/images/logo/swayt-full-white.png")}
-                  style={styles.logo}
-                  resizeMode="contain"
-                  accessibilityLabel="Swayt"
-                />
-              </View>
               <PressableScale
                 style={styles.identity}
                 disabled={!me?.level}
@@ -439,15 +439,15 @@ const styles = StyleSheet.create({
     paddingTop: space.s8,
     gap: space.s24,
   },
-  logoWrap: {
-    ...StyleSheet.absoluteFillObject,
+  logoRow: {
     alignItems: "center",
     justifyContent: "center",
+    height: 52,
   },
   // 원본 비율 2048×1012.
   logo: {
-    height: 28,
-    width: 28 * (2048 / 1012),
+    height: 40,
+    width: 40 * (2048 / 1012),
   },
   header: {
     flexDirection: "row",
@@ -455,9 +455,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 40,
   },
-  // 가운데 로고와 겹치지 않게 폭을 제한한다.
   identity: {
-    maxWidth: "34%",
     flexShrink: 1,
     justifyContent: "center",
     height: 40,

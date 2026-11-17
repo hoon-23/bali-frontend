@@ -308,6 +308,9 @@ export default function StatsScreen() {
   // 최초 로딩(캐시에 데이터가 아직 없음) 여부 — isPending은 에러이거나 이미 데이터가 있으면 false라서
   // 백그라운드 재조회 때 스켈레톤으로 되돌아가지 않는다. 월간 403(잠금)도 에러라 false가 된다.
   const weekSummaryPending = weekOffset === 0 ? weeklyCurrent.isPending : weeklyPast.isPending;
+  // 주·달을 넘기는 동안 이전 값이 임시로 남아 있는 상태 — 스켈레톤으로 바꾸면 깜빡여서 값을 유지하되 흐리게 보인다.
+  const weekSwitching = weekOffset < 0 && weeklyPast.isPlaceholderData;
+  const monthSwitching = monthOffset < 0 && monthlyPast.isPlaceholderData;
   const monthSummaryPending = monthOffset === 0 ? monthlyCurrent.isPending : monthlyPast.isPending;
 
   const weekDailyByDate = useMemo(() => dailyMapByDate(dailyThisWeek.data), [dailyThisWeek.data]);
@@ -442,11 +445,16 @@ export default function StatsScreen() {
 
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
-                <View style={styles.card}>
+                <View style={[styles.card, weekSwitching && styles.switching]}>
                   {weekSummaryPending ? (
                     <MuscleRowsSkeleton />
                   ) : pastWeekUnavailable ? (
-                    <Text style={styles.emptyStateText}>이 주는 운동 기록이 없어요.</Text>
+                    // 요일별 기록은 있는데 근육군 집계만 아직 없는 주를 "운동 기록이 없다"고 하면 위 그래프와 모순된다.
+                    <Text style={styles.emptyStateText}>
+                      {weekBarMinutes.some((minutes) => minutes > 0)
+                        ? "이 주의 근육군 집계는 아직 준비되지 않았어요."
+                        : "이 주는 운동 기록이 없어요."}
+                    </Text>
                   ) : topMuscleGroups.length === 0 ? (
                     <Text style={styles.emptyStateText}>
                       {weekOffset === 0 ? "이번 주 운동 기록이 아직 없어요." : "이 주는 근육군 기록이 없어요."}
@@ -569,7 +577,7 @@ export default function StatsScreen() {
               {!monthLocked && (
               <View>
                 <Text style={styles.sectionTitle}>근육군별 집중도</Text>
-                <View style={styles.card}>
+                <View style={[styles.card, monthSwitching && styles.switching]}>
                   {monthSummaryPending ? (
                     <MuscleRowsSkeleton />
                   ) : monthPastUnavailable ? (
@@ -747,6 +755,10 @@ const styles = StyleSheet.create({
   // 13pt 한 줄 높이(약 15px)에 맞추기 위한 위아래 여백.
   textLineSkeleton: {
     marginVertical: 1,
+  },
+  // 주·달을 넘기는 동안 이전 값을 흐리게(투명도만 바꾸므로 주변을 밀지 않는다).
+  switching: {
+    opacity: 0.4,
   },
   progressTrack: {
     height: 4,
