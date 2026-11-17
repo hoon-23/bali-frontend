@@ -163,7 +163,7 @@ export default function HomeScreen() {
             {/* 로고를 위에 가운데로 두고, 그 아래 줄에 이름·레벨과 알림을 둔다 — 위아래로 쌓아 홈 상단이 더 채워지게 한다. */}
             <View style={styles.logoRow}>
               <Image
-                source={require("../../assets/images/logo/swayt-lockup-white.png")}
+                source={require("../../assets/images/logo/swayt-lockup.png")}
                 style={styles.logo}
                 resizeMode="contain"
                 accessibilityLabel="Swayt"
