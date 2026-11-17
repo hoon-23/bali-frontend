@@ -25,6 +25,7 @@ import { QuietButton } from "../../components/ui/QuietButton";
 import { SCREEN_HORIZONTAL_MARGIN } from "../../constants/layout";
 import { colors, radius, space, type } from "../../constants/theme";
 import { stepReps, stepWeight } from "../../lib/format/stepper";
+import { hapticSetComplete, hapticSetStart, hapticWorkoutFinish } from "../../lib/haptics";
 import { completedSetCount } from "../../lib/session/setProgress";
 import { KeyboardDismissView, keyboardScrollProps } from "../../components/KeyboardDismissView";
 import { appAlert } from "../../lib/alert";
@@ -380,6 +381,7 @@ export default function WorkoutSessionScreen() {
   // "세트 시작" — 스토어에 시작 시각을 올리고 리마인드 알림을 예약해 id를 스토어에 저장한다.
   // 권한 거부 등으로 id가 null이거나 예약이 실패하면 알림 없이 조용히 진행한다.
   const handleStartSet = (logId: string) => {
+    hapticSetStart();
     startSet(logId);
     scheduleSetTimerReminder()
       .then((id) => {
@@ -392,6 +394,7 @@ export default function WorkoutSessionScreen() {
 
   // "세트 완료" — 기록을 붙이기 전에 스토어의 알림 id로 취소한다(기록이 id를 비운다).
   const handleRecordSetTiming = (logId: string, timing: SetTiming) => {
+    hapticSetComplete();
     cancelSetReminders(useWorkoutSessionStore.getState().logs.filter((log) => log.id === logId));
     recordSetTiming(logId, timing);
   };
@@ -416,6 +419,7 @@ export default function WorkoutSessionScreen() {
     }
     // 서버 완료/정리가 끝났으니 운동은 끝난 것 — 요약 화면이 남아 있어도 Live Activity는 지금 꺼야 한다.
     useWorkoutSessionStore.getState().markFinished();
+    hapticWorkoutFinish();
     // 세트 완료 없이 다른 운동으로 넘어간 것들 때문에 남아있을 수 있는 리마인드 알림을
     // 정리한다 — 운동을 종료했다는 건 더 이상 어떤 세트도 진행 중이 아니라는 뜻이라,
     // 실패해도 종료 자체를 막을 이유는 없어서 별도로 감싸 무시한다.
