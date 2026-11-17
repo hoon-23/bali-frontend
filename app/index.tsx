@@ -178,7 +178,7 @@ export default function LoginScreen() {
       />
       <View style={styles.content}>
         <View style={styles.titleBlock}>
-          <Image source={require("../assets/images/splash/swayt-logo.png")} style={styles.logo} resizeMode="contain" />
+          <Image source={require("../assets/images/logo/swayt-lockup-stacked.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.tagline}>세트별 기록, 주간·월간 리포트</Text>
         </View>
 
@@ -243,10 +243,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 40,
   },
-  // 원본 비율(992x492)을 유지한다
+  // 세로 배치 로고(마크 위, 글자 아래) — 스플래시와 같은 배치라 로고가 이어져 보인다. 원본 비율 1200×1118.
   logo: {
-    width: 200,
-    height: 99,
+    width: 210,
+    height: 210 * (1118 / 1200),
   },
   tagline: {
     color: "#A0A0A0",

@@ -163,7 +163,7 @@ export default function HomeScreen() {
             {/* 로고를 위에 가운데로 두고, 그 아래 줄에 이름·레벨과 알림을 둔다 — 위아래로 쌓아 홈 상단이 더 채워지게 한다. */}
             <View style={styles.logoRow}>
               <Image
-                source={require("../../assets/images/logo/swayt-full-white.png")}
+                source={require("../../assets/images/logo/swayt-lockup.png")}
                 style={styles.logo}
                 resizeMode="contain"
                 accessibilityLabel="Swayt"
@@ -444,10 +444,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     height: 52,
   },
-  // 원본 비율 2048×1012.
+  // 원본 비율 2048×622.
   logo: {
-    height: 40,
-    width: 40 * (2048 / 1012),
+    height: 36,
+    width: 36 * (2048 / 622),
   },
   header: {
     flexDirection: "row",
