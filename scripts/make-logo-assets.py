@@ -8,6 +8,7 @@
 만드는 것:
   assets/images/logo/swayt-lockup.png        마크 + "Swayt"(Quicksand Bold), 정식 색, 투명 배경 2048px
   assets/images/logo/swayt-lockup-white.png  같은 모양, 전부 흰색
+  assets/images/logo/swayt-lockup-stacked.png  마크 위 + 글자 아래(세로 배치), 정식 색 — 로그인처럼 세로로 긴 화면 중앙용
   assets/icon.png               1024x1024 불투명 앱 아이콘
   assets/splash-background.png  2160x4680 전체 화면 스플래시. 마크는 "빈 상태"(흐린 판)와 흐린 글자로 박혀 있고,
                                 JS 스플래시(components/AnimatedSplashIntro.tsx)가 그 위에서 판을 차례로 채운다.
@@ -122,6 +123,25 @@ def make_lockup(path: str, mono: bool, out_width: int = 2048, margin: float = 0.
     out.save(path, optimize=True)
 
 
+def make_stacked_lockup(path: str, out_width: int = 1200, margin: float = 0.04) -> None:
+    """마크(위) + 글자(아래). 스플래시와 같은 비율(마크 폭 : 글자 폭 = 0.87, 간격은 마크 폭의 11%)로 맞춘다."""
+    mark = draw_mark(900)
+    text = draw_wordmark("Swayt", cap_height=300)
+    text = text.resize((round(900 / 0.87), round(text.height * (900 / 0.87) / text.width)), Image.LANCZOS)
+    gap = round(900 * 0.11)
+    w = max(mark.width, text.width)
+    h = mark.height + gap + text.height
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    canvas.alpha_composite(mark, ((w - mark.width) // 2, 0))
+    canvas.alpha_composite(text, ((w - text.width) // 2, mark.height + gap))
+    inner_w = int(out_width * (1 - margin * 2))
+    canvas = canvas.resize((inner_w, round(h * inner_w / w)), Image.LANCZOS)
+    m = int(out_width * margin)
+    out = Image.new("RGBA", (out_width, canvas.height + m * 2), (0, 0, 0, 0))
+    out.alpha_composite(canvas, (m, m))
+    out.save(path, optimize=True)
+
+
 def make_icon(path: str, mark_ratio: float = 0.70) -> None:
     size = 1024
     img = Image.new("RGB", (size, size), BG)
@@ -190,6 +210,7 @@ if __name__ == "__main__":
     logo_dir = os.path.join(ROOT, "assets", "images", "logo")
     make_lockup(os.path.join(logo_dir, "swayt-lockup.png"), mono=False)
     make_lockup(os.path.join(logo_dir, "swayt-lockup-white.png"), mono=True)
+    make_stacked_lockup(os.path.join(logo_dir, "swayt-lockup-stacked.png"))
     make_icon(os.path.join(ROOT, "assets", "icon.png"))
     make_splash(
         os.path.join(ROOT, "assets", "splash-background.png"),
