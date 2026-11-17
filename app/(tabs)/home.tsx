@@ -220,7 +220,7 @@ export default function HomeScreen() {
           )}
 
           <Reveal index={1}>
-          <Section label={cardState?.kind === "NEXT_UPCOMING" ? "다음 운동" : "오늘의 운동"} style={styles.todaySection}>
+          <Section label={cardState?.kind === "NEXT_UPCOMING" ? "예약된 운동" : "오늘의 운동"} style={styles.todaySection}>
             {sessionsError ? (
               <View style={styles.todayBody}>
                 <View style={styles.todayEmptyTitleWrap}>
