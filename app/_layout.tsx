@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { AppState, StyleSheet, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -101,6 +101,21 @@ export default function RootLayout() {
       setBootstrapped(true);
     })();
   }, [setAccessToken]);
+
+  // 잠금 중 백그라운드로 먼저 뜬 프로세스는 부트스트랩 때 토큰을 못 읽어 미인증으로 남을 수 있다.
+  // 화면이 다시 활성화될 때 미인증이면 토큰 갱신을 한 번 더 시도해서 로그인 화면에 갇히지 않게 한다.
+  useEffect(() => {
+    if (!bootstrapped) return;
+    const subscription = AppState.addEventListener("change", async (nextState) => {
+      if (nextState !== "active" || useAuthStore.getState().isAuthenticated) return;
+      try {
+        if (await getRefreshToken()) await refreshAccessToken();
+      } catch {
+        // 실패하면 로그인 화면에 그대로 머무른다
+      }
+    });
+    return () => subscription.remove();
+  }, [bootstrapped]);
 
   // 콜드 스타트 부트스트랩이 끝나면(성공/실패 무관) 인증 상태에 맞는 화면으로 보낸다.
   // apiClient의 401 인터셉터가 refresh까지 실패해 authStore.logout()을 호출하는 경우에도
