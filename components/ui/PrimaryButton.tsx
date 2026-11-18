@@ -5,12 +5,14 @@ import { AppText } from "../AppText";
 import { PressableScale } from "./PressableScale";
 
 export type ButtonSize = "md" | "lg";
+// sm: 글자 13의 작은 민트 버튼 — 화면의 주 동작이 보조 영역에 있을 때 쓴다.
+type PrimaryButtonSize = ButtonSize | "sm";
 
 type PrimaryButtonProps = {
   title: string;
   onPress: () => void;
   // lg는 운동 중 화면처럼 화면을 안 보고 누르는 자리에 쓴다.
-  size?: ButtonSize;
+  size?: PrimaryButtonSize;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -22,9 +24,9 @@ export function PrimaryButton({ title, onPress, size = "md", disabled, style }: 
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled}
-      style={[styles.base, size === "lg" && styles.large, disabled && styles.disabled, style]}
+      style={[styles.base, size === "lg" && styles.large, size === "sm" && styles.small, disabled && styles.disabled, style]}
     >
-      <AppText style={[styles.text, size === "lg" && styles.textLarge]} numberOfLines={1}>
+      <AppText style={[styles.text, size === "lg" && styles.textLarge, size === "sm" && styles.textSmall]} numberOfLines={1}>
         {title}
       </AppText>
     </PressableScale>
@@ -43,6 +45,10 @@ const styles = StyleSheet.create({
   large: {
     height: 58,
   },
+  small: {
+    height: 36,
+    paddingHorizontal: 14,
+  },
   disabled: {
     opacity: 0.4,
   },
@@ -50,6 +56,9 @@ const styles = StyleSheet.create({
     color: colors.onAccent,
     fontSize: 16,
     fontWeight: "800",
+  },
+  textSmall: {
+    fontSize: 13,
   },
   textLarge: {
     fontSize: 17,

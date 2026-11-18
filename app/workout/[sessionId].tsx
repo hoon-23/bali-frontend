@@ -43,6 +43,7 @@ import { ApiTemplate, useTemplate } from "../../hooks/api/useTemplates";
 import {
   ActualField,
   ExerciseLog,
+  SetRecord,
   SetTiming,
   runningElapsedSeconds,
   settleRunningTimers,
@@ -433,8 +434,23 @@ export default function WorkoutSessionScreen() {
     handleFinish(selectedDifficulty ?? undefined);
   };
 
-  const handleFinishPress = () => {
-    if (allCompleted) {
+  const handleFinishPress = async () => {
+    // 목표 세트를 다 채운 종목은 "종목 완료로 표시"를 누르지 않았어도 완료로 본다 — 다 해냈는데
+    // "완료하지 않은 운동이 있어요"라고 되묻는 것이 이상하다. 진행 중인 세트·측정이 있는 종목은 건드리지 않는다.
+    const reached = useWorkoutSessionStore
+      .getState()
+      .logs.filter(
+        (log) =>
+          !log.completed &&
+          !log.setStartedAt &&
+          !log.durationStartedAt &&
+          isLogTargetReached(log, isCardioExercise(exerciseMap.get(log.exerciseId)))
+      );
+    for (const log of reached) {
+      if (!(await doComplete(log))) return;
+    }
+    const latest = useWorkoutSessionStore.getState().logs;
+    if (latest.length > 0 && latest.every((log) => log.completed)) {
       setShowDifficultyModal(true);
       return;
     }
@@ -746,13 +762,15 @@ function ActiveExercisePanel({
 }: ActiveExercisePanelProps) {
   // 이 종목의 목표를 다 채웠으면 "종목 완료로 표시"를 또렷하게 보여준다(그 전에도 누를 수는 있다 — 일찍 끝낼 수 있어야 함).
   const targetReached = isLogTargetReached(log, isCardio);
-  const completeButton = (
-    <PressableScale accessibilityRole="button" onPress={onComplete} hitSlop={10} style={styles.completeLink}>
-      <AppText style={[styles.completeLinkText, targetReached && styles.completeLinkTextReady]}>
-        종목 완료로 표시
-      </AppText>
-    </PressableScale>
-  );
+  // 글자 링크가 아니라 버튼으로 둔다. 목표를 다 채우면 지금 눌러야 할 "끝내는 동작"이라 민트 채움이고,
+  // 그 전에는 어두운 보조 버튼이다(일찍 끝낼 수 있어야 한다). 세트가 진행 중이면 그 "세트 완료"가 민트라서
+  // 민트가 두 개 되지 않게 이 버튼은 조용하게 둔다.
+  const completeButton =
+    targetReached && !log.setStartedAt ? (
+      <PrimaryButton title="종목 완료로 표시" size="sm" onPress={onComplete} style={styles.completeButton} />
+    ) : (
+      <QuietButton title="종목 완료로 표시" size="sm" onPress={onComplete} style={styles.completeButton} />
+    );
 
   return (
     <View style={styles.activePanel}>
@@ -776,9 +794,7 @@ function ActiveExercisePanel({
             </AppText>
           </View>
           {!isCardio && log.setTimings.length > 0 && (
-            <View style={styles.secondaryRow}>
-              <SetTimingHistory setTimings={log.setTimings} />
-            </View>
+            <SetTimingHistory setTimings={log.setTimings} setRecords={log.setRecords} isBodyweight={isBodyweight} />
           )}
           <QuietButton title="이어서 하기" onPress={onResume} />
         </>
@@ -791,7 +807,7 @@ function ActiveExercisePanel({
             onStart={onStartDuration}
             onStop={onStopDuration}
           />
-          <View style={styles.secondaryRow}>{completeButton}</View>
+          <View style={styles.cardioCompleteRow}>{completeButton}</View>
         </>
       ) : (
         <>
@@ -828,8 +844,14 @@ function ActiveExercisePanel({
             <InlineStepper label="목표 세트" value={log.targetSets} onStep={onAdjustTargetSets} />
             <InlineStepper label="완료한 세트" value={Number(log.actualSets) || 0} onStep={onAdjustSets} />
           </View>
-          <View style={styles.secondaryRow}>
-            <SetTimingHistory setTimings={log.setTimings} />
+          {/* 버튼은 오른쪽 위에 고정한다 — 세트가 쌓여 왼쪽 기록이 길어져도 버튼 위치는 그대로다. */}
+          <View style={styles.historyRow}>
+            <SetTimingHistory
+              setTimings={log.setTimings}
+              setRecords={log.setRecords}
+              isBodyweight={isBodyweight}
+              reserveRows={log.targetSets}
+            />
             {completeButton}
           </View>
         </>
@@ -1045,17 +1067,39 @@ function DurationTimer({ targetDurationSeconds, actualDurationSeconds, startedAt
   );
 }
 
-function SetTimingHistory({ setTimings }: { setTimings: SetTiming[] }) {
-  if (setTimings.length === 0) return <View style={styles.timerHistory} />;
+// 세트마다 한 줄: "1세트 · 25kg × 12회 · 00:09". 세트별 무게·반복은 이 기능 이후에 끝낸 세트에만 있어서
+// 없으면 시간만 보여준다. 목표 세트 수만큼 자리를 미리 잡아, 세트가 쌓여도 아래 목록이 밀리지 않게 한다.
+const SET_HISTORY_ROW_HEIGHT = 22;
+const SET_HISTORY_MAX_RESERVED_ROWS = 6;
+
+function SetTimingHistory({
+  setTimings,
+  setRecords,
+  isBodyweight,
+  reserveRows = 0,
+}: {
+  setTimings: SetTiming[];
+  setRecords?: SetRecord[];
+  isBodyweight: boolean;
+  reserveRows?: number;
+}) {
+  const reserved = Math.min(Math.max(reserveRows, 0), SET_HISTORY_MAX_RESERVED_ROWS) * SET_HISTORY_ROW_HEIGHT;
   return (
-    <View style={styles.timerHistory}>
-      {setTimings.map((timing) => {
+    <View style={[styles.timerHistory, { minHeight: reserved }]}>
+      {setTimings.map((timing, index) => {
         const seconds = Math.round(
           (new Date(timing.endedAt).getTime() - new Date(timing.startedAt).getTime()) / 1000
         );
+        const record = setRecords?.[index];
+        const amount = record
+          ? isBodyweight || record.weight <= 0
+            ? `${record.reps}회`
+            : `${record.weight}kg × ${record.reps}회`
+          : null;
         return (
           <AppText key={timing.setIndex} style={styles.timerHistoryText}>
-            {timing.setIndex + 1}세트 {formatSeconds(Math.max(0, seconds))}
+            {timing.setIndex + 1}세트 · {amount ? `${amount} · ` : ""}
+            {formatSeconds(Math.max(0, seconds))}
           </AppText>
         );
       })}
@@ -1188,36 +1232,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontVariant: ["tabular-nums"],
   },
-  secondaryRow: {
+  cardioCompleteRow: {
+    alignItems: "flex-end",
+  },
+  historyRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: space.s12,
   },
-  completeLink: {
-    minHeight: 28,
-    justifyContent: "center",
+  completeButton: {
+    flexShrink: 0,
   },
-  completeLinkText: {
-    ...type.label,
-    color: colors.text2,
-  },
-  // 목표를 다 채우면 "종목 완료로 표시"가 지금 눌러야 할 동작이므로 민트로 또렷하게 보인다(흰색은 눈에 안 띄었다).
-  completeLinkTextReady: {
-    color: colors.accent,
-    fontWeight: "800",
-  },
-  // 기록이 없어도 자리를 차지해(flex: 1) "종목 완료로 표시"가 항상 오른쪽 끝에 있게 한다.
+  // 세트마다 한 줄씩 세로로 쌓는다.
   timerHistory: {
     flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    columnGap: space.s8,
-    rowGap: 2,
+    gap: 4,
   },
   timerHistoryText: {
-    ...type.meta,
-    color: colors.text3,
+    ...type.label,
+    fontWeight: "400",
+    color: colors.text2,
+    lineHeight: 18,
     fontVariant: ["tabular-nums"],
   },
   listContent: {

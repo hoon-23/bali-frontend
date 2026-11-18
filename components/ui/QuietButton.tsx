@@ -11,7 +11,8 @@ type QuietButtonProps = {
   // filled: 어두운 배경의 보조 버튼. outline: 민트 테두리 — "곧 시작할 수 있는" 대기 상태의 주 동작.
   // text: 배경 없는 글자 버튼 — 자주 쓰지 않는 보조 동작.
   variant?: "filled" | "outline" | "text";
-  size?: ButtonSize;
+  // sm: 글자 크기(13)에 맞춘 작은 버튼 — 화면의 보조 동작을 눈에 띄게 하되 크게 키우지 않을 때 쓴다.
+  size?: ButtonSize | "sm";
   tone?: "default" | "danger";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -33,10 +34,11 @@ export function QuietButton({
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled}
-      hitSlop={isText ? 10 : undefined}
+      hitSlop={isText ? 10 : size === "sm" ? 4 : undefined}
       style={[
         isText ? styles.textBase : styles.base,
         !isText && size === "lg" && styles.large,
+        !isText && size === "sm" && styles.small,
         variant === "filled" && styles.filled,
         variant === "outline" && styles.outline,
         disabled && styles.disabled,
@@ -47,6 +49,7 @@ export function QuietButton({
         style={[
           isText ? styles.textLabel : styles.label,
           !isText && size === "lg" && styles.labelLarge,
+          !isText && size === "sm" && styles.labelSmall,
           tone === "danger" && styles.danger,
         ]}
         numberOfLines={1}
@@ -68,6 +71,10 @@ const styles = StyleSheet.create({
   large: {
     height: 58,
   },
+  small: {
+    height: 36,
+    paddingHorizontal: 14,
+  },
   filled: {
     backgroundColor: colors.surface,
   },
@@ -87,6 +94,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: "600",
+  },
+  labelSmall: {
+    fontSize: 13,
   },
   labelLarge: {
     fontSize: 17,
