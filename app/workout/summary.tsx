@@ -12,6 +12,7 @@ import { isCardioExercise, useExerciseMap } from "../../hooks/api/useExercises";
 import { formatSetSeconds0 } from "../../lib/format/duration";
 import { hasLogRecord } from "../../lib/session/logRecord";
 import { XpGainCard } from "../../components/XpGainCard";
+import { RoutineUpdateCard } from "../../components/RoutineUpdateCard";
 import { useWorkoutSessionStore } from "../../store/workoutSessionStore";
 
 const LOGO_WIDTH = 150;
@@ -37,6 +38,7 @@ export default function WorkoutSummaryScreen() {
   const logs = useWorkoutSessionStore((state) => state.logs);
   const endSession = useWorkoutSessionStore((state) => state.endSession);
   const xpResult = useWorkoutSessionStore((state) => state.xpResult);
+  const sessionId = useWorkoutSessionStore((state) => state.sessionId);
 
   const exerciseMap = useExerciseMap();
 
@@ -115,6 +117,8 @@ export default function WorkoutSummaryScreen() {
           })}
         </View>
       </ScrollView>
+      {/* 스크롤 밖 하단에 둔다 — 늦게 나타나도 위쪽 내용이 밀리지 않는다. */}
+      {hasAnyRecord && <RoutineUpdateCard sessionId={sessionId} logs={logs} />}
       {/* 이 화면의 민트는 방금 얻은 경험치와 야자수뿐이다 — 확인 버튼은 조용하게 둔다. */}
       <QuietButton title="확인" onPress={handleConfirm} />
     </View>

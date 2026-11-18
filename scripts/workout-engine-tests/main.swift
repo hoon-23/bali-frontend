@@ -45,6 +45,20 @@ check((logAt(o.plan, 0)["setStartedAt"] is NSNull) && (logAt(o.plan, 0)["setRemi
 check(o.cancelReminderIds == ["rem-1"], "취소할 알림 id를 돌려준다")
 check((logAt(o.plan, 0)["completed"] as? Bool) == false, "목표 세트 전에는 종목이 완료되지 않는다")
 
+var recorded = makePlan([weightLog("a")])
+var recLog = logAt(recorded, 0); recLog["actualWeight"] = "25"; recLog["actualReps"] = "12"
+var recAll = WorkoutPlanEngine.logs(recorded); recAll[0] = recLog; recorded["logs"] = recAll
+recorded = WorkoutPlanEngine.apply(.startSet, to: recorded, now: at(0)).plan
+recorded = WorkoutPlanEngine.apply(.completeSet, to: recorded, now: at(30)).plan
+var recLog2 = logAt(recorded, 0); recLog2["actualWeight"] = "20"
+var recAll2 = WorkoutPlanEngine.logs(recorded); recAll2[0] = recLog2; recorded["logs"] = recAll2
+recorded = WorkoutPlanEngine.apply(.startSet, to: recorded, now: at(60)).plan
+recorded = WorkoutPlanEngine.apply(.completeSet, to: recorded, now: at(90)).plan
+let setRecords = logAt(recorded, 0)["setRecords"] as? [[String: Any]] ?? []
+check(setRecords.count == 2, "completeSet은 세트마다 무게·반복 기록을 하나씩 붙인다")
+check((setRecords.first?["weight"] as? Double) == 25 && (setRecords.first?["reps"] as? Int) == 12, "첫 세트는 그때 화면의 무게·반복을 기록한다")
+check((setRecords.last?["weight"] as? Double) == 20, "무게를 바꾼 뒤 끝낸 세트는 바뀐 무게로 기록한다")
+
 let noStart = WorkoutPlanEngine.apply(.completeSet, to: makePlan([weightLog("a")]), now: at(0))
 check(!noStart.changed, "시작하지 않은 세트는 completeSet이 무시된다")
 

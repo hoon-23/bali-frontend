@@ -11,6 +11,13 @@ export type SetTiming = {
   endedAt: string;
 };
 
+// 세트 하나를 끝냈을 때의 무게·반복 수. 운동이 끝난 뒤 루틴 변경을 제안할 때
+// "가장 많이 한 값"을 구하는 근거다(서버로는 보내지 않는다).
+export type SetRecord = {
+  weight: number;
+  reps: number;
+};
+
 export type ExerciseLog = {
   id: string;
   exerciseId: string;
@@ -26,6 +33,8 @@ export type ExerciseLog = {
   actualDurationSeconds: string;
   completed: boolean;
   setTimings: SetTiming[];
+  // 세트별 무게·반복. 이 필드가 생기기 전에 저장된 기록에는 없다(undefined면 마지막 입력값으로 대신한다).
+  setRecords?: SetRecord[];
   // 유산소 타이머가 흐르는 중이면 이번 구간의 시작 시각(ISO), 멈춰 있으면 null.
   // 화면을 닫았다 열어도(컴포넌트 언마운트) 이어서 흐르도록 스토어에 둔다.
   durationStartedAt: string | null;
@@ -50,6 +59,14 @@ function appendSetTiming(log: ExerciseLog, timing: SetTiming): ExerciseLog {
   return {
     ...log,
     setTimings: [...log.setTimings, timing],
+    // 이 세트를 할 때 입력란에 있던 값. 입력란이 비었으면 목표값(잠금화면 버튼과 같은 기준)을 쓴다.
+    setRecords: [
+      ...(log.setRecords ?? []),
+      {
+        weight: Number(log.actualWeight) > 0 || log.actualWeight === "0" ? Number(log.actualWeight) : log.targetWeight,
+        reps: Number(log.actualReps) > 0 ? Number(log.actualReps) : log.targetReps,
+      },
+    ],
     // 타이머로 세트를 완료한 개수는 항상 실제 완료 수만큼 반영한다 — 스테퍼로
     // 수동 조정한 값이 이보다 크면 그 값을 유지하고, 작으면 완료 수까지 끌어올린다.
     actualSets: String(Math.max(Number(log.actualSets) || 0, log.setTimings.length + 1)),

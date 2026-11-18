@@ -124,6 +124,11 @@ enum WorkoutPlanEngine {
       var list = timings(log)
       list.append(["setIndex": list.count, "startedAt": startedAt, "endedAt": iso(now)])
       log["setTimings"] = list
+      // 이 세트를 할 때 화면에 보이던 무게·반복 수를 같이 남긴다. 운동이 끝난 뒤 "가장 많이 한 값"으로
+      // 루틴 변경을 제안하는 근거라서, 마지막에 낮춘 값 하나에 끌려가지 않게 세트마다 따로 둔다.
+      var records = log["setRecords"] as? [[String: Any]] ?? []
+      records.append(["weight": displayWeight(log), "reps": displayReps(log)])
+      log["setRecords"] = records
       // 타이머로 완료한 세트 수는 실제 완료 수만큼 반영한다(수동으로 더 늘려 둔 값은 유지).
       log["actualSets"] = String(max(Int(number(log["actualSets"])), list.count))
       if let reminder = log["setReminderId"] as? String { cancel.append(reminder) }
