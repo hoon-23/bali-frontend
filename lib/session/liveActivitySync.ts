@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import { apiClient } from "../api/client";
 import { liveActivity } from "../../modules/swayt-live-activity";
 import { type ExerciseLog, useWorkoutSessionStore } from "../../store/workoutSessionStore";
+import { mergeLogs } from "./mergeLogs";
 
 // 진행 중인 운동 스토어와 Live Activity를 맞춘다. 규칙은 하나다:
 // "진행 중인 실제 세션이 있을 때만 떠 있고, 끝나면(완료·중간 종료·정리) 바로 사라진다."
@@ -52,6 +53,9 @@ function sync(force = false) {
   // 저장된 세션 복원이 끝나기 전의 스토어는 비어 있다. 그 상태로 맞추면 복원될 진행 중 운동의
   // Live Activity를 잘못 꺼버리므로 복원 완료 뒤에만 동작한다.
   if (!persist.hasHydrated()) return;
+  // 앱이 위젯의 변경을 아직 못 가져온 채 옛 기록을 plan에 쓰면 잠금화면에서 끝낸 세트가 덮여 사라진다.
+  // 그래서 내보내기 전에 항상 위젯 변경부터 가져온다.
+  adoptWidgetChanges();
   const planJson = takePlanJson();
   const key = planJson ?? "null";
   if (!force && key === lastKey) return;
@@ -104,9 +108,10 @@ function adoptWidgetChanges() {
     return;
   }
   const before = new Map(state.logs.map((log) => [log.id, log]));
-  state.adoptPlanLogs(plan.logs, plan.expandedId ?? null);
+  // 통째로 바꾸지 않고 종목별로 합친다 — 앱에서 방금 끝낸 세트가 있어도 잃지 않는다.
+  state.adoptPlanLogs(mergeLogs(state.logs, plan.logs), plan.expandedId ?? null);
   liveActivity.appendDebugLog(`위젯 변경 반영 rev=${plan.rev}`);
-  for (const log of plan.logs) {
+  for (const log of useWorkoutSessionStore.getState().logs) {
     if (log.completed && !before.get(log.id)?.completed) void completeLogOnServer(plan.sessionId, log);
   }
 }
