@@ -113,6 +113,24 @@ check(WorkoutPlanEngine.displayWeight(shown) == 0, "0을 입력하면(맨몸) �
 shown["actualWeight"] = nil; shown["actualReps"] = nil
 check(WorkoutPlanEngine.displayWeight(shown) == 20 && WorkoutPlanEngine.displayReps(shown) == 10, "입력 필드가 없는 옛 기록은 목표값을 쓴다")
 
+print("현재 종목 선택(앱에서 순서를 건너뛴 경우)")
+let order = (1...5).map { weightLog("e\($0)") }
+var skip = makePlan(order)
+skip["expandedId"] = "e5"
+check(WorkoutPlanEngine.currentIndex(WorkoutPlanEngine.logs(skip), expandedId: "e5") == 4, "앱에서 5번을 펼쳐 두면 잠금화면도 5번이다(처음 안 끝난 4번이 아니라)")
+check(WorkoutPlanEngine.currentIndex(WorkoutPlanEngine.logs(skip), expandedId: nil) == 0, "펼친 종목이 없으면 처음 안 끝난 종목")
+var done123 = order
+for i in 0..<3 { done123[i]["completed"] = true }
+check(WorkoutPlanEngine.currentIndex(done123, expandedId: "e5") == 4, "1~3 완료 후 5번을 펼쳤으면 5번")
+check(WorkoutPlanEngine.currentIndex(done123, expandedId: "e2") == 3, "펼친 종목이 이미 완료면 처음 안 끝난 종목으로 돌아간다")
+var running = order
+running[1]["setStartedAt"] = WorkoutPlanEngine.iso(at(0))
+check(WorkoutPlanEngine.currentIndex(running, expandedId: "e5") == 1, "타이머가 흐르는 종목이 펼친 종목보다 우선한다")
+var all5 = order
+all5[4]["completed"] = true
+var plan5 = makePlan(all5); plan5["expandedId"] = NSNull()
+check(WorkoutPlanEngine.currentIndex(WorkoutPlanEngine.logs(plan5), expandedId: plan5["expandedId"] as? String) == 0, "5번만 끝내고 펼침이 비면 안 끝난 첫 종목")
+
 print("시각 형식")
 let s = WorkoutPlanEngine.iso(at(0))
 check(WorkoutPlanEngine.parse(s) == at(0), "iso → parse 왕복이 같다")

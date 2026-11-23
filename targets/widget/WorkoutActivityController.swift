@@ -20,7 +20,7 @@ enum WorkoutActivityController {
   static func makeState(plan: [String: Any], now: Date) -> (sessionName: String, state: State)? {
     guard WorkoutPlanEngine.isActive(plan) else { return nil }
     let logs = WorkoutPlanEngine.logs(plan)
-    guard let index = WorkoutPlanEngine.currentIndex(logs) else { return nil }
+    guard let index = WorkoutPlanEngine.currentIndex(plan: plan) else { return nil }
     let log = logs[index]
 
     let allDone = logs.allSatisfy { ($0["completed"] as? Bool) == true }

@@ -45,12 +45,18 @@ enum WorkoutPlanEngine {
     return !logs(plan).isEmpty
   }
 
-  // 지금 보여줄 종목: 타이머가 흐르는 종목 > 처음 안 끝난 종목 > (전부 끝났으면) 마지막 종목
-  static func currentIndex(_ logs: [[String: Any]]) -> Int? {
+  // 지금 보여줄 종목: 타이머가 흐르는 종목 > 앱에서 펼쳐 둔 안 끝난 종목 > 처음 안 끝난 종목 > (전부 끝났으면) 마지막 종목.
+  // 기구 사정으로 순서를 건너뛰어 5번을 먼저 하면 앱은 5번을 펼치므로, 그것을 따라가야 잠금화면이 4번에 머물지 않는다.
+  static func currentIndex(_ logs: [[String: Any]], expandedId: String? = nil) -> Int? {
     if logs.isEmpty { return nil }
     if let i = logs.firstIndex(where: { ($0["setStartedAt"] as? String) != nil || ($0["durationStartedAt"] as? String) != nil }) { return i }
+    if let id = expandedId, let i = logs.firstIndex(where: { ($0["id"] as? String) == id }), (logs[i]["completed"] as? Bool) != true { return i }
     if let i = logs.firstIndex(where: { ($0["completed"] as? Bool) != true }) { return i }
     return logs.count - 1
+  }
+
+  static func currentIndex(plan: [String: Any]) -> Int? {
+    currentIndex(logs(plan), expandedId: plan["expandedId"] as? String)
   }
 
   private static func number(_ value: Any?) -> Double {
@@ -100,7 +106,7 @@ enum WorkoutPlanEngine {
 
   static func apply(_ action: WorkoutAction, to input: [String: Any], now: Date) -> EngineOutcome {
     var plan = input
-    guard isActive(plan), var all = Optional(logs(plan)), let index = currentIndex(all) else {
+    guard isActive(plan), var all = Optional(logs(plan)), let index = currentIndex(plan: plan) else {
       return EngineOutcome(plan: input, changed: false, cancelReminderIds: [])
     }
     var log = all[index]
