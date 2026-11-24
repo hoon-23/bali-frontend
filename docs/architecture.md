@@ -1,6 +1,6 @@
 # Swayt 프론트엔드 구조
 
-현재 구조를 한 장으로 요약한 문서입니다. 구조가 바뀌면 이 문서를 같이 고칩니다. 디자인 규칙은 [DESIGN.md](../DESIGN.md), 실행 방법은 [README](../README.md)에 있습니다.
+현재 구조를 한 장으로 요약한 문서입니다. 구조가 바뀌면 이 문서를 같이 고칩니다. 디자인 규칙은 [DESIGN.md](https://github.com/hoon-23/bali-frontend/blob/main/DESIGN.md), 실행 방법은 [README](https://github.com/hoon-23/bali-frontend/blob/main/README.md)에 있습니다.
 
 ## 한눈에 보기
 
@@ -66,5 +66,6 @@
 
 ## 관련 문서
 
-- [DESIGN.md](../DESIGN.md): 색·글자·버튼·움직임 규칙
-- [README](../README.md): 소개와 실행 방법
+- [DESIGN.md](https://github.com/hoon-23/bali-frontend/blob/main/DESIGN.md): 색·글자·버튼·움직임 규칙
+- [README](https://github.com/hoon-23/bali-frontend/blob/main/README.md): 소개와 실행 방법
+- [설계 결정 기록(ADR)](./adr/README.md): 기술 선택의 이유

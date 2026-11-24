@@ -67,6 +67,8 @@ npm start                # Metro 개발 서버
 
 - [docs/architecture.md](docs/architecture.md) — 현재 구조 요약(앱 구조, 화면, 백엔드 연동, 빌드·배포)
 - [DESIGN.md](DESIGN.md) — 디자인 규칙(색, 글자, 버튼, 움직임)
+- [docs/adr](docs/adr/README.md) — 설계 결정 기록(왜 그렇게 정했는지)
+- 문서 사이트: https://hoon-23.github.io/bali-frontend/ (위 문서를 웹으로 게시)
 
 ## 관련 저장소
 
