@@ -1,6 +1,8 @@
 import { ChevronLeft } from "lucide-react-native";
-import { colors } from "../../constants/theme";
+import { colors, radius, space, type } from "../../constants/theme";
 import { PressableScale } from "../../components/ui/PressableScale";
+import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { QuietButton } from "../../components/ui/QuietButton";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -222,7 +224,8 @@ export default function UpcomingWorkoutScreen() {
 
   return (
     <ScreenBackground>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      {/* 하단 버튼이 홈 인디케이터 영역에 걸려 잘리지 않게 아래 여백도 반영한다. */}
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <View style={styles.header}>
           <PressableScale style={styles.backButton} onPress={() => router.back()} hitSlop={8}>
             <ChevronLeft size={20} color={colors.text} />
@@ -326,31 +329,37 @@ export default function UpcomingWorkoutScreen() {
         <View style={styles.buttonRow}>
           {isEditing ? (
             <>
-              <PressableScale style={styles.secondaryButton} onPress={handleCancelPress} disabled={saving}>
-                <Text style={styles.secondaryButtonText}>취소</Text>
-              </PressableScale>
-              <PressableScale style={styles.primaryButton} onPress={handleSavePress} disabled={saving}>
-                <Text style={styles.primaryButtonText}>{saving ? "저장하는 중..." : "저장"}</Text>
-              </PressableScale>
+              <QuietButton title="취소" onPress={handleCancelPress} disabled={saving} style={styles.rowButton} />
+              <PrimaryButton
+                title={saving ? "저장하는 중..." : "저장"}
+                onPress={handleSavePress}
+                disabled={saving}
+                style={styles.rowButton}
+              />
             </>
           ) : (
             <>
-              <PressableScale style={styles.secondaryButton} onPress={handleEditPress}>
-                <Text style={styles.secondaryButtonText}>수정</Text>
-              </PressableScale>
-              <PressableScale style={styles.primaryButton} onPress={handleStart} disabled={starting}>
-                <Text style={styles.primaryButtonText}>{starting ? "시작하는 중..." : "시작하기"}</Text>
-              </PressableScale>
+              <QuietButton title="수정" onPress={handleEditPress} style={styles.rowButton} />
+              <PrimaryButton
+                title={starting ? "시작하는 중..." : "운동 시작"}
+                onPress={handleStart}
+                disabled={starting}
+                style={styles.rowButton}
+              />
             </>
           )}
         </View>
 
         {!isEditing && session.status === "SCHEDULED" && (
-          <PressableScale style={styles.cancelScheduleButton} onPress={handleCancelSchedule} disabled={cancelling}>
-            <Text style={styles.cancelScheduleButtonText}>
-              {cancelling ? "취소하는 중..." : "예약 취소"}
-            </Text>
-          </PressableScale>
+          <View style={styles.cancelScheduleRow}>
+            <QuietButton
+              variant="text"
+              tone="danger"
+              title={cancelling ? "취소하는 중..." : "예약 취소"}
+              onPress={handleCancelSchedule}
+              disabled={cancelling}
+            />
+          </View>
         )}
       </SafeAreaView>
     </ScreenBackground>
@@ -393,101 +402,104 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   headerSpacer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
   },
   headerTitle: {
     color: colors.text,
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    paddingBottom: 20,
-    gap: 16,
+    paddingBottom: space.s40,
+    gap: space.s16,
   },
+  // 요약은 상자 없이 아래 얇은 선으로만 나눈다(DESIGN.md: 상자를 기본으로 쓰지 않는다).
   summaryCard: {
     flexDirection: "row",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
+    gap: space.s16,
+    alignItems: "center",
+    paddingBottom: space.s16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
   },
   thumbnail: {
     width: 64,
     height: 64,
-    borderRadius: 14,
+    borderRadius: radius.control,
   },
   summaryInfo: {
     flex: 1,
     justifyContent: "center",
-    gap: 2,
+    gap: space.s4,
   },
   summaryDate: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "600",
+    ...type.meta,
+    color: colors.text3,
   },
   summaryName: {
+    ...type.heading,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "700",
   },
   summaryMeta: {
+    ...type.label,
+    fontWeight: "400",
     color: colors.text2,
-    fontSize: 13,
+    fontVariant: ["tabular-nums"],
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
+    ...type.meta,
+    color: colors.text3,
   },
   list: {
-    gap: 10,
+    gap: 0,
   },
   itemCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    gap: 4,
+    paddingVertical: space.s12,
+    gap: space.s4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.16)",
   },
   itemName: {
-    color: colors.text,
-    fontSize: 15,
+    ...type.body,
     fontWeight: "600",
+    color: colors.text,
   },
   itemTarget: {
+    ...type.label,
+    fontWeight: "400",
     color: colors.text2,
-    fontSize: 13,
+    fontVariant: ["tabular-nums"],
   },
   itemEditRow: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 8,
+    gap: space.s8,
+    marginTop: space.s8,
   },
   itemInputGroup: {
     flex: 1,
-    gap: 4,
+    gap: space.s4,
   },
   itemInputLabel: {
-    color: colors.text2,
-    fontSize: 11,
+    ...type.meta,
+    color: colors.text3,
   },
   itemInput: {
-    backgroundColor: colors.bg,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.control,
+    paddingVertical: space.s12,
+    paddingHorizontal: space.s12,
     color: colors.text,
-    fontSize: 14,
+    ...type.body,
     borderWidth: 1,
     borderColor: "transparent",
   },
@@ -495,48 +507,21 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   itemErrorText: {
+    ...type.meta,
     color: colors.danger,
-    fontSize: 11,
-    marginTop: 4,
+    marginTop: space.s4,
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: space.s12,
     marginHorizontal: SCREEN_HORIZONTAL_MARGIN,
-    marginBottom: 4,
+    marginBottom: space.s4,
   },
-  cancelScheduleButton: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginBottom: 4,
-  },
-  cancelScheduleButtonText: {
-    color: colors.danger,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  secondaryButton: {
+  rowButton: {
     flex: 1,
-    backgroundColor: colors.surface,
-    paddingVertical: 16,
-    borderRadius: 14,
+  },
+  cancelScheduleRow: {
     alignItems: "center",
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: colors.accent,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-  primaryButtonText: {
-    color: colors.onAccent,
-    fontSize: 16,
-    fontWeight: "700",
+    paddingVertical: space.s12,
   },
 });
