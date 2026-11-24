@@ -27,4 +27,4 @@
 ## 관련 문서
 
 - [프론트엔드 구조](../architecture.md)
-- [ADR-0004: Live Activity 상태 계산을 네이티브 엔진 한 곳에 둠](./0004-live-activity-네이티브-엔진.md)
+- [ADR-0004: Live Activity 상태 계산을 네이티브 엔진 한 곳에 둠](./0004-live-activity-native-engine.md)

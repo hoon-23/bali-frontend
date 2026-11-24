@@ -24,4 +24,4 @@
 ## 관련 문서
 
 - [프론트엔드 구조: 빌드와 배포](../architecture.md)
-- [ADR-0002: OTA 업데이트는 appVersion 런타임 버전 정책](./0002-ota-앱버전-런타임-정책.md)
+- [ADR-0002: OTA 업데이트는 appVersion 런타임 버전 정책](./0002-ota-app-version-runtime-policy.md)

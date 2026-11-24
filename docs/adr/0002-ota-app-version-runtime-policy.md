@@ -28,4 +28,4 @@ JS만 바뀐 수정까지 매번 스토어 심사를 기다릴 수는 없어서 
 ## 관련 문서
 
 - [프론트엔드 구조: 빌드와 배포](../architecture.md)
-- [ADR-0003: 스토어 업로드는 Transporter](./0003-스토어-업로드-transporter.md)
+- [ADR-0003: 스토어 업로드는 Transporter](./0003-store-upload-via-transporter.md)
